@@ -39,6 +39,15 @@ export function CommentForm({ rooms, onAddComment }: CommentFormProps) {
         const formData = new FormData();
         formData.append("audio", audioBlob, "vistoria-audio.webm");
         
+        const room = selectedRoomId === 'geral' 
+          ? null 
+          : rooms.find(r => r.id === selectedRoomId);
+          
+        if (room) {
+          formData.append("roomName", room.name);
+          formData.append("roomType", room.type);
+        }
+        
         const aiText = await processAudioComment(formData);
         
         // Adiciona a transcrição inteligente ao campo
@@ -53,7 +62,7 @@ export function CommentForm({ rooms, onAddComment }: CommentFormProps) {
     }
 
     processAudio();
-  }, [audioBlob, setAudioBlob]);
+  }, [audioBlob, setAudioBlob, selectedRoomId, rooms]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;

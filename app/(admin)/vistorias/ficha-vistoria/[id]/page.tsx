@@ -8,6 +8,7 @@ import { FloorPlanVisualizer, Room } from "@/components/ficha-vistoria/FloorPlan
 import { DetailSections } from "@/components/ficha-vistoria/DetailSections";
 import { InspectionEditorPanel } from "@/components/ficha-vistoria/InspectionEditorPanel";
 import { CommentData } from "@/components/ficha-vistoria/CommentsTimeline";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 export default function FichaVistoriaPage() {
   const router = useRouter();
@@ -156,7 +157,7 @@ export default function FichaVistoriaPage() {
     <div className="flex flex-col w-full max-w-[1600px] bg-white mx-auto gap-6 pb-16 px-2 sm:px-0">
 
       {/* Top Header / Breadcrumb */}
-      <header className="flex items-center justify-between bg-white p-4 sm:p-6 rounded-2xl border border-[#EEEEF3] shadow-sm">
+      <header className="flex flex-col md:flex-row md:items-center justify-between bg-white p-4 sm:p-6 rounded-2xl border border-[#EEEEF3] shadow-sm gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/vistorias')}
@@ -165,9 +166,14 @@ export default function FichaVistoriaPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#280003] tracking-tight">
-              Ficha de Vistoria <span className="text-[#004777]">#{vistoriaId}</span>
-            </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#280003] tracking-tight">
+                Ficha de Vistoria <span className="text-[#004777]">#{vistoriaId}</span>
+              </h1>
+              <div className="print:hidden">
+                <ConnectionStatus />
+              </div>
+            </div>
             <p className="text-sm text-gray-500 mt-0.5">
               Visualize o mapa do imóvel e todos os detalhes técnicos.
             </p>

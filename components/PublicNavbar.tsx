@@ -10,6 +10,7 @@ export function PublicNavbar() {
   const menuItems = [
     { name: "Comprar", href: "/#comprar" },
     { name: "Alugar", href: "/#alugar" },
+    { name: "Loteamentos", href: "/loteamentos" },
     { name: "Sobre Nós", href: "/#sobre" },
   ];
 

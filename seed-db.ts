@@ -70,6 +70,7 @@ async function main() {
         valorIPTU: 8000,
         valorVenda: 45000000,
         valorTotal: 273000,
+        area: 420,
         imobId: imob.id,
       },
       {
@@ -86,6 +87,7 @@ async function main() {
         valorCondominio: 120000,
         valorIPTU: 45000,
         valorTotal: 1015000,
+        area: 160,
         imobId: imob.id,
       },
       {
@@ -99,6 +101,7 @@ async function main() {
         forVenda: true,
         forLocacao: false,
         valorVenda: 15000000,
+        area: 360,
         imobId: imob.id,
       },
       {
@@ -116,6 +119,7 @@ async function main() {
         valorIPTU: 80000,
         valorVenda: 250000000,
         valorTotal: 1480000,
+        area: 280,
         imobId: imob.id,
       },
       {
@@ -129,6 +133,7 @@ async function main() {
         forVenda: true,
         forLocacao: false,
         valorVenda: 350000000,
+        area: 550,
         imobId: imob.id,
       },
     ];
@@ -141,6 +146,103 @@ async function main() {
       });
       console.log(`Seeded Imovel ${item.codigo} (${item.tipo})`);
     }
+
+    // 4. Create or Find Subdivision (Loteamento)
+    const loteamentoId = "loteamento-village-parra";
+    const loteamento = await prisma.loteamento.upsert({
+      where: { id: loteamentoId },
+      update: {
+        nome: "Loteamento Village Parra",
+        slug: "village-parra",
+        cidade: "Ilha Solteira",
+        uf: "SP",
+        descricao: "O Loteamento Village Parra é o novo endereço dos seus sonhos, em uma localização privilegiada, ao lado do Residencial Portal do Sol e bem em frente ao Beach Tennis. Os lotes estão incríveis, com condições imperdíveis.",
+        imagens: [
+          "/loteamentos/image.png",
+          "/loteamentos/image copy.png",
+          "/loteamentos/image copy 2.png"
+        ],
+        infraestrutura: {
+          asfalto: 100,
+          agua: 100,
+          esgoto: 100,
+          energia: 100,
+          lazer: 85,
+        },
+      },
+      create: {
+        id: loteamentoId,
+        nome: "Loteamento Village Parra",
+        slug: "village-parra",
+        cidade: "Ilha Solteira",
+        uf: "SP",
+        descricao: "O Loteamento Village Parra é o novo endereço dos seus sonhos, em uma localização privilegiada, ao lado do Residencial Portal do Sol e bem em frente ao Beach Tennis. Os lotes estão incríveis, com condições imperdíveis.",
+        imagens: [
+          "/loteamentos/image.png",
+          "/loteamentos/image copy.png",
+          "/loteamentos/image copy 2.png"
+        ],
+        infraestrutura: {
+          asfalto: 100,
+          agua: 100,
+          esgoto: 100,
+          energia: 100,
+          lazer: 85,
+        },
+      },
+    });
+    console.log("Seeded Loteamento:", loteamento);
+
+    // 5. Seed lots for the Loteamento
+    const quadras = ["A", "B", "C", "D"];
+    const statusSequence = [
+      "DISPONIVEL", "VENDIDO", "DISPONIVEL", "RESERVADO", "DISPONIVEL", "VENDIDO",
+      "DISPONIVEL", "DISPONIVEL", "VENDIDO", "RESERVADO", "DISPONIVEL", "VENDIDO"
+    ];
+
+    for (const q of quadras) {
+      const numLotes = q === "A" || q === "B" ? 6 : 5;
+      for (let i = 1; i <= numLotes; i++) {
+        const lotIndex = (q.charCodeAt(0) - 65) * 6 + i;
+        const status = statusSequence[lotIndex % statusSequence.length] as "DISPONIVEL" | "RESERVADO" | "VENDIDO";
+        const codigo = `LOTE-${q}${String(i).padStart(2, "0")}`;
+        
+        // Quadras C e D são lotes ligeiramente maiores
+        const area = q === "C" || q === "D" ? 300 : 253; 
+        
+        // Preço total correspondente a aproximadamente R$ 530 mensais em 180 parcelas (sinal + saldo financiado)
+        // Lotes de 253m² custando R$ 95.400, lotes maiores custando R$ 120.000
+        const precoBase = q === "C" || q === "D" ? 12000000 : 9540000;
+        const valorVenda = precoBase + (i * 300000); // variação leve de preço
+
+        const lotData = {
+          codigo,
+          numero: 200 + lotIndex,
+          bairro: "Zona Sul",
+          cidade: "Ilha Solteira",
+          uf: "SP",
+          cep: 15385000,
+          tipo: "LOTE" as const,
+          forVenda: true,
+          forLocacao: false,
+          valorVenda,
+          area,
+          imobId: imob.id,
+          loteamentoId: loteamento.id,
+          quadra: q,
+          loteNumero: String(i),
+          topografia: i % 3 === 0 ? "DECLIVE_SUAVE" : i % 2 === 0 ? "ACLIVE_SUAVE" : "PLANO",
+          statusLote: status,
+        };
+
+        await prisma.imovel.upsert({
+          where: { codigo },
+          update: lotData,
+          create: lotData,
+        });
+      }
+    }
+    console.log("Seeded 22 subdivision lots successfully!");
 
     console.log("Database seed completed successfully!");
   } catch (error) {

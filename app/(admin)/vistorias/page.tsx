@@ -17,6 +17,7 @@ import {
 import { KpiCard } from "@/components/KpiCard";
 import { ChartPlaceholder } from "@/components/ChartPlaceholder";
 import { VistoriaDetails, Vistoria } from "@/components/VistoriaDetails";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 // Realistic mock data matching the requested KPI totals:
 // 12 Não iniciadas, 5 Em andamento, 2 Aguardando aprovação, 28 Concluídas, 3 Contestadas
@@ -196,9 +197,14 @@ export default function VistoriasPage() {
       {/* Dynamic SEO tags simulated through semantic header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 id="page-title" className="text-3xl font-extrabold text-[#280003] tracking-tight">
-            Vistorias
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 id="page-title" className="text-3xl font-extrabold text-[#280003] tracking-tight">
+              Vistorias
+            </h1>
+            <div className="print:hidden">
+              <ConnectionStatus />
+            </div>
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Gerencie e acompanhe o andamento dos laudos de vistorias residenciais e comerciais.
           </p>

@@ -5,6 +5,8 @@ import { google } from "@ai-sdk/google";
 
 export async function processAudioComment(formData: FormData): Promise<string> {
   const audioFile = formData.get("audio") as File;
+  const roomName = formData.get("roomName") as string | null;
+  const roomType = formData.get("roomType") as string | null;
   
   if (!audioFile) {
     throw new Error("Nenhum áudio fornecido");
@@ -13,6 +15,30 @@ export async function processAudioComment(formData: FormData): Promise<string> {
   try {
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    const roomContextText = roomName && roomType 
+      ? `O áudio descreve o cômodo: "${roomName}" (Tipo: ${roomType}).`
+      : "O áudio descreve um cômodo ou área geral do imóvel.";
+
+    const systemPrompt = `Você é um assistente de engenharia civil/arquitetura altamente qualificado, especializado em vistorias imobiliárias de locação e venda.
+Sua tarefa é ouvir o áudio fornecido pelo vistoriador e gerar uma descrição/comentário profissional, técnico, limpo e direto para constar no laudo de vistoria.
+
+Contexto:
+${roomContextText}
+
+Instruções fundamentais:
+1. Remova todos os vícios de linguagem, termos coloquiais, hesitações e repetições (ex: "né", "tipo assim", "aí", "tá", "então", "éee", "hum", gagueiras, etc.).
+2. Traduza termos coloquiais comuns em vistorias para a terminologia técnica adequada. Por exemplo:
+   - "tá meio sujo / manchado" -> "Apresenta sujidade/manchas na superfície."
+   - "tá riscado / tem uns risquinhos" -> "Riscos superficiais na pintura/acabamento."
+   - "não liga / queimado" -> "Ponto de iluminação/tomada inoperante."
+   - "tá meio solta / chacoalhando" -> "Instabilidade na fixação / apresenta folga."
+   - "porta tá pegando / ruim de abrir / raspando" -> "Atrito ou resistência na folha da esquadria durante a abertura/fechamento."
+   - "parece infiltração / mancha de água" -> Indícios de infiltração ou umidade ascendente."
+   - "está tudo certo / perfeito" -> "Em perfeito estado de conservação, limpeza e funcionamento."
+3. Foque estritamente em relatar o estado físico do ambiente, paredes, piso, teto, janelas, portas, tomadas e interruptores mencionados no áudio.
+4. Mantenha a descrição concisa, profissional e direta ao ponto. Se o usuário apontar múltiplos problemas, organize-os em tópicos claros ou frases bem pontuadas.
+5. Retorne APENAS o texto limpo e final da descrição do cômodo. Não adicione saudações, introduções ou explicações (ex: não comece com "Transcrição:", "Aqui está o texto:", etc.).`;
 
     // O usuário solicitou "gemini-3.1-flash". Como a API do Google SDK atualmente mapeia para a família 1.5,
     // usamos o alias gemini-1.5-flash (que é a versão mais recente e rápida equivalente ao pedido).
@@ -24,7 +50,7 @@ export async function processAudioComment(formData: FormData): Promise<string> {
           content: [
             {
               type: 'text',
-              text: 'Você é um assistente de engenharia civil/arquitetura especializado em vistorias imobiliárias. Escute o áudio fornecido pelo vistoriador e transcreva o conteúdo, transformando-o em um comentário técnico, descritivo, limpo e direto, pronto para ser inserido em um laudo de vistoria. Corrija gaguejos, remova vícios de linguagem e formate bem. Retorne APENAS o texto do comentário técnico, nada a mais.'
+              text: systemPrompt
             },
             {
               type: 'file',
@@ -36,7 +62,7 @@ export async function processAudioComment(formData: FormData): Promise<string> {
       ]
     });
 
-    return text;
+    return text.trim();
   } catch (error) {
     console.error("Erro no processamento da IA:", error);
     throw new Error("Falha ao processar o áudio com a IA Gemini.");

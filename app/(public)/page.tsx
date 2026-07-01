@@ -127,7 +127,7 @@ export default function PublicHome() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="https://wa.me/5511998876655"
+              href="https://wa.me/5518996942082"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-brand-primary text-white font-bold text-sm hover:bg-brand-primary/95 transition-all shadow-lg shadow-brand-primary/10 flex items-center justify-center gap-2 group cursor-pointer"

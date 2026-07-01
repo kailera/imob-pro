@@ -34,7 +34,7 @@ export function PublicFooter() {
                   <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                 </svg>
               </a>
-              <a href="#" className="p-2 bg-white/5 hover:bg-brand-primary hover:text-white rounded-full transition-all text-white/80" aria-label="WhatsApp">
+              <a href="https://wa.me/5518996942082" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-brand-primary hover:text-white rounded-full transition-all text-white/80" aria-label="WhatsApp">
                 <MessageCircle className="w-4 h-4" />
               </a>
             </div>
@@ -60,6 +60,11 @@ export function PublicFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/loteamentos" className="text-sm text-white/70 hover:text-brand-accent-gold transition-colors">
+                  Loteamentos (Lançamentos)
+                </Link>
+              </li>
+              <li>
                 <Link href="/admin" className="text-sm text-white/70 hover:text-brand-accent-gold transition-colors">
                   Área do Cliente (Painel)
                 </Link>
@@ -73,15 +78,11 @@ export function PublicFooter() {
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <Phone className="w-5 h-5 text-brand-accent-green shrink-0 mt-0.5" />
-                <span className="text-sm text-white/70">(11) 4509-8800</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <MessageCircle className="w-5 h-5 text-brand-accent-green shrink-0 mt-0.5" />
-                <span className="text-sm text-white/70">(11) 99887-6655</span>
+                <span className="text-sm text-white/70">(18) 9 9694-2082</span>
               </li>
               <li className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-brand-accent-green shrink-0 mt-0.5" />
-                <span className="text-sm text-white/70">contato@scatolinimoveis.com.br</span>
+                <span className="text-sm text-white/70">scatolinimoveis@gmail.com</span>
               </li>
             </ul>
           </div>
@@ -92,9 +93,8 @@ export function PublicFooter() {
             <div className="flex items-start gap-3">
               <MapPin className="w-5 h-5 text-brand-accent-green shrink-0 mt-0.5" />
               <div className="text-sm text-white/70 space-y-1">
-                <p>Av. Brigadeiro Faria Lima, 3477</p>
-                <p>Itaim Bibi — São Paulo/SP</p>
-                <p>CEP 04538-133</p>
+                <p>Passeio Cristalina, 113</p>
+                <p>Centro — Ilha Solteira/SP</p>
               </div>
             </div>
           </div>
