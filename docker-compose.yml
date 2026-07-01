@@ -45,18 +45,24 @@ services:
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
 
-      # Storage (RustFS / S3)
+      # Storage (RustFS / S3) - Padrão 1 (lib/rust/client.ts)
       - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
       - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
       - RUSTFS_ENDPOINT_URL=${RUSTFS_ENDPOINT_URL}
       - RUSTFS_BUCKET=${RUSTFS_BUCKET}
+
+      # Storage (RustFS / S3) - Padrão 2 (lib/storage.ts usado em vistorias)
+      - RUSTFS_ENDPOINT=${RUSTFS_ENDPOINT:-${RUSTFS_ENDPOINT_URL}}
+      - RUSTFS_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY_ID:-${RUSTFS_ACCESS_KEY}}
+      - RUSTFS_SECRET_ACCESS_KEY=${RUSTFS_SECRET_ACCESS_KEY:-${RUSTFS_SECRET_KEY}}
+      - RUSTFS_BUCKET_NAME=${RUSTFS_BUCKET_NAME:-${RUSTFS_BUCKET}}
 
       # Next.js configurations
       - NODE_ENV=production
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.imob-pro.rule=Host(`${TRAEFIK_DOMAIN_IMOB:-imob.euatendo.online}`)"
+      - "traefik.http.routers.imob-pro.rule=Host(`imobpro.euatendo.online`)"
       - "traefik.http.routers.imob-pro.entrypoints=websecure"
       - "traefik.http.routers.imob-pro.tls=true"
       - "traefik.http.routers.imob-pro.tls.certresolver=lets-encrypt"
