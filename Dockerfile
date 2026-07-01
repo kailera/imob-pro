@@ -1,23 +1,15 @@
 # ============================================
-# Stage 1: Install dependencies & Generate Prisma
+# Stage 1: Install dependencies
 # ============================================
-ARG NODE_VERSION=20-slim
+ARG NODE_VERSION=22-slim
 FROM node:${NODE_VERSION} AS deps
 WORKDIR /app
 
-# Copia apenas os arquivos de dependência primeiro
+# Instalar dependências necessárias para o Prisma (openssl)
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
-
-# Instala as dependências
 RUN npm ci
-
-# Copia os arquivos necessários para gerar o Prisma Client
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
-
-# Variável dummy para o prisma.config.ts não quebrar no build
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN npx prisma generate
 
 # ============================================
 # Stage 2: Build Next.js application
@@ -25,16 +17,25 @@ RUN npx prisma generate
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 
-# Copia os node_modules e o Prisma Client gerado do stage 1
+# Instalar openssl no builder também
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps /app/node_modules ./node_modules
-# Copia o resto do código da aplicação
 COPY . .
-COPY --from=deps /app/generated ./generated
+
+# Variável dummy para o prisma.config.ts não quebrar no build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
+# Gerar o Prisma Client diretamente no builder para garantir OpenSSL e binários corretos
+RUN npx prisma generate
+
+# Garantir a existência do index.ts para que os imports '@/generated/prisma' funcionem perfeitamente
+RUN echo 'export * from "./client";' > generated/prisma/index.ts
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Faz o build da aplicação (Standalone)
+# Compilar a aplicação Next.js
 RUN npm run build
 
 # ============================================
@@ -52,9 +53,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs --create-home nextjs
 
-# Cria e ajusta permissões da pasta .next
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+RUN mkdir .next && chown nextjs:nodejs .next
 
 # Copia os arquivos públicos e os estáticos gerados no build
 COPY --from=builder /app/public ./public
@@ -65,9 +64,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/generated ./generated
-
-# Copia os node_modules para garantir o CLI do prisma no entrypoint
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Configura o script de inicialização
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
