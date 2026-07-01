@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: imob-pro-app
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - proxy_network
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.imob-pro.rule=Host(`${TRAEFIK_DOMAIN_IMOB:-imob.euatendo.online}`)"
+      - "traefik.http.routers.imob-pro.entrypoints=websecure"
+      - "traefik.http.routers.imob-pro.tls=true"
+      - "traefik.http.routers.imob-pro.tls.certresolver=lets-encrypt"
+      - "traefik.http.services.imob-pro.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy_network"
+
+networks:
+  proxy_network:
+    external: true

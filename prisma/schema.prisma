@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// gerenciamento de usuários
+
+model Imob {
+  id      String   @id @default(uuid())
+  orgId   String
+  users   Users[]
+  imovels Imovel[]
+
+  @@map("imob")
+}
+
+model Users {
+  id        String    @id // vai ser o mesmo do clerk
+  email     String
+  firstName String
+  lastName  String
+  role      UsersRole
+
+  imobId               String
+  imob                 Imob       @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  operadorVistorias    Vistoria[] @relation(name: "VistoriaOperador")
+  vistoriadorVistorias Vistoria[] @relation(name: "VistoriaVistoriador")
+
+  @@map("users")
+}
+
+enum UsersRole {
+  OPERADOR
+  VISTORIADOR
+  ADMIN
+}
+
+// gerencia de imóveis
+
+model Imovel {
+  id              String @id @default(uuid())
+  codigo          String @unique
+  numero          Int
+  bairro          String
+  cidade          String
+  uf              String
+  cep             Int
+  tipo            TipoImovel @default(CASA)
+  forVenda        Boolean @default(false)
+  forLocacao      Boolean @default(false)
+  valorAluguel    Int?
+  valorCondominio Int?
+  valorIPTU       Int?
+  valorVenda      Int?
+  valorTotal      Int?
+
+  imobId         String
+  imob           Imob            @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  imovelLocacaos ImovelLocacao[]
+  imovelVendas   ImovelVenda[]
+  vistorias      Vistoria[]
+
+  @@map("imovel")
+}
+
+model ImovelLocacao {
+  id            String   @id @default(uuid())
+  dataInicio    DateTime
+  valorAluguel  Float
+  dataFim       DateTime
+  hasCondominio Boolean
+  hasIPTU       Boolean
+  valorTotal    Float
+
+  imovelId String
+  imovel   Imovel @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+
+  @@map("imovel_locacao")
+}
+
+model ImovelVenda {
+  id         String   @id @default(uuid())
+  dataInicio DateTime
+  dataFim    DateTime
+
+  imovelId String
+  imovel   Imovel @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+
+  @@map("imovel_venda")
+}
+
+model Vistoria {
+  id          String       @id @default(uuid())
+  codigo      String
+  data        DateTime
+  tipo        TipoVistoria
+  observacoes String       @db.Text // Aba "OBSERVAÇÕES" (já existente)
+  assinatura  String? // Aba "INFORMAÇÕES"
+
+  operadorId String
+  operador   Users  @relation(name: "VistoriaOperador", fields: [operadorId], references: [id])
+
+  vistoriadorId String
+  vistoriador   Users  @relation(name: "VistoriaVistoriador", fields: [vistoriadorId], references: [id])
+
+  imovelId String
+  imovel   Imovel @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+
+  tipoImovelVistoriado TipoImovelVistoriado
+  status               VistoriaStatus
+  ambienteVistorias    AmbienteVistoria[]
+
+  // ==========================================
+  // ABA: CHAVES (Simplificado)
+  // ==========================================
+  chavesQuantidade Int?
+  chavesObservacao String? @db.Text // Descrição ex: "3 chaves da porta, 1 do portão"
+
+  // ==========================================
+  // ABA: MEDIDORES (Água e Luz)
+  // ==========================================
+  medidorAguaNumero  String? // Número do relógio da água
+  medidorAguaLeitura String? // Leitura atual (consumo)
+  medidorAguaFotoUrl String? // Foto do medidor de água
+
+  medidorLuzNumero  String? // Número do relógio da luz
+  medidorLuzLeitura String? // Leitura atual (consumo)
+  medidorLuzFotoUrl String? // Foto do medidor de luz
+
+  // ==========================================
+  // ABA: REPAROS (Simplificado)
+  // ==========================================
+  reparosNecessarios String? @db.Text // Anotação livre sobre o que precisa arrumar
+
+  // ==========================================
+  // ABA: LIMPEZA
+  // ==========================================
+  limpezaStatus     LimpezaStatus?
+  limpezaObservacao String?        @db.Text // Detalhes da limpeza
+
+  // ==========================================
+  // ABA: GEOLOCALIZAÇÃO (Para auditoria de presença do vistoriador)
+  // ==========================================
+  latitude  Float?
+  longitude Float?
+  fotoItems FotoItem[]
+
+  @@map("vistoria")
+}
+
+// Enum simples para a aba Limpeza
+enum LimpezaStatus {
+  EXCELENTE
+  BOA
+  REGULAR
+  RUIM
+}
+
+enum TipoImovelVistoriado {
+  CASA
+  APARTAMENTO
+}
+
+enum TipoImovel {
+  CASA
+  CONDOMINIO
+  LOTE
+  COMERCIAL
+  RURAL
+}
+
+enum TipoVistoria {
+  LOCACAO
+  VENDA
+}
+
+enum VistoriaStatus {
+  NAO_INICIADA
+  EM_ANDAMENTO
+  AGUARDANDO_APROVACAO
+  CONCLUIDA
+  CANCELADA
+}
+
+model AmbienteVistoria {
+  id    String @id @default(uuid())
+  nome  String // Ex: "Fachada", "Quintal", "Sala"
+  ordem Int    @default(0) // Permite ordenar a lista lateral
+
+  vistoriaId String
+  vistoria   Vistoria       @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  itens      ItemAmbiente[]
+
+  @@map("ambiente_vistoria")
+}
+
+// 3. Os Subitens/Componentes de cada Ambiente (Visão Geral, Paredes, Piso, etc.)
+model ItemAmbiente {
+  id                 String           @id @default(uuid())
+  nome               String // Ex: "Visão Geral"
+  ordem              Int              @default(0)
+  statusVerificacao  ItemStatus       @default(PENDENTE) // Controla o check verde e o X vermelho
+  ambienteVistoriaId String
+  ambienteVistoria   AmbienteVistoria @relation(fields: [ambienteVistoriaId], references: [id], onDelete: Cascade)
+  comentarios        ComentarioItem[]
+  fotos              FotoItem[]
+
+  @@map("item_ambiente")
+}
+
+// Enum para o status do item (Conforme / Não Conforme)
+enum ItemStatus {
+  PENDENTE
+  CONFORME // Botão verde (check)
+  NAO_CONFORME // Botão vermelho (X)
+}
+
+// 4. Comentários específicos por Item do Ambiente
+model ComentarioItem {
+  id             String            @id @default(uuid())
+  texto          String            @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  itemAmbienteId String
+  itemAmbiente   ItemAmbiente      @relation(fields: [itemAmbienteId], references: [id], onDelete: Cascade)
+  midias         MidiaComentario[]
+
+  @@map("comentario_item")
+}
+
+// 5. Fotos específicas por Item do Ambiente
+model FotoItem {
+  id        String   @id @default(uuid())
+  url       String
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relaciona a foto a um item de ambiente (comportamento atual)
+  itemAmbienteId String?
+  itemAmbiente   ItemAmbiente? @relation(fields: [itemAmbienteId], references: [id], onDelete: Cascade)
+  // Opcional: Relaciona a foto diretamente à Vistoria (para Medidores/Chaves)
+  vistoriaId     String?
+  vistoria       Vistoria?     @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+
+  @@map("foto_item")
+}
+
+model MidiaComentario {
+  id           String         @id @default(uuid())
+  url          String
+  tipo         TipoMidia      @default(FOTO)
+  ordem        Int            @default(0)
+  createdAt    DateTime       @default(now())
+  comentarioId String
+  comentario   ComentarioItem @relation(fields: [comentarioId], references: [id], onDelete: Cascade)
+
+  @@map("midia_comentario")
+}
+
+enum TipoMidia {
+  FOTO
+  VIDEO
+}
+
+
