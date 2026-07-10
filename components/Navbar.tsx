@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, LayoutDashboard } from "lucide-react";
+import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, LayoutDashboard, Scale, Coins } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,8 @@ const navItems = [
   { name: "Locação", href: "/locacao", icon: Key },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "CRM", href: "/crm", icon: LayoutDashboard },
+  { name: "Jurídico", href: "/juridico", icon: Scale },
+  { name: "Financeiro", href: "/financeiro", icon: Coins },
 ];
 
 export function Navbar() {

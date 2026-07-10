@@ -36,14 +36,14 @@ export function CommentsTimeline({ comments }: CommentsTimelineProps) {
   }
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col border-t border-[#EEEEF3]">
       <div className="flex items-center justify-between px-5 py-3 border-b border-[#EEEEF3]">
         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
           <Clock className="w-3.5 h-3.5" /> Histórico de Alterações ({comments.length})
         </h3>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-5 pb-8 flex flex-col gap-4">
+      <div className="p-5 pb-8 flex flex-col gap-4">
         {comments.map((comment) => (
           <div key={comment.id} className="p-4 bg-white border border-[#EEEEF3] rounded-xl shadow-sm relative">
             <div className="flex items-start justify-between mb-2">

@@ -20,6 +20,11 @@ services:
       - imob_internal_network
     labels:
       - "traefik.enable=false"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     build:
@@ -33,7 +38,8 @@ services:
         max-size: "10m"
         max-file: "3"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - proxy_network
       - imob_internal_network
@@ -69,9 +75,29 @@ services:
       - "traefik.http.services.imob-pro.loadbalancer.server.port=3000"
       - "traefik.docker.network=proxy_network"
 
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: imobpro-storages3
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
+      - ENABLE_CONSOLE=true
+    volumes:
+      - rustfs_data:/data
+    networks:
+      - imob_internal_network
+
 volumes:
   postgres_data:
     name: imob-pro-postgres-data
+  rustfs_data:
+    name: imob-pro-rustfs-data
 
 networks:
   imob_internal_network:

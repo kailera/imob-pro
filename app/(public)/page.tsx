@@ -2,13 +2,43 @@ import { SiteHero } from "@/components/SiteHero";
 import { FeaturedProperties } from "@/components/FeaturedProperties";
 import { ShieldCheck, Sparkles, Zap, Star, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
 export const metadata = {
   title: "Scatolin Imóveis | Encontre seu Lar Perfeito",
   description: "Vitrine digital de imóveis exclusivos para venda e locação com a maior segurança jurídica e transparência.",
 };
 
-export default function PublicHome() {
+export default async function PublicHome() {
+  // Buscar imóveis do banco de dados (excluindo lotes individuais de loteamento)
+  const rawImoveis = await prisma.imovel.findMany({
+    where: {
+      NOT: {
+        codigo: {
+          startsWith: "LOTE-"
+        }
+      }
+    },
+    orderBy: {
+      codigo: "desc"
+    }
+  });
+
+  const properties = rawImoveis.map((im) => ({
+    id: im.id,
+    title: im.titulo || "Imóvel Scatolin",
+    type: im.tipo === "CASA" ? "Casa" : im.tipo === "CONDOMINIO" ? "Apartamento" : im.tipo === "LOTE" ? "Lote" : im.tipo === "COMERCIAL" ? "Comercial" : "Rural",
+    price: im.forLocacao ? (im.valorAluguel ? im.valorAluguel / 100 : 0) : (im.valorVenda ? im.valorVenda / 100 : 0),
+    operation: im.forLocacao ? ("locacao" as const) : ("venda" as const),
+    beds: im.quartos || 0,
+    baths: im.banheiros || 0,
+    parking: im.vagas || 0,
+    area: im.area || 0,
+    image: im.imagens?.[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+    neighborhood: im.bairro,
+    city: `${im.cidade}/${im.uf}`
+  }));
+
   const valueProps = [
     {
       title: "Segurança Jurídica",
@@ -48,7 +78,7 @@ export default function PublicHome() {
       <SiteHero />
 
       {/* Featured Properties grid */}
-      <FeaturedProperties />
+      <FeaturedProperties properties={properties} />
 
       {/* Pillars / Value Propositions */}
       <section id="sobre" className="py-20 bg-white">

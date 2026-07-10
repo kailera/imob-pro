@@ -8,13 +8,21 @@ interface RoomBuilderFormProps {
   rooms: Room[];
   onAddRoom: (room: Room) => void;
   onRemoveRoom: (id: string) => void;
+  onUpdateRoom?: (id: string, updates: Partial<Room>) => void;
+  onReorderRooms?: (newRooms: Room[]) => void;
 }
 
 const roomTypes: RoomType[] = [
   'Quarto', 'Sala', 'Cozinha', 'Banheiro', 'Varanda', 'Garagem', 'Corredor', 'Outro'
 ];
 
-export function RoomBuilderForm({ rooms, onAddRoom, onRemoveRoom }: RoomBuilderFormProps) {
+export function RoomBuilderForm({
+  rooms,
+  onAddRoom,
+  onRemoveRoom,
+  onUpdateRoom,
+  onReorderRooms
+}: RoomBuilderFormProps) {
   const [selectedType, setSelectedType] = useState<RoomType>('Quarto');
   const [roomName, setRoomName] = useState("");
 
@@ -26,10 +34,26 @@ export function RoomBuilderForm({ rooms, onAddRoom, onRemoveRoom }: RoomBuilderF
       id: Math.random().toString(36).substr(2, 9),
       type: selectedType,
       name: roomName.trim(),
+      visaoGeral: "",
+      comentarios: ""
     };
 
     onAddRoom(newRoom);
     setRoomName(""); // reset name
+  };
+
+  const moveRoom = (index: number, direction: 'up' | 'down') => {
+    if (!onReorderRooms) return;
+    const newRooms = [...rooms];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= rooms.length) return;
+
+    // Swap
+    const temp = newRooms[index];
+    newRooms[index] = newRooms[targetIndex];
+    newRooms[targetIndex] = temp;
+
+    onReorderRooms(newRooms);
   };
 
   return (
@@ -60,7 +84,7 @@ export function RoomBuilderForm({ rooms, onAddRoom, onRemoveRoom }: RoomBuilderF
               ))}
             </select>
           </div>
-          
+
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Identificação (ex: Quarto Casal)
@@ -75,7 +99,7 @@ export function RoomBuilderForm({ rooms, onAddRoom, onRemoveRoom }: RoomBuilderF
           </div>
         </div>
 
-        <button 
+        <button
           type="submit"
           disabled={!roomName.trim()}
           className="self-end px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
@@ -89,30 +113,83 @@ export function RoomBuilderForm({ rooms, onAddRoom, onRemoveRoom }: RoomBuilderF
         <h4 className="text-xs font-bold text-[#004777] uppercase tracking-widest mb-3 border-b border-[#EEEEF3] pb-2">
           Ambientes Adicionados ({rooms.length})
         </h4>
-        
+
         {rooms.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-sm text-gray-400 font-medium">
             A composição está vazia.
           </div>
         ) : (
-          <ul className="flex flex-col gap-2 overflow-y-auto pr-2 pb-4">
-            {rooms.map((room) => (
-              <li 
+          <ul className="flex flex-col gap-3 overflow-y-auto pr-2 pb-4">
+            {rooms.map((room, index) => (
+              <li
                 key={room.id}
-                className="flex items-center justify-between p-3 rounded-xl border border-[#EEEEF3] bg-gray-50 hover:bg-white hover:shadow-sm transition-all group"
+                className="flex flex-col p-4 rounded-xl border border-[#EEEEF3] bg-gray-50 hover:bg-white hover:shadow-sm transition-all group gap-3"
               >
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-[#280003]">{room.name}</span>
-                  <span className="text-xs text-gray-500 font-medium">{room.type}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-[#280003]">{room.name}</span>
+                    <span className="text-xs text-gray-500 font-medium">{room.type}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {/* Botões de reordenação */}
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveRoom(index, 'up')}
+                      className="p-1.5 text-gray-400 hover:text-[#004777] hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30"
+                      title="Subir ambiente"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === rooms.length - 1}
+                      onClick={() => moveRoom(index, 'down')}
+                      className="p-1.5 text-gray-400 hover:text-[#004777] hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30"
+                      title="Descer ambiente"
+                    >
+                      ▼
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveRoom(room.id)}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remover ambiente"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onRemoveRoom(room.id)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  title="Remover ambiente"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                {/* Campos de texto adicionais para visão geral e comentários */}
+                {/*  {onUpdateRoom && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1 pt-3 border-t border-[#EEEEF3]">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-[#004777] uppercase tracking-wider">
+                        Visão Geral
+                      </label>
+                      <input
+                        type="text"
+                        value={room.visaoGeral || ""}
+                        onChange={(e) => onUpdateRoom(room.id, { visaoGeral: e.target.value })}
+                        placeholder="Ex: Pintura nova, piso ok..."
+                        className="px-2.5 py-1.5 bg-white border border-[#EEEEF3] rounded-lg text-xs text-[#280003] focus:outline-none focus:ring-1 focus:ring-[#004777]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-[#004777] uppercase tracking-wider">
+                        Comentários
+                      </label>
+                      <input
+                        type="text"
+                        value={room.comentarios || ""}
+                        onChange={(e) => onUpdateRoom(room.id, { comentarios: e.target.value })}
+                        placeholder="Ex: Detalhes do cômodo..."
+                        className="px-2.5 py-1.5 bg-white border border-[#EEEEF3] rounded-lg text-xs text-[#280003] focus:outline-none focus:ring-1 focus:ring-[#004777]"
+                      />
+                    </div>
+                  </div>
+                )} */}
               </li>
             ))}
           </ul>

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   Clock,
@@ -10,143 +11,285 @@ import {
   Calendar,
   ChevronDown,
   Search,
-  Filter,
   SlidersHorizontal,
-  Home
+  Loader2,
+  X,
+  Plus
 } from "lucide-react";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartPlaceholder } from "@/components/ChartPlaceholder";
 import { VistoriaDetails, Vistoria } from "@/components/VistoriaDetails";
 import ConnectionStatus from "@/components/ConnectionStatus";
+import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria } from "@/app/(admin)/vistorias/actions";
+import { db } from "@/lib/db";
 
-// Realistic mock data matching the requested KPI totals:
-// 12 Não iniciadas, 5 Em andamento, 2 Aguardando aprovação, 28 Concluídas, 3 Contestadas
-const mockVistorias: Vistoria[] = [
-  {
-    id: "1",
-    codigo: "VIS-2026-104",
-    tipo: "Entrada",
-    status: "nao_iniciada",
-    statusLabel: "Não iniciada",
-    solicitadaPor: "Imob Pro Locação",
-    dataSolicitacao: "18/06/2026",
-    dataVistoria: "25/06/2026",
-    vistoriador: "Rodrigo Silva",
-    imovelCodigo: "IMOB-9041",
-    tipoImovel: "Apartamento",
-    proprietario: "Carlos Eduardo Santos",
-    inquilino: "Juliana Vieira Ramos",
-    endereco: "Av. Paulista, 1200 - Apto 84 - Bela Vista, São Paulo/SP"
-  },
-  {
-    id: "2",
-    codigo: "VIS-2026-101",
-    tipo: "Saída",
-    status: "em_andamento",
-    statusLabel: "Em andamento",
-    solicitadaPor: "Imob Pro Vendas",
-    dataSolicitacao: "15/06/2026",
-    dataVistoria: "22/06/2026",
-    vistoriador: "Mariana Costa",
-    imovelCodigo: "IMOB-4402",
-    tipoImovel: "Casa Residencial",
-    proprietario: "Roberto Farias Neto",
-    inquilino: "Guilherme de Souza",
-    endereco: "Rua das Palmeiras, 450 - Jardim América, São Paulo/SP"
-  },
-  {
-    id: "3",
-    codigo: "VIS-2026-098",
-    tipo: "Periódica",
-    status: "aguardando_aprovacao",
-    statusLabel: "Aguardando aprovação",
-    solicitadaPor: "Administração",
-    dataSolicitacao: "12/06/2026",
-    dataVistoria: "20/06/2026",
-    vistoriador: "Gabriel Santos",
-    imovelCodigo: "IMOB-7719",
-    tipoImovel: "Conjunto Comercial",
-    proprietario: "Fernanda Albuquerque",
-    inquilino: "Tech Solutions Corp",
-    endereco: "Av. Faria Lima, 2000 - Andar 12 - Itaim Bibi, São Paulo/SP"
-  },
-  {
-    id: "4",
-    codigo: "VIS-2026-088",
-    tipo: "Entrada",
-    status: "concluida",
-    statusLabel: "Concluída",
-    solicitadaPor: "Imob Pro Locação",
-    dataSolicitacao: "05/06/2026",
-    dataVistoria: "10/06/2026",
-    vistoriador: "Rodrigo Silva",
-    imovelCodigo: "IMOB-1123",
-    tipoImovel: "Studio",
-    proprietario: "Patrícia Lima",
-    inquilino: "Lucas Medeiros",
-    endereco: "Rua Augusta, 1500 - Apto 302 - Consolação, São Paulo/SP"
-  },
-  {
-    id: "5",
-    codigo: "VIS-2026-074",
-    tipo: "Saída",
-    status: "contestada",
-    statusLabel: "Contestada",
-    solicitadaPor: "Inquilino",
-    dataSolicitacao: "28/05/2026",
-    dataVistoria: "02/06/2026",
-    vistoriador: "Mariana Costa",
-    imovelCodigo: "IMOB-3388",
-    tipoImovel: "Cobertura",
-    proprietario: "Eduardo Silveira",
-    inquilino: "Marina Barbosa Mendes",
-    endereco: "Al. Lorena, 890 - Cobertura B - Cerqueira César, São Paulo/SP"
-  },
-  {
-    id: "6",
-    codigo: "VIS-2026-105",
-    tipo: "Entrada",
-    status: "nao_iniciada",
-    statusLabel: "Não iniciada",
-    solicitadaPor: "Imob Pro Locação",
-    dataSolicitacao: "20/06/2026",
-    dataVistoria: "27/06/2026",
-    vistoriador: "Gabriel Santos",
-    imovelCodigo: "IMOB-8092",
-    tipoImovel: "Apartamento",
-    proprietario: "Beatriz Oliveira",
-    inquilino: "Pedro Henrique Rezende",
-    endereco: "Rua Bela Cintra, 2300 - Apto 101 - Consolação, São Paulo/SP"
-  },
-  {
-    id: "7",
-    codigo: "VIS-2026-092",
-    tipo: "Periódica",
-    status: "concluida",
-    statusLabel: "Concluída",
-    solicitadaPor: "Administração",
-    dataSolicitacao: "02/06/2026",
-    dataVistoria: "08/06/2026",
-    vistoriador: "Rodrigo Silva",
-    imovelCodigo: "IMOB-5561",
-    tipoImovel: "Casa Residencial",
-    proprietario: "Amilton Cesar",
-    inquilino: "Claudio Pinheiro",
-    endereco: "Av. Rebouças, 3100 - Pinheiros, São Paulo/SP"
-  }
-];
+function mapDbVistoriaToUi(v: any): Vistoria {
+  const statusLabels: Record<string, string> = {
+    NAO_INICIADA: "Não iniciada",
+    EM_ANDAMENTO: "Em andamento",
+    AGUARDANDO_APROVACAO: "Aguardando aprovação",
+    CONCLUIDA: "Concluída",
+    CONTESTADA: "Contestada",
+    CANCELADA: "Cancelada",
+  };
+
+  const tipoLabels: Record<string, "Entrada" | "Saída" | "Periódica"> = {
+    ENTRADA: "Entrada",
+    SAIDA: "Saída",
+    PERIODICA: "Periódica",
+  };
+
+  const tipo = tipoLabels[v.tipo] || "Entrada";
+  const status = (v.status ? v.status.toLowerCase() : "nao_iniciada") as any;
+
+  return {
+    id: v.id,
+    codigo: v.codigo,
+    tipo,
+    status,
+    statusLabel: statusLabels[v.status] || "Não iniciada",
+    solicitadaPor: v.operador ? `${v.operador.firstName} ${v.operador.lastName}` : "Sistema",
+    dataSolicitacao: new Date(v.data).toLocaleDateString("pt-BR"),
+    dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
+    vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}` : "Não designado",
+    imovelCodigo: v.imovel ? v.imovel.codigo : "",
+    endereco: v.imovel ? `${v.imovel.bairro}, ${v.imovel.cidade}/${v.imovel.uf}` : "",
+    proprietario: v.proprietario || "Não informado",
+    inquilino: "Não vinculado",
+    tipoImovel: v.imovel ? (v.imovel.tipo === "CASA" ? "Casa" : "Apartamento") : "Outro",
+  };
+}
 
 const periods = ["Junho 2026", "Maio 2026", "Abril 2026", "Todo o período"];
 
 export default function VistoriasPage() {
+  const router = useRouter();
+  const [vistorias, setVistorias] = useState<Vistoria[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("Junho 2026");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedVistoria, setSelectedVistoria] = useState<Vistoria>(mockVistorias[0]);
+  const [selectedVistoria, setSelectedVistoria] = useState<Vistoria | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
 
+  // Modal para Criar Nova Vistoria
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [imoveis, setImoveis] = useState<any[]>([]);
+  const [vistoriadores, setVistoriadores] = useState<any[]>([]);
+  const [selectedImovelId, setSelectedImovelId] = useState("");
+  const [selectedVistoriadorId, setSelectedVistoriadorId] = useState("");
+  const [newTipo, setNewTipo] = useState<"ENTRADA" | "SAIDA" | "PERIODICA">("ENTRADA");
+  const [newTipoImovel, setNewTipoImovel] = useState<"CASA" | "APARTAMENTO">("APARTAMENTO");
+  const [newData, setNewData] = useState("");
+  const [newProprietario, setNewProprietario] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [creationError, setCreationError] = useState("");
+
+  const loadData = async () => {
+    setLoading(true);
+    let mapped: Vistoria[] = [];
+
+    try {
+      if (navigator.onLine) {
+        const res = await getVistorias();
+        if (res.success && res.data) {
+          // Salva todas no cache local
+          for (const v of res.data) {
+            await db.vistorias.put({
+              id: v.id,
+              codigo: v.codigo,
+              tipo: v.tipo,
+              status: v.status,
+              data: v.data instanceof Date ? v.data.toISOString() : String(v.data),
+              proprietario: v.proprietario || "Não informado",
+              endereco: v.imovel ? `${v.imovel.bairro}, ${v.imovel.cidade}/${v.imovel.uf}` : "",
+              observacoes: (v as any).observacoes || "",
+              reparosNecessarios: (v as any).reparosNecessarios || "",
+              chavesQuantidade: (v as any).chavesQuantidade || 0,
+              chavesObservacao: (v as any).chavesObservacao || "",
+              ambienteVistorias: (v as any).ambienteVistorias || [],
+              comentariosVistoria: (v as any).comentariosVistoria || [],
+              infoGeral: (v as any).infoGeral || []
+            });
+          }
+          mapped = res.data.map(mapDbVistoriaToUi);
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao carregar dados da rede, usando IndexedDB:", e);
+    }
+
+    if (mapped.length === 0) {
+      // Offline fallback
+      try {
+        const cached = await db.vistorias.toArray();
+        mapped = cached.map(v => ({
+          id: v.id,
+          codigo: v.codigo,
+          tipo: v.tipo as any,
+          status: v.status.toLowerCase() as any,
+          statusLabel: v.status === "NAO_INICIADA" ? "Não iniciada" : v.status === "EM_ANDAMENTO" ? "Em andamento" : v.status === "CONCLUIDA" ? "Concluída" : v.status,
+          solicitadaPor: "Sistema (Offline)",
+          dataSolicitacao: new Date(v.data).toLocaleDateString("pt-BR"),
+          dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
+          vistoriador: "Vistoriador Responsável",
+          imovelCodigo: v.codigo,
+          endereco: v.endereco,
+          proprietario: v.proprietario,
+          inquilino: "Não vinculado",
+          tipoImovel: "Outro"
+        }));
+      } catch (err) {
+        console.error("Erro ao carregar cache do IndexedDB:", err);
+      }
+    }
+
+    setVistorias(mapped);
+    if (mapped.length > 0) {
+      setSelectedVistoria(mapped[0]);
+    } else {
+      setSelectedVistoria(null);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const openCreateModal = async () => {
+    setCreationError("");
+    setIsCreateModalOpen(true);
+    
+    try {
+      if (navigator.onLine) {
+        // Buscar Imóveis e Vistoriadores para o formulário
+        const resImoveis = await getImoveisForVistoria();
+        if (resImoveis.success && resImoveis.data) {
+          setImoveis(resImoveis.data);
+          const firstImovel = resImoveis.data[0];
+          if (firstImovel) {
+            setSelectedImovelId(firstImovel.id);
+            const ownerName = firstImovel.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
+            setNewProprietario(ownerName);
+          }
+        }
+        const resVistoriadores = await getVistoriadores();
+        if (resVistoriadores.success && resVistoriadores.data) {
+          setVistoriadores(resVistoriadores.data);
+          if (resVistoriadores.data.length > 0) {
+            setSelectedVistoriadorId(resVistoriadores.data[0].id);
+          }
+        }
+      } else {
+        // Mock offline options from cached vistorias to allow creation
+        const cached = await db.vistorias.toArray();
+        const uniqueImoveis = Array.from(new Set(cached.map(v => v.id))).map(id => {
+          const v = cached.find(x => x.id === id);
+          return { id, codigo: v?.codigo || "Imóvel Local", bairro: "Bairro", cidade: "Cidade", numero: "" };
+        });
+        setImoveis(uniqueImoveis);
+        if (uniqueImoveis.length > 0) {
+          setSelectedImovelId(uniqueImoveis[0].id);
+        }
+        
+        const mockVistoriadores = [{ id: "mock-vistoriador-id", firstName: "Vistoriador", lastName: "Local" }];
+        setVistoriadores(mockVistoriadores);
+        setSelectedVistoriadorId(mockVistoriadores[0].id);
+      }
+    } catch (e) {
+      console.error("Erro ao preparar dados do modal offline:", e);
+    }
+    
+    // Set default date to today
+    const today = new Date().toISOString().split("T")[0];
+    setNewData(today);
+  };
+
+  const handleCreateVistoria = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedImovelId || !selectedVistoriadorId || !newData) {
+      setCreationError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    setIsCreating(true);
+    setCreationError("");
+
+    const payload = {
+      imovelId: selectedImovelId,
+      operadorId: "user_operador", // ID operador mockado do seed
+      vistoriadorId: selectedVistoriadorId,
+      tipo: newTipo,
+      data: new Date(newData),
+      tipoImovelVistoriado: newTipoImovel,
+      proprietario: newProprietario || "Não informado",
+      ambientesPadrao: ["Fachada", "Sala de Estar", "Cozinha", "Banheiro", "Quarto principal"],
+    };
+
+    if (navigator.onLine) {
+      const res = await createVistoria(payload);
+      setIsCreating(false);
+      if (res.success && res.data) {
+        setIsCreateModalOpen(false);
+        // Redireciona diretamente para a ficha recém-criada
+        router.push(`/vistorias/ficha-vistoria/${res.data.id}`);
+      } else {
+        setCreationError(res.error || "Erro ao criar vistoria.");
+      }
+    } else {
+      // Offline Flow
+      setIsCreating(false);
+      const tempId = "temp-" + Date.now();
+      const tempCodigo = "VIS-OFFLINE-" + Date.now().toString().slice(-4);
+      
+      const selectedIm = imoveis.find(im => im.id === selectedImovelId);
+
+      const newOfflineVistoria = {
+        id: tempId,
+        codigo: tempCodigo,
+        tipo: newTipo,
+        status: "NAO_INICIADA",
+        data: new Date(newData).toISOString(),
+        proprietario: newProprietario || "Não informado",
+        endereco: selectedIm ? `${selectedIm.bairro || ""}, ${selectedIm.cidade || ""}/${selectedIm.uf || ""}` : "Endereço Local",
+        observacoes: "",
+        reparosNecessarios: "",
+        chavesQuantidade: 0,
+        chavesObservacao: "",
+        ambienteVistorias: ["Fachada", "Sala de Estar", "Cozinha", "Banheiro", "Quarto principal"].map((nome, index) => ({
+          id: "temp-room-" + index + "-" + Date.now(),
+          nome,
+          tipo: nome,
+          ordem: index,
+          visaoGeral: "",
+          comentarios: ""
+        })),
+        comentariosVistoria: [],
+        infoGeral: [],
+        pendingCreate: true
+      };
+
+      try {
+        await db.vistorias.put(newOfflineVistoria);
+        
+        await db.syncQueue.put({
+          type: "CREATE_VISTORIA",
+          vistoriaId: tempId,
+          payload,
+          timestamp: Date.now()
+        });
+
+        setIsCreateModalOpen(false);
+        alert("Vistoria criada localmente (offline)! Entrando na ficha...");
+        router.push(`/vistorias/ficha-vistoria/${tempId}`);
+      } catch (err: any) {
+        setCreationError(err.message || "Erro ao criar vistoria offline.");
+      }
+    }
+  };
+
   // Filter vistorias based on search term & status
-  const filteredVistorias = mockVistorias.filter((v) => {
+  const filteredVistorias = vistorias.filter((v) => {
     const matchesSearch =
       v.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       v.endereco.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -192,8 +335,25 @@ export default function VistoriasPage() {
     }
   };
 
+  // KPIs dinâmicos baseados nas vistorias do banco
+  const kpis = {
+    nao_iniciada: vistorias.filter(v => v.status === "nao_iniciada").length,
+    em_andamento: vistorias.filter(v => v.status === "em_andamento").length,
+    aguardando_aprovacao: vistorias.filter(v => v.status === "aguardando_aprovacao").length,
+    concluida: vistorias.filter(v => v.status === "concluida").length,
+    contestada: vistorias.filter(v => v.status === "contestada").length,
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-[#004777]" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-8 w-full bg-white max-w-7xl mx-auto pb-16">
+    <div className="flex flex-col gap-8 w-full bg-white max-w-7xl mx-auto pb-16 relative">
       {/* Dynamic SEO tags simulated through semantic header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -206,8 +366,18 @@ export default function VistoriasPage() {
             </div>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Gerencie e acompanhe o andamento dos laudos de vistorias residenciais e comerciais.
+            Gerencie e acompanhe o andamento dos laudos de vistorias residenciais e comerciais no banco de dados.
           </p>
+        </div>
+
+        <div className="flex align-middle self-start md:self-center">
+          <button
+            onClick={openCreateModal}
+            className="print:hidden px-5 py-2.5 bg-[#004777] text-white rounded-xl text-sm font-semibold hover:bg-[#00365a] transition-all shadow-sm duration-200 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Vistoria
+          </button>
         </div>
 
         {/* Minimal Dropdown Month Filter */}
@@ -248,15 +418,15 @@ export default function VistoriasPage() {
       {/* KPI Section */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" aria-labelledby="kpis-heading">
         <h2 id="kpis-heading" className="sr-only">Indicadores de Desempenho</h2>
-        <KpiCard title="Não iniciada" value={12} icon={FileText} status="nao_iniciada" />
-        <KpiCard title="Em andamento" value={5} icon={Clock} status="em_andamento" />
-        <KpiCard title="Aguardando aprovação" value={2} icon={Eye} status="aguardando_aprovacao" />
-        <KpiCard title="Concluída" value={28} icon={CheckCircle2} status="concluida" />
-        <KpiCard title="Contestada" value={3} icon={AlertTriangle} status="contestada" />
+        <KpiCard title="Não iniciada" value={kpis.nao_iniciada} icon={FileText} status="nao_iniciada" />
+        <KpiCard title="Em andamento" value={kpis.em_andamento} icon={Clock} status="em_andamento" />
+        <KpiCard title="Aguardando aprovação" value={kpis.aguardando_aprovacao} icon={Eye} status="aguardando_aprovacao" />
+        <KpiCard title="Concluída" value={kpis.concluida} icon={CheckCircle2} status="concluida" />
+        <KpiCard title="Contestada" value={kpis.contestada} icon={AlertTriangle} status="contestada" />
       </section>
 
       {/* Charts Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-labelledby="charts-heading">
+      <section className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-6" aria-labelledby="charts-heading">
         <h2 id="charts-heading" className="sr-only">Gráficos de Acompanhamento</h2>
         <ChartPlaceholder type="nao_concluidas" title="Vistorias Não Concluídas" />
         <ChartPlaceholder type="por_vistoriador" title="Vistorias Concluídas por Vistoriador" />
@@ -320,10 +490,16 @@ export default function VistoriasPage() {
               filteredVistorias.map((v) => (
                 <div
                   key={v.id}
-                  onClick={() => setSelectedVistoria(v)}
+                  onClick={() => {
+                    if (window.innerWidth < 1024) {
+                      router.push(`/vistorias/ficha-vistoria/${v.id}`);
+                    } else {
+                      setSelectedVistoria(v);
+                    }
+                  }}
                   className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-3 cursor-pointer hover:bg-slate-50/70 transition-all ${getStatusRowClass(
                     v.status
-                  )} ${selectedVistoria.id === v.id ? "bg-[#004777]/5 border-l-4" : ""}`}
+                  )} ${selectedVistoria && selectedVistoria.id === v.id ? "bg-[#004777]/5 border-l-4" : ""}`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -332,7 +508,7 @@ export default function VistoriasPage() {
                         {v.tipo}
                       </span>
                     </div>
-                    <h4 className="text-sm font-bold text-[#280003] truncate">{v.inquilino}</h4>
+                    <h4 className="text-sm font-bold text-[#280003] truncate">{v.proprietario}</h4>
                     <p className="text-xs text-gray-500 truncate mt-0.5">{v.endereco}</p>
                   </div>
 
@@ -351,14 +527,13 @@ export default function VistoriasPage() {
         </section>
 
         {/* Right Column: Detailed View */}
-        <section className="bg-transparent flex flex-col gap-6" aria-labelledby="details-heading">
+        <section className="hidden lg:flex bg-transparent flex-col gap-6" aria-labelledby="details-heading">
           <h2 id="details-heading" className="sr-only">Painel de Detalhes</h2>
           {selectedVistoria ? (
             <VistoriaDetails
               vistoria={selectedVistoria}
               onViewFullReport={(id) => {
-                // Navega para a página detalhada da ficha de vistoria
-                window.location.href = `/vistorias/ficha-vistoria/${id}`;
+                router.push(`/vistorias/ficha-vistoria/${id}`);
               }}
             />
           ) : (
@@ -369,6 +544,176 @@ export default function VistoriasPage() {
           )}
         </section>
       </div>
+
+      {/* MODAL DE CRIAÇÃO PREMIUM */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-[#EEEEF3] flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-[#004777] p-5 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                <h3 className="font-bold text-base">Nova Vistoria Técnica</h3>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateVistoria} className="p-6 flex flex-col gap-4 overflow-y-auto">
+              {creationError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{creationError}</span>
+                </div>
+              )}
+
+              {/* Imovel */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Imóvel *
+                </label>
+                <select
+                  value={selectedImovelId}
+                  onChange={(e) => {
+                    const imId = e.target.value;
+                    setSelectedImovelId(imId);
+                    const selectedIm = imoveis.find(im => im.id === imId);
+                    const ownerName = selectedIm?.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
+                    setNewProprietario(ownerName);
+                  }}
+                  className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                  required
+                >
+                  <option value="" disabled>Selecione um imóvel...</option>
+                  {imoveis.map(im => (
+                    <option key={im.id} value={im.id}>
+                      {im.codigo} - {im.bairro}, {im.cidade} (Nº {im.numero})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Vistoriador */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Vistoriador Designado *
+                </label>
+                <select
+                  value={selectedVistoriadorId}
+                  onChange={(e) => setSelectedVistoriadorId(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                  required
+                >
+                  <option value="" disabled>Selecione um vistoriador...</option>
+                  {vistoriadores.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.firstName} {v.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Tipo de Vistoria */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Tipo de Vistoria
+                  </label>
+                  <select
+                    value={newTipo}
+                    onChange={(e) => setNewTipo(e.target.value as any)}
+                    className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                  >
+                    <option value="ENTRADA">Entrada</option>
+                    <option value="SAIDA">Saída</option>
+                    <option value="PERIODICA">Periódica</option>
+                  </select>
+                </div>
+
+                {/* Tipo de Imovel */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Tipo do Imóvel
+                  </label>
+                  <select
+                    value={newTipoImovel}
+                    onChange={(e) => setNewTipoImovel(e.target.value as any)}
+                    className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                  >
+                    <option value="APARTAMENTO">Apartamento</option>
+                    <option value="CASA">Casa</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Data */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Data da Vistoria *
+                  </label>
+                  <input
+                    type="date"
+                    value={newData}
+                    onChange={(e) => setNewData(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                    required
+                  />
+                </div>
+
+                {/* Proprietário */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Proprietário
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nome do proprietário..."
+                    value={newProprietario}
+                    onChange={(e) => setNewProprietario(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                  />
+                </div>
+              </div>
+
+              {/* Info text */}
+              <div className="text-xs text-gray-500 leading-relaxed bg-[#004777]/5 p-3 rounded-lg border border-[#004777]/10 mt-1">
+                Ao criar a vistoria, o sistema gerará automaticamente os ambientes padrões de inspeção (Fachada, Sala de Estar, Cozinha, Banheiro, Quarto principal).
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[#EEEEF3]">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 border border-[#EEEEF3] rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Criando...</span>
+                    </>
+                  ) : (
+                    <span>Criar Vistoria</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

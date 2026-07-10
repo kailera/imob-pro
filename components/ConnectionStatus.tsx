@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { WifiOff, Wifi } from "lucide-react";
+import { WifiOff, Wifi, CloudUpload, Cloud, RefreshCw } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 export default function ConnectionStatus() {
   const [isOnline, setIsOnline] = useState(true);
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
 
+  // Monitora alterações pendentes no IndexedDB
+  const pendingCount = useLiveQuery(() => db.syncQueue.count()) || 0;
+
   useEffect(() => {
-    // Inicializa o status atual do navegador
     if (typeof window !== "undefined") {
       setIsOnline(navigator.onLine);
 
       const handleOnline = () => {
         setIsOnline(true);
         setShowSyncSuccess(true);
-        // Oculta a mensagem de sucesso após 3 segundos
         const timer = setTimeout(() => {
           setShowSyncSuccess(false);
         }, 3000);
@@ -39,9 +42,20 @@ export default function ConnectionStatus() {
 
   if (!isOnline) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0D18A]/20 border border-[#F0D18A] text-[#8c6d1f] rounded-lg text-xs font-semibold animate-pulse shadow-sm">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0D18A]/20 border border-[#F0D18A] text-[#8c6d1f] rounded-lg text-xs font-semibold shadow-sm animate-pulse">
         <WifiOff className="w-3.5 h-3.5" />
-        <span>Modo Vistoria Offline (Salvando Localmente)</span>
+        <span>
+          Offline ({pendingCount > 0 ? `${pendingCount} pendente(s)` : "Modo Vistoria"})
+        </span>
+      </div>
+    );
+  }
+
+  if (pendingCount > 0) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#004777]/10 border border-[#004777]/30 text-[#004777] rounded-lg text-xs font-semibold shadow-sm">
+        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+        <span>Sincronizando {pendingCount}...</span>
       </div>
     );
   }
@@ -50,15 +64,14 @@ export default function ConnectionStatus() {
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#708D81]/20 border border-[#708D81] text-[#2c4e40] rounded-lg text-xs font-semibold animate-bounce shadow-sm">
         <Wifi className="w-3.5 h-3.5" />
-        <span>Conexão restaurada e sincronizada</span>
+        <span>Tudo sincronizado!</span>
       </div>
     );
   }
 
-  // Quando online, podemos mostrar um indicador discreto ou nada
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#708D81]/10 border border-[#708D81]/20 text-[#708D81] rounded-lg text-xs font-semibold shadow-sm">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#708D81] animate-ping" />
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#708D81]/10 border border-[#708D81]/20 text-[#708D81] rounded-lg text-xs font-semibold shadow-sm">
+      <Cloud className="w-3.5 h-3.5 text-[#708D81]" />
       <span>Online</span>
     </div>
   );

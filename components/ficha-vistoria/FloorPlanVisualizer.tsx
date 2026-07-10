@@ -9,6 +9,8 @@ export interface Room {
   id: string;
   type: RoomType;
   name: string;
+  visaoGeral?: string;
+  comentarios?: string;
 }
 
 interface FloorPlanVisualizerProps {

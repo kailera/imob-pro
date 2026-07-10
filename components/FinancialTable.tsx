@@ -16,10 +16,13 @@ export interface BilletData {
   sacadoCpf: string;
   pagamentoData: string | null;
   pagamentoValor: number | null;
+  contratoId?: string;
+  contratoStatus?: 'Ativo' | 'Pendente' | 'Encerrado';
 }
 
 interface TableProps {
   data: BilletData[];
+  onOpenSignatureModal?: (item: BilletData) => void;
 }
 
 const getStatusBadge = (status: BilletStatus) => {
@@ -46,7 +49,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-export default function FinancialTable({ data }: TableProps) {
+export default function FinancialTable({ data, onOpenSignatureModal }: TableProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm w-full overflow-x-auto mt-6">
       <table className="w-full text-left text-sm divide-y divide-gray-100">
@@ -95,6 +98,17 @@ export default function FinancialTable({ data }: TableProps) {
                   {item.pagamentoValor ? formatCurrency(item.pagamentoValor) : ''}
                 </div>
               </td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                {item.contratoStatus === 'Pendente' && (
+                  <button
+                    onClick={() => onOpenSignatureModal?.(item)}
+                    className="px-2.5 py-1 rounded bg-[#004777] hover:bg-[#00365c] text-white text-xs font-semibold shadow-sm transition-colors"
+                  >
+                    Liberar p/ Assinatura
+                  </button>
+                )}
+              </td>
+
             </tr>
           ))}
         </tbody>

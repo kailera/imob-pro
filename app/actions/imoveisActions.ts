@@ -89,7 +89,7 @@ export async function createImovel(input: ImovelInput) {
         valorAluguel: input.forLocacao ? Number(input.valorAluguel || 0) : null,
         valorCondominio: input.forLocacao ? Number(input.valorCondominio || 0) : null,
         valorIPTU: input.forLocacao ? Number(input.valorIPTU || 0) : null,
-        valorTotal: input.forLocacao 
+        valorTotal: input.forLocacao
           ? (Number(input.valorAluguel || 0) + Number(input.valorCondominio || 0) + Number(input.valorIPTU || 0))
           : null,
         imobId,
@@ -145,7 +145,7 @@ export async function updateImovel(id: string, input: ImovelInput) {
         valorAluguel: input.forLocacao ? Number(input.valorAluguel || 0) : null,
         valorCondominio: input.forLocacao ? Number(input.valorCondominio || 0) : null,
         valorIPTU: input.forLocacao ? Number(input.valorIPTU || 0) : null,
-        valorTotal: input.forLocacao 
+        valorTotal: input.forLocacao
           ? (Number(input.valorAluguel || 0) + Number(input.valorCondominio || 0) + Number(input.valorIPTU || 0))
           : null,
       },

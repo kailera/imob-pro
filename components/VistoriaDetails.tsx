@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
-import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Eye } from "lucide-react";
+import React, { useState } from "react";
+import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Eye, Download, Loader2 } from "lucide-react";
+import { getVistoriaById } from "@/app/(admin)/vistorias/actions";
 
 export interface Vistoria {
   id: string;
@@ -34,6 +35,342 @@ const statusBadgeClasses = {
 };
 
 export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    setIsGenerating(true);
+    try {
+      // 1. Carrega dados completos da vistoria diretamente do Banco de Dados
+      const res = await getVistoriaById(vistoria.id);
+      if (!res.success || !res.data) {
+        alert("Erro ao buscar dados completos da vistoria para geração do PDF.");
+        setIsGenerating(false);
+        return;
+      }
+
+      const dbData = res.data;
+      const html2pdf = (await import("html2pdf.js")).default;
+
+      // 2. Mapear ambientes
+      let rooms = dbData.ambienteVistorias.map((r: any) => ({
+        name: r.nome,
+        type: r.tipo,
+        visaoGeral: r.visaoGeral,
+        comentarios: r.comentarios
+      }));
+
+      if (rooms.length === 0) {
+        rooms = [
+          { name: "Fachada", type: "Fachada", visaoGeral: "Em bom estado.", comentarios: "" },
+          { name: "Sala", type: "Sala", visaoGeral: "Sem avarias detectadas.", comentarios: "" }
+        ];
+      }
+
+      const reportDesc = dbData.observacoes || "Nenhuma descrição detalhada informada.";
+      const reportObs = dbData.reparosNecessarios || "";
+
+      // 3. Mapear Informações Gerais
+      let infoGeralItems = (dbData.infoGeral as any) || [];
+      if (infoGeralItems.length === 0) {
+        infoGeralItems = [
+          { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições de habitação." }
+        ];
+      }
+
+      const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
+
+      // Split rooms dynamically across pages
+      const roomsP1 = rooms.slice(0, 3);
+      const roomsP2 = rooms.slice(3, 7);
+      const roomsP3 = rooms.slice(7);
+
+      // Build the temporary container for PDF generation
+      const tempDiv = document.createElement("div");
+      tempDiv.style.width = "210mm";
+      tempDiv.style.backgroundColor = "#ffffff";
+      tempDiv.innerHTML = `
+        <!-- PAGE 1 -->
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden;">
+          <!-- Background Frame -->
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
+            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
+          </div>
+          
+          <!-- Content -->
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #004777; padding-bottom: 8px; margin-bottom: 15px;">
+              <div style="width: 150px;"></div> <!-- Spacer for background logo -->
+              <div style="text-align: center; flex: 1;">
+                <h1 style="font-size: 15px; font-weight: 800; color: #004777; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Laudo de Vistoria Técnica</h1>
+                <p style="font-size: 9px; color: #666; margin: 2px 0 0 0; font-weight: bold;">Código: <span style="color: #280003;">${vistoria.codigo}</span></p>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; width: 120px;">
+                <img src="${qrCodeUrl}" alt="QR Code" style="height: 42px; width: 42px; border: 1px solid #EEEEF3; padding: 2px; border-radius: 4px; background-color: #fff;" />
+                <span style="font-size: 6px; color: #888; font-weight: bold; text-transform: uppercase; text-align: right; line-height: 1.1;">Acesse a vistoria online</span>
+              </div>
+            </div>
+
+            <!-- Info Cards -->
+            <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+              <div style="flex: 1; border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background-color: #ffffff;">
+                <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #EEEEF3; padding-bottom: 4px; margin-top: 0; margin-bottom: 6px;">Dados da Vistoria</h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600; width: 40%;">TIPO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.tipo}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">STATUS:</td>
+                    <td style="padding: 2px 0; color: #708D81; font-weight: bold;">${vistoria.statusLabel}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">DATA:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.dataVistoria || "Não definida"}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">VISTORIADOR:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.vistoriador}</td>
+                  </tr>
+                </table>
+              </div>
+              <div style="flex: 1; border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background-color: #ffffff;">
+                <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #EEEEF3; padding-bottom: 4px; margin-top: 0; margin-bottom: 6px;">Dados do Imóvel</h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600; width: 35%;">CÓDIGO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.imovelCodigo}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">TIPO IMÓVEL:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.tipoImovel}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">PROPRIETÁRIO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.proprietario}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600; vertical-align: top;">ENDEREÇO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold; font-size: 9px; line-height: 1.2;">${vistoria.endereco}</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+
+            <!-- Parecer Técnico -->
+            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; margin-bottom: 12px; background-color: #ffffff;">
+              <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #EEEEF3; padding-bottom: 4px; margin-top: 0; margin-bottom: 6px;">Parecer Técnico Geral</h2>
+              <div style="font-size: 10px; line-height: 1.4; color: #280003; white-space: pre-wrap;">${reportDesc}</div>
+              ${reportObs ? `
+                <div style="margin-top: 6px; padding: 6px; background-color: rgba(240, 209, 138, 0.1); border: 1px solid rgba(240, 209, 138, 0.2); border-radius: 4px; font-size: 9px; color: #8c6d1f;">
+                  <strong>Observação técnica:</strong> ${reportObs}
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Estado dos Ambientes (P1) -->
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px; margin-top: 0;">Estado dos Ambientes</h2>
+              ${roomsP1.map((room: any) => `
+                <div style="background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px; padding: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px;">
+                    <strong style="font-size: 10px; color: #280003;">${room.name}</strong>
+                    <span style="font-size: 8px; background-color: #EEEEF3; padding: 1px 3px; border-radius: 2px; font-weight: 600; color: #555;">${room.type}</span>
+                  </div>
+                  <div style="display: flex; gap: 10px; font-size: 9px;">
+                    <div style="flex: 1;">
+                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Visão Geral</span>
+                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                        ${room.visaoGeral || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                      </div>
+                    </div>
+                    <div style="flex: 1;">
+                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Comentários</span>
+                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                        ${room.comentarios || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Footer indicator -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Código: ${vistoria.codigo}</span>
+              <span>Página 1 de 3</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 2 -->
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <!-- Background Frame -->
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
+            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
+          </div>
+          <!-- Content -->
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 6px; margin-bottom: 12px;">
+              <span style="font-size: 9px; color: #888; font-weight: bold; text-transform: uppercase;">Laudo de Vistoria Técnica</span>
+              <span style="font-size: 9px; color: #888; font-weight: bold;">Código: ${vistoria.codigo}</span>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px; margin-top: 0;">Estado dos Ambientes (Continuação)</h2>
+              ${roomsP2.length > 0 ? roomsP2.map((room: any) => `
+                <div style="background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px; padding: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px;">
+                    <strong style="font-size: 10px; color: #280003;">${room.name}</strong>
+                    <span style="font-size: 8px; background-color: #EEEEF3; padding: 1px 3px; border-radius: 2px; font-weight: 600; color: #555;">${room.type}</span>
+                  </div>
+                  <div style="display: flex; gap: 10px; font-size: 9px;">
+                    <div style="flex: 1;">
+                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Visão Geral</span>
+                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                        ${room.visaoGeral || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                      </div>
+                    </div>
+                    <div style="flex: 1;">
+                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Comentários</span>
+                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                        ${room.comentarios || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `).join('') : '<p style="font-size: 10px; color: #777; font-style: italic;">Nenhum cômodo adicional.</p>'}
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Código: ${vistoria.codigo}</span>
+              <span>Página 2 de 3</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 3 -->
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <!-- Background Frame -->
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
+            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
+          </div>
+          <!-- Content -->
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 6px; margin-bottom: 12px;">
+              <span style="font-size: 9px; color: #888; font-weight: bold; text-transform: uppercase;">Laudo de Vistoria Técnica</span>
+              <span style="font-size: 9px; color: #888; font-weight: bold;">Código: ${vistoria.codigo}</span>
+            </div>
+
+            <!-- Rooms P3 if any -->
+            ${roomsP3.length > 0 ? `
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                ${roomsP3.map((room: any) => `
+                  <div style="background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px; padding: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px;">
+                      <strong style="font-size: 10px; color: #280003;">${room.name}</strong>
+                      <span style="font-size: 8px; background-color: #EEEEF3; padding: 1px 3px; border-radius: 2px; font-weight: 600; color: #555;">${room.type}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; font-size: 9px;">
+                      <div style="flex: 1;">
+                        <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Visão Geral</span>
+                        <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                          ${room.visaoGeral || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                        </div>
+                      </div>
+                      <div style="flex: 1;">
+                        <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Comentários</span>
+                        <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
+                          ${room.comentarios || '<span style="color: #999; font-style: italic;">Não informado</span>'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <!-- Termos Gerais -->
+            ${infoGeralItems.length > 0 ? `
+              <div style="margin-bottom: 15px;">
+                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Termos e Condições Gerais</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8px; line-height: 1.3;">
+                  ${infoGeralItems.map((item: any) => `
+                    <div style="padding: 5px; background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px;">
+                      <strong style="display: block; color: #004777; text-transform: uppercase; font-size: 7px; margin-bottom: 1px;">${item.titulo}</strong>
+                      <p style="margin: 0; color: #333;">${item.conteudo}</p>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Assinaturas (Removido Inquilino conforme feedback) -->
+            <div style="margin-top: auto; border-top: 1px solid #EEEEF3; padding-top: 12px;">
+              <div style="display: flex; justify-content: space-around; gap: 32px; font-size: 9px;">
+                <div style="flex: 1; max-width: 250px; text-align: center;">
+                  <div style="border-top: 1px solid #999; margin-top: 40px; padding-top: 4px;">
+                    <strong style="color: #280003; display: block;">${vistoria.proprietario}</strong>
+                    <span style="color: #666; font-size: 8px; text-transform: uppercase;">Proprietário</span>
+                  </div>
+                </div>
+                <div style="flex: 1; max-width: 250px; text-align: center;">
+                  <div style="border-top: 1px solid #999; margin-top: 40px; padding-top: 4px;">
+                    <strong style="color: #280003; display: block;">${vistoria.vistoriador}</strong>
+                    <span style="color: #666; font-size: 8px; text-transform: uppercase;">Vistoriador Responsável</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: 10px; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Código: ${vistoria.codigo}</span>
+              <span>Página 3 de 3</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const wrapper = document.createElement("div");
+      wrapper.style.height = "0";
+      wrapper.style.overflow = "hidden";
+      wrapper.style.position = "fixed";
+      wrapper.style.top = "0";
+      wrapper.style.left = "0";
+      wrapper.style.zIndex = "-9999";
+      wrapper.appendChild(tempDiv);
+      document.body.appendChild(wrapper);
+
+      // Wait for all images inside tempDiv to load
+      const images = tempDiv.getElementsByTagName("img");
+      const promises = Array.from(images).map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      });
+      await Promise.all(promises);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const opt = {
+        margin: 0,
+        filename: `Relatorio_Vistoria_${vistoria.codigo}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+      };
+
+      await html2pdf().from(tempDiv).set(opt).save();
+      document.body.removeChild(wrapper);
+    } catch (error) {
+      console.error("Erro ao gerar relatório em PDF:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-[#EEEEF3] p-6 sm:p-8 flex flex-col gap-6 relative overflow-hidden transition-all duration-300">
       {/* Visual Accent */}
@@ -60,7 +397,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
         <div>
           <span
             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
-              statusBadgeClasses[vistoria.status]
+              statusBadgeClasses[vistoria.status] || "bg-slate-100 text-slate-700 border-slate-200"
             }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-current mr-2 animate-pulse" />
@@ -153,12 +490,6 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
               <span>{vistoria.endereco}</span>
             </span>
           </div>
-          <div className="md:col-span-3">
-            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              Locatário / Inquilino
-            </span>
-            <span className="text-sm font-bold text-[#280003]">{vistoria.inquilino}</span>
-          </div>
         </div>
       </div>
 
@@ -166,10 +497,26 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
 
       {/* Footer Actions */}
       <div className="flex flex-col sm:flex-row items-center justify-end gap-3 mt-2">
-        <button className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-[#EEEEF3] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-          <Eye className="w-4 h-4" />
-          <span>Ver Fotos</span>
-        </button>
+        {["concluida", "contestada", "aguardando_aprovacao"].includes(vistoria.status) && (
+          <button
+            onClick={handleGeneratePDF}
+            disabled={isGenerating}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-[#EEEEF3] text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-[#004777]" />
+                <span>Gerando PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 text-[#004777]" />
+                <span>Gerar PDF</span>
+              </>
+            )}
+          </button>
+        )}
+
         <button
           onClick={() => onViewFullReport?.(vistoria.id)}
           className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-[#004777] text-white text-sm font-semibold hover:bg-[#00365a] shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 group"

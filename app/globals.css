@@ -26,6 +26,12 @@
     color: black !important;
   }
   
+  /* Garante cores 100% vibrantes e exatas em imagens, fundos e vetores ao imprimir */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
   .page-break-inside-avoid {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

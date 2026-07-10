@@ -59,7 +59,7 @@ export async function createVistoria(input: CreateVistoriaInput) {
             const vistoria = await tx.vistoria.create({
                 data: {
                     data: new Date(input.data),
-                    tipoVistoria: input.tipoVistoria,
+                    tipo: input.tipoVistoria,
                     tipoImovelVistoriado: input.tipoImovelVistoriado,
                     status: VistoriaStatus.NAO_INICIADA, // Todo fluxo novo se inicia neste status
                     observacoes: input.observacoes || "",
@@ -138,4 +138,82 @@ export async function createVistoria(input: CreateVistoriaInput) {
     }
 }
 
+export const getCompleteContratoLocacao = async (id: string) => {
+    const contrato = await prisma.contratoImovelLocacao.findUnique({
+        where: { id },
+        include: {
+            imovel: {
+                include: {
+                    imovelLocacaos: {
+                        include: {
+                            locadors: true,
+                        },
+                    },
+                    vistorias: {
+                        include: {
+                            vistoriador: true,
+                            operador: true,
+                        },
+                        orderBy: {
+                            data: "desc",
+                        },
+                    },
+                },
+            },
+            locatarios: true,
+            fiadors: true,
+            transacaoFinanceiras: {
+                orderBy: {
+                    dataVencimento: "asc",
+                },
+            },
+        },
+    });
+    return contrato;
+};
 
+export const getContratosLocacao = async () => {
+    try {
+        const contratos = await prisma.contratoImovelLocacao.findMany({
+            include: {
+                imovel: {
+                    include: {
+                        imovelLocacaos: {
+                            include: {
+                                locadors: true
+                            }
+                        }
+                    },
+                },
+                locatarios: true,
+                fiadors: true,
+
+
+            },
+            orderBy: {
+                id: "desc",
+            },
+        });
+        return { success: true, data: contratos };
+    } catch (error: any) {
+        console.error("Erro ao carregar contratos:", error);
+        return { success: false, error: error.message || "Erro ao carregar contratos." };
+    }
+};
+
+export const getCobrancas = async () => {
+    try {
+        const cobrancas = await prisma.transacaoFinanceira.findMany({
+            where: {
+                tipo: "RECEITA",
+            },
+            include: {
+                contrato: true
+            }
+        });
+        return { success: true, data: cobrancas };
+    } catch (error: any) {
+        console.error("Erro ao carregar cobranças:", error);
+        return { success: false, error: error.message || "Erro ao carregar cobranças." };
+    }
+};

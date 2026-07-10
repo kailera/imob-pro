@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import PaymentsFilterBar from "@/components/PaymentsFilterBar";
 import PaymentsTable, { PaymentData } from "@/components/PaymentsTable";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Pagamentos e Emissão de NF-e | Imob Pro",
@@ -69,7 +70,61 @@ const mockedPayments: PaymentData[] = [
   }
 ];
 
-export default function PagamentosPage() {
+async function getPayments(): Promise<PaymentData[]> {
+  try {
+    let dbPayments = await prisma.transacaoFinanceira.findMany({
+      where: { categoria: "REPASSE" },
+      orderBy: { dataVencimento: "desc" },
+    });
+
+    if (dbPayments.length === 0) {
+      const seeded: any[] = [];
+      for (const item of mockedPayments) {
+        const date = new Date(2026, 5, 20);
+        const created = await prisma.transacaoFinanceira.create({
+          data: {
+            descricao: `Repasse - ${item.ownerName} (${item.propertyRef})`,
+            valor: item.netValue,
+            tipo: "DESPESA",
+            categoria: "REPASSE",
+            status: item.paymentStatus === "Pago" ? "LIQUIDADO" : "PENDENTE",
+            dataVencimento: date,
+            dataPagamento: item.paymentStatus === "Pago" ? date : null,
+          }
+        });
+        seeded.push(created);
+      }
+      dbPayments = seeded;
+    }
+
+    return dbPayments.map(tx => {
+      const isPaid = tx.status === "LIQUIDADO";
+      const match = tx.descricao.match(/Repasse - (.*?) \((.*?)\)/);
+      const ownerName = match ? match[1] : tx.descricao.replace("Repasse - ", "");
+      const propertyRef = match ? match[2] : "Imóvel Geral";
+
+      return {
+        id: tx.id,
+        ownerName,
+        ownerCpf: "***.***.***-**",
+        propertyRef,
+        competence: "Junho/2026",
+        grossValue: tx.valor / 0.9,
+        admFeeString: "10% (R$ " + (tx.valor * 0.1).toFixed(2) + ")",
+        netValue: tx.valor,
+        paymentStatus: isPaid ? "Pago" : "Pendente",
+        nfeStatus: isPaid ? "Emitida" : "Aguardando",
+      };
+    });
+  } catch (err) {
+    console.error("Erro ao carregar pagamentos do banco:", err);
+    return mockedPayments;
+  }
+}
+
+export default async function PagamentosPage() {
+  const payments = await getPayments();
+
   return (
     <div className="flex-1 bg-[#EEEEF3] p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -88,7 +143,7 @@ export default function PagamentosPage() {
         <PaymentsFilterBar />
 
         {/* Tabela de Pagamentos */}
-        <PaymentsTable payments={mockedPayments} />
+        <PaymentsTable payments={payments} />
 
       </div>
     </div>

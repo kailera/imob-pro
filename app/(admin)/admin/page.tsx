@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardCheck, Building, Key, Users, ArrowRight } from "lucide-react";
+import { ClipboardCheck, Building, Key, Users, ArrowRight, Scale } from "lucide-react";
 
 export default function AdminDashboard() {
   const cards = [
@@ -30,6 +30,13 @@ export default function AdminDashboard() {
       href: "/clientes",
       icon: Users,
       color: "text-purple-600 bg-purple-50 border-purple-100",
+    },
+    {
+      title: "Jurídico",
+      description: "Emita notas fiscais, gerencie assinaturas digitais de contratos e renegocie dívidas em atraso.",
+      href: "/juridico",
+      icon: Scale,
+      color: "text-amber-700 bg-amber-50 border-amber-100",
     },
   ];
 

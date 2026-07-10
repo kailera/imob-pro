@@ -1,13 +1,17 @@
 "use server";
 
 import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+
+const googleProvider = createGoogleGenerativeAI({
+  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY,
+});
 
 export async function processAudioComment(formData: FormData): Promise<string> {
   const audioFile = formData.get("audio") as File;
   const roomName = formData.get("roomName") as string | null;
   const roomType = formData.get("roomType") as string | null;
-  
+
   if (!audioFile) {
     throw new Error("Nenhum áudio fornecido");
   }
@@ -16,7 +20,7 @@ export async function processAudioComment(formData: FormData): Promise<string> {
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const roomContextText = roomName && roomType 
+    const roomContextText = roomName && roomType
       ? `O áudio descreve o cômodo: "${roomName}" (Tipo: ${roomType}).`
       : "O áudio descreve um cômodo ou área geral do imóvel.";
 
@@ -34,7 +38,7 @@ Instruções fundamentais:
    - "não liga / queimado" -> "Ponto de iluminação/tomada inoperante."
    - "tá meio solta / chacoalhando" -> "Instabilidade na fixação / apresenta folga."
    - "porta tá pegando / ruim de abrir / raspando" -> "Atrito ou resistência na folha da esquadria durante a abertura/fechamento."
-   - "parece infiltração / mancha de água" -> Indícios de infiltração ou umidade ascendente."
+   - "parece infiltração / mancha de água" -> "Indícios de infiltração ou umidade ascendente."
    - "está tudo certo / perfeito" -> "Em perfeito estado de conservação, limpeza e funcionamento."
 3. Foque estritamente em relatar o estado físico do ambiente, paredes, piso, teto, janelas, portas, tomadas e interruptores mencionados no áudio.
 4. Mantenha a descrição concisa, profissional e direta ao ponto. Se o usuário apontar múltiplos problemas, organize-os em tópicos claros ou frases bem pontuadas.
@@ -43,7 +47,7 @@ Instruções fundamentais:
     // O usuário solicitou "gemini-3.1-flash". Como a API do Google SDK atualmente mapeia para a família 1.5,
     // usamos o alias gemini-1.5-flash (que é a versão mais recente e rápida equivalente ao pedido).
     const { text } = await generateText({
-      model: google('gemini-1.5-flash'),
+      model: googleProvider('gemini-3.1-flash-lite'),
       messages: [
         {
           role: 'user',
@@ -55,7 +59,7 @@ Instruções fundamentais:
             {
               type: 'file',
               data: buffer,
-              mimeType: audioFile.type || 'audio/webm',
+              mediaType: audioFile.type || 'audio/webm',
             } as any
           ]
         }

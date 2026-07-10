@@ -32,18 +32,27 @@ export function renderFilledTemplate(text: string, values: Record<string, string
   if (!text) return null;
   const parts = text.split(/(\{\{[A-Z0-9_]+\}\})/g);
   return (
-    <div className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-justify text-[#280003]">
+    <div className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-left text-[#280003]">
       {parts.map((part, index) => {
         if (part.startsWith('{{') && part.endsWith('}}')) {
           const keyName = part.slice(2, -2);
-          const val = values[keyName] || part;
+          const val = values[keyName];
+          
+          if (val && val.trim() !== '') {
+            return (
+              <strong key={index} className="text-[#004777] font-bold">
+                {val}
+              </strong>
+            );
+          }
+          
           return (
             <span
               key={index}
-              className="inline-flex items-center px-1.5 py-0.5 mx-0.5 bg-[#708D81]/15 text-[#708D81] font-semibold rounded text-[13.5px] border border-[#708D81]/30 transition-all cursor-default align-baseline"
-              title={`Dado preenchido: ${keyName}`}
+              className="text-[#966b1d] font-mono font-semibold border-b border-dashed border-[#966b1d] px-0.5"
+              title={`Aguardando preenchimento: ${keyName}`}
             >
-              {val}
+              {part}
             </span>
           );
         }

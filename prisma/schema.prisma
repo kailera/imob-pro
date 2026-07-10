@@ -12,13 +12,15 @@ datasource db {
   provider = "postgresql"
 }
 
-// gerenciamento de usuários
-
+//*************************************************************
+// --------------- GERENCIAMENTO DE USUÁRIOS-------------------
+//*************************************************************
 model Imob {
-  id      String   @id @default(uuid())
-  orgId   String
-  users   Users[]
-  imovels Imovel[]
+  id                     String                  @id @default(uuid())
+  orgId                  String
+  users                  Users[]
+  imovels                Imovel[]
+  contratoImovelLocacaos ContratoImovelLocacao[]
 
   @@map("imob")
 }
@@ -31,9 +33,11 @@ model Users {
   role      UsersRole
 
   imobId               String
-  imob                 Imob       @relation(fields: [imobId], references: [id], onDelete: Cascade)
-  operadorVistorias    Vistoria[] @relation(name: "VistoriaOperador")
-  vistoriadorVistorias Vistoria[] @relation(name: "VistoriaVistoriador")
+  imob                 Imob                  @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  operadorVistorias    Vistoria[]            @relation(name: "VistoriaOperador")
+  vistoriadorVistorias Vistoria[]            @relation(name: "VistoriaVistoriador")
+  transacoes           TransacaoFinanceira[]
+  comissoes            Comissao[]
 
   @@map("users")
 }
@@ -44,41 +48,56 @@ enum UsersRole {
   ADMIN
 }
 
-// gerencia de imóveis
+//*************************************************************
+// --------------- GERENCIAMENTO DE IMÓVEIS--------------------
+//*************************************************************
 
 model Imovel {
-  id              String @id @default(uuid())
-  codigo          String @unique
+  id              String     @id @default(uuid())
+  codigo          String     @unique
   numero          Int
   bairro          String
   cidade          String
   uf              String
   cep             Int
   tipo            TipoImovel @default(CASA)
-  forVenda        Boolean @default(false)
-  forLocacao      Boolean @default(false)
+  forVenda        Boolean    @default(false)
+  forLocacao      Boolean    @default(false)
   valorAluguel    Int?
   valorCondominio Int?
   valorIPTU       Int?
   valorVenda      Int?
   valorTotal      Int?
-  area            Int @default(0)
+  area            Int        @default(0)
 
-  loteamentoId    String?
-  loteamento      Loteamento?     @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
-  quadra          String?
-  loteNumero      String?
-  topografia      String?
-  statusLote      StatusLote?     @default(DISPONIVEL)
+  titulo    String   @default("")
+  descricao String?  @db.Text
+  imagens   String[] @default([])
+  quartos   Int?     @default(0)
+  banheiros Int?     @default(0)
+  vagas     Int?     @default(0)
 
-  imobId         String
-  imob           Imob            @relation(fields: [imobId], references: [id], onDelete: Cascade)
-  imovelLocacaos ImovelLocacao[]
-  imovelVendas   ImovelVenda[]
-  vistorias      Vistoria[]
+  loteamentoId String?
+  loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
+  quadra       String?
+  loteNumero   String?
+  topografia   String?
+  statusLote   StatusLote? @default(DISPONIVEL)
+
+  imobId                 String
+  imob                   Imob                    @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  imovelLocacaos         ImovelLocacao[]
+  imovelVendas           ImovelVenda[]
+  vistorias              Vistoria[]
+  contratoImovelLocacaos ContratoImovelLocacao[]
+  transacoes             TransacaoFinanceira[]
 
   @@map("imovel")
 }
+
+//*************************************************************
+// --------------- lOCACAAO --------------------
+//*************************************************************
 
 model ImovelLocacao {
   id            String   @id @default(uuid())
@@ -89,11 +108,94 @@ model ImovelLocacao {
   hasIPTU       Boolean
   valorTotal    Float
 
-  imovelId String
-  imovel   Imovel @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+  imovelId               String
+  imovel                 Imovel                  @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+  locadors               Locador[]
+  contratoImovelLocacaos ContratoImovelLocacao[]
 
   @@map("imovel_locacao")
 }
+
+model Locador {
+  id            String @id @default(uuid())
+  nome          String
+  cpfCnpj       String
+  telefone      Json? // {objeto com telefone, qualificacao e observacao}
+  email         String
+  endereco      Json? // {objeto com cep, logradouro, numero, complemento, bairro, municipio, estado.}
+  dataNasc      String
+  rg            String
+  orgaoEmissor  String
+  estadoCivil   String
+  profissao     String
+  nacionalidade String
+  genero        String
+
+  documentoUrl    Json? // objeto com lista de urls (documentos feitos uploads com url e nome do documentos)
+  imovelLocacaoId String?
+  imovelLocacao   ImovelLocacao? @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+}
+
+model ContratoImovelLocacao {
+  id              String  @id @default(uuid())
+  imovelLocacaoId String?
+
+  imovelLocacao ImovelLocacao? @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+  imovelId      String
+  imovel        Imovel         @relation(fields: [imovelId], references: [id], onDelete: Cascade)
+
+  imobId               String
+  imob                 Imob                  @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  fiadors              Fiador[]
+  locatarios           Locatario[]
+  transacaoFinanceiras TransacaoFinanceira[]
+
+  @@map("contrato_imovel_locacao")
+}
+
+model Fiador {
+  id            String @id @default(uuid())
+  nome          String
+  cpfCnpj       String
+  telefone      Json? // {objeto com telefone, qualificacao e observacao}
+  email         String
+  endereco      Json? // {objeto com cep, logradouro, numero, complemento, bairro, municipio, estado.}
+  dataNasc      String
+  rg            String
+  orgaoEmissor  String
+  estadoCivil   String
+  profissao     String
+  nacionalidade String
+  genero        String
+
+  documentoUrl Json? // objeto com lista de urls (documentos feitos uploads com url e nome do documentos)
+  contratoId   String
+  contrato     ContratoImovelLocacao @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+}
+
+model Locatario {
+  id            String @id @default(uuid())
+  nome          String
+  cpfCnpj       String
+  telefone      Json? // {objeto com telefone, qualificacao e observacao}
+  email         String
+  endereco      Json? // {objeto com cep, logradouro, numero, complemento, bairro, municipio, estado.}
+  dataNasc      String
+  rg            String
+  orgaoEmissor  String
+  estadoCivil   String
+  profissao     String
+  nacionalidade String
+  genero        String
+
+  documentoUrl Json? // objeto com lista de urls (documentos feitos uploads com url e nome do documentos)
+  contratoId   String?
+  contrato     ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+}
+
+//*************************************************************
+// --------------- VENDAS --------------------
+//*************************************************************
 
 model ImovelVenda {
   id         String   @id @default(uuid())
@@ -105,6 +207,56 @@ model ImovelVenda {
 
   @@map("imovel_venda")
 }
+
+model Loteamento {
+  id             String   @id @default(uuid())
+  nome           String
+  slug           String   @unique
+  cidade         String
+  uf             String
+  descricao      String   @db.Text
+  imagens        Json?
+  infraestrutura Json?
+  coordenadasSvg Json?
+  lotes          Imovel[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("loteamento")
+}
+
+enum StatusLote {
+  DISPONIVEL
+  RESERVADO
+  VENDIDO
+}
+
+model Lead {
+  id            String     @id @default(uuid())
+  nome          String
+  telefone      String
+  email         String?
+  loteInfo      String? // Ex: "Quadra A - Lote 03 (253m²)"
+  valorSimulado Float?
+  status        LeadStatus @default(NOVO)
+  origem        String     @default("SITE")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("lead")
+}
+
+enum LeadStatus {
+  NOVO
+  EM_ATENDIMENTO
+  VISITA_AGENDADA
+  FECHADO
+  PERDIDO
+}
+
+//*************************************************************
+// --------------- VISTORIA --------------------
+//*************************************************************
 
 model Vistoria {
   id          String       @id @default(uuid())
@@ -126,6 +278,17 @@ model Vistoria {
   tipoImovelVistoriado TipoImovelVistoriado
   status               VistoriaStatus
   ambienteVistorias    AmbienteVistoria[]
+  comentariosVistoria  ComentarioVistoria[]
+
+  // ==========================================
+  // METADADOS DO PROPRIETÁRIO
+  // ==========================================
+  proprietario String?
+
+  // ==========================================
+  // ABA: TERMOS GERAIS (JSON)
+  // ==========================================
+  infoGeral Json?
 
   // ==========================================
   // ABA: CHAVES (Simplificado)
@@ -158,11 +321,24 @@ model Vistoria {
   // ==========================================
   // ABA: GEOLOCALIZAÇÃO (Para auditoria de presença do vistoriador)
   // ==========================================
-  latitude  Float?
-  longitude Float?
-  fotoItems FotoItem[]
+  latitude             Float?
+  longitude            Float?
+  fotoItems            FotoItem[]
+  contestacaoVistorias ContestacaoVistoria[]
 
   @@map("vistoria")
+}
+
+model ContestacaoVistoria {
+  id           String   @id @default(uuid())
+  vistoriaId   String
+  vistoria     Vistoria @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  ambienteId   String? // Opcional: Se for contestação de um cômodo específico
+  ambienteNome String?
+  descricao    String   @db.Text
+  midias       Json? // Fotos anexadas pelo inquilino
+  createdAt    DateTime @default(now())
+  resolvido    Boolean  @default(false)
 }
 
 // Enum simples para a aba Limpeza
@@ -187,8 +363,9 @@ enum TipoImovel {
 }
 
 enum TipoVistoria {
-  LOCACAO
-  VENDA
+  ENTRADA
+  SAIDA
+  PERIODICA
 }
 
 enum VistoriaStatus {
@@ -196,13 +373,17 @@ enum VistoriaStatus {
   EM_ANDAMENTO
   AGUARDANDO_APROVACAO
   CONCLUIDA
+  CONTESTADA
   CANCELADA
 }
 
 model AmbienteVistoria {
-  id    String @id @default(uuid())
-  nome  String // Ex: "Fachada", "Quintal", "Sala"
-  ordem Int    @default(0) // Permite ordenar a lista lateral
+  id          String  @id @default(uuid())
+  nome        String // Ex: "Fachada", "Quintal", "Sala"
+  tipo        String  @default("Outro") // Quarto, Sala, Cozinha, etc.
+  ordem       Int     @default(0) // Permite ordenar a lista lateral
+  visaoGeral  String? @db.Text
+  comentarios String? @db.Text
 
   vistoriaId String
   vistoria   Vistoria       @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
@@ -245,6 +426,20 @@ model ComentarioItem {
   @@map("comentario_item")
 }
 
+model ComentarioVistoria {
+  id         String   @id @default(uuid())
+  vistoriaId String
+  vistoria   Vistoria @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  roomId     String // "geral" ou o ID do AmbienteVistoria
+  roomName   String
+  texto      String   @db.Text
+  status     String // "Aprovado" ou "Atenção"
+  createdAt  DateTime @default(now())
+  midias     Json? // Lista de { url, tipo }
+
+  @@map("comentario_vistoria")
+}
+
 // 5. Fotos específicas por Item do Ambiente
 model FotoItem {
   id        String   @id @default(uuid())
@@ -279,48 +474,124 @@ enum TipoMidia {
   VIDEO
 }
 
-model Loteamento {
-  id             String   @id @default(uuid())
-  nome           String
-  slug           String   @unique
-  cidade         String
-  uf             String
-  descricao      String   @db.Text
-  imagens        String[]
-  infraestrutura Json?
-  coordenadasSvg Json?
-  lotes          Imovel[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model ContractTemplate {
+  id        String   @id @default(uuid())
+  name      String
+  type      String // 'LOCACAO' | 'VENDA' | 'LIMPEZA' | 'PROPOSTA'
+  fileName  String // Nome do arquivo gerado em public/templates-docx/[uuid].docx
+  content   String   @db.Text // Texto simples extraído do docx para pré-visualização
+  variables String[] @default([]) // Array de variáveis detectadas ex: ["nome_inquilino", "cpf"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("loteamento")
+  @@map("contract_template")
 }
 
-enum StatusLote {
-  DISPONIVEL
-  RESERVADO
-  VENDIDO
+//*************************************************************
+// --------------- FINANCEIRO --------------------
+//*************************************************************
+
+enum TipoTransacao {
+  RECEITA
+  DESPESA
 }
 
-model Lead {
-  id            String     @id @default(uuid())
-  nome          String
-  telefone      String
-  email         String?
-  loteInfo      String?    // Ex: "Quadra A - Lote 03 (253m²)"
-  valorSimulado Float?
-  status        LeadStatus @default(NOVO)
-  origem        String     @default("SITE")
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  @@map("lead")
+enum CategoriaTransacao {
+  ALUGUEL
+  REPASSE
+  TAXA_ADM
+  COMISSAO
+  CUSTO_OPERACIONAL
+  OUTRO
 }
 
-enum LeadStatus {
-  NOVO
-  EM_ATENDIMENTO
-  VISITA_AGENDADA
-  FECHADO
-  PERDIDO
+enum StatusTransacao {
+  PENDENTE
+  LIQUIDADO
+  CANCELADO
+}
+
+model TransacaoFinanceira {
+  id             String             @id @default(uuid())
+  descricao      String
+  valor          Float
+  tipo           TipoTransacao
+  categoria      CategoriaTransacao
+  status         StatusTransacao    @default(PENDENTE)
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  // Relacionamentos opcionais
+  imovelId   String?
+  imovel     Imovel?                @relation(fields: [imovelId], references: [id], onDelete: SetNull)
+  usuarioId  String?
+  usuario    Users?                 @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  contratoId String?
+  contrato   ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+
+  // Vínculos
+  comissao     Comissao[]
+  conciliacoes MovimentacaoBancaria[]
+
+  @@map("transacao_financeira")
+}
+
+enum TipoNegocioComissao {
+  VENDA
+  LOCACAO
+}
+
+enum StatusComissao {
+  PENDENTE
+  PAGO
+}
+
+model Comissao {
+  id                String              @id @default(uuid())
+  usuarioId         String
+  usuario           Users               @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  valorBrutoNegocio Float
+  percentual        Float
+  valorComissao     Float
+  tipoNegocio       TipoNegocioComissao
+  referenciaId      String? // ID do Imovel ou Contrato
+  dataVencimento    DateTime
+  status            StatusComissao      @default(PENDENTE)
+  dataPagamento     DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  transacaoId String?
+  transacao   TransacaoFinanceira? @relation(fields: [transacaoId], references: [id], onDelete: SetNull)
+
+  @@map("comissao")
+}
+
+enum StatusMovimentacaoBancaria {
+  PENDENTE
+  CONCILIADO
+}
+
+enum TipoMovimentacaoBancaria {
+  CREDITO
+  DEBITO
+}
+
+model MovimentacaoBancaria {
+  id        String                     @id @default(uuid())
+  data      DateTime
+  descricao String
+  valor     Float
+  tipo      TipoMovimentacaoBancaria
+  fitid     String?                    @unique // Identificador único da transação bancária (evitar duplicados)
+  status    StatusMovimentacaoBancaria @default(PENDENTE)
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+
+  transacaoId String?
+  transacao   TransacaoFinanceira? @relation(fields: [transacaoId], references: [id], onDelete: SetNull)
+
+  @@map("movimentacao_bancaria")
 }

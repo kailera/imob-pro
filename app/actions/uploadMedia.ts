@@ -1,6 +1,6 @@
 "use server";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
 import { s3Client, bucketName } from "@/lib/storage";
 
 export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: string; type: "image" | "video" }> {
@@ -29,21 +29,39 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     return { url, type };
   }
 
-  try {
-    const uploadParams = {
-      Bucket: bucketName,
-      Key: key,
-      Body: buffer,
-      ContentType: file.type,
-    };
+  const uploadParams = {
+    Bucket: bucketName,
+    Key: key,
+    Body: buffer,
+    ContentType: file.type,
+  };
 
+  try {
+    // Tenta fazer o upload do objeto
     await s3Client.send(new PutObjectCommand(uploadParams));
 
     const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
     const url = `${endpoint}/${bucketName}/${key}`;
 
     return { url, type };
-  } catch (error) {
+  } catch (error: any) {
+    // Se o erro for de bucket inexistente (NoSuchBucket), tenta criar e reenviar
+    if (error.name === "NoSuchBucket") {
+      console.log(`Bucket '${bucketName}' não encontrado no RustFS. Tentando criá-lo automaticamente...`);
+      try {
+        await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
+        // Tenta enviar o objeto novamente
+        await s3Client.send(new PutObjectCommand(uploadParams));
+        
+        const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+        const url = `${endpoint}/${bucketName}/${key}`;
+        
+        return { url, type };
+      } catch (createError) {
+        console.error("Falha ao criar o bucket automaticamente no RustFS:", createError);
+      }
+    }
+
     console.error("Erro no upload para o RustFS:", error);
     // Caso ocorra um erro de rede/conexão na demo, fazemos o fallback resiliente para Data URL
     console.warn("Fallback automático para Data URL para manter a demo funcionando.");
@@ -52,3 +70,4 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     return { url, type };
   }
 }
+

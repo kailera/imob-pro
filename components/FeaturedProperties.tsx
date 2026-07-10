@@ -90,10 +90,14 @@ const MOCK_PROPERTIES: Property[] = [
   },
 ];
 
-export function FeaturedProperties() {
+interface FeaturedPropertiesProps {
+  properties: Property[];
+}
+
+export function FeaturedProperties({ properties = [] }: FeaturedPropertiesProps) {
   const [filter, setFilter] = useState<"todos" | "venda" | "locacao">("todos");
 
-  const filteredProperties = MOCK_PROPERTIES.filter(
+  const filteredProperties = properties.filter(
     (p) => filter === "todos" || p.operation === filter
   );
 
