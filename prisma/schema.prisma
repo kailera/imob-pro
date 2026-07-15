@@ -117,16 +117,16 @@ model Imovel {
 
 //*************************************************************
 model ImovelLocacao {
-  id                     String   @id @default(uuid())
-  dataInicio             DateTime
-  valorAluguel           Float?
-  dataFim                DateTime
-  hasCondominio          Boolean
-  hasIPTU                Boolean
-  valorTotal             Float
-  
+  id            String   @id @default(uuid())
+  dataInicio    DateTime
+  valorAluguel  Float?
+  dataFim       DateTime
+  hasCondominio Boolean
+  hasIPTU       Boolean
+  valorTotal    Float
+
   // Relação com múltiplos períodos vigentes e históricos
-  periodos               PeriodoContratoLocacao[]
+  periodos PeriodoContratoLocacao[]
 
   // --- REAJUSTE ---
   proximoReajuste       DateTime?
@@ -157,31 +157,31 @@ model ImovelLocacao {
 }
 
 model PeriodoContratoLocacao {
-  id                    String        @id @default(uuid())
-  imovelLocacaoId       String
-  imovelLocacao         ImovelLocacao @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  imovelLocacaoId String
+  imovelLocacao   ImovelLocacao @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
 
-  dataInicio            DateTime
-  dataFim               DateTime      // Fim do período (ex: De 27/08/2024 a 26/08/2025)
+  dataInicio DateTime
+  dataFim    DateTime // Fim do período (ex: De 27/08/2024 a 26/08/2025)
 
-  valorAluguel          Float
-  hasCondominio         Boolean       @default(false)
-  valorCondominio       Float?
-  hasIPTU               Boolean       @default(false)
-  valorIPTU             Float?
-  valorTotal            Float
+  valorAluguel    Float
+  hasCondominio   Boolean @default(false)
+  valorCondominio Float?
+  hasIPTU         Boolean @default(false)
+  valorIPTU       Float?
+  valorTotal      Float
 
-  descontoPontualidade  Float?
-  tipoDesconto          String?       // "PERCENTUAL" ou "VALOR"
-  diasAntecedenciaDesc  Int?
+  descontoPontualidade Float?
+  tipoDesconto         String? // "PERCENTUAL" ou "VALOR"
+  diasAntecedenciaDesc Int?
 
   multaAtrasoPercentual Float?
   diasCarenciaMulta     Int?
   jurosAtrasoPercentual Float?
   diasCarenciaJuros     Int?
 
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("periodo_contrato_locacao")
 }
