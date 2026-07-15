@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { MapSearchContainer } from "@/components/public/MapSearchContainer";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Buscar Imóveis | Scatolin Imóveis",
   description: "Encontre imóveis no mapa e veja as melhores oportunidades de compra e aluguel.",

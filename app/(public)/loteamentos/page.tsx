@@ -4,6 +4,8 @@ import { LotInfo } from "@/components/loteamentos/SubdivisionMap";
 import { Compass, ShieldCheck, Map, Trees, Award, Building, CheckCircle, MapPin, Calendar, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Loteamento Village Parra | Ilha Solteira - SP",
   description: "Terrenos a partir de 253 m² ao lado do Residencial Portal do Sol e em frente ao Beach Tennis. Condições facilitadas de pagamento com parcelas em até 180x a partir de R$ 530,00 direto com a construtora.",

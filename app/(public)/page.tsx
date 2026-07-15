@@ -4,6 +4,8 @@ import { ShieldCheck, Sparkles, Zap, Star, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Scatolin Imóveis | Encontre seu Lar Perfeito",
   description: "Vitrine digital de imóveis exclusivos para venda e locação com a maior segurança jurídica e transparência.",
