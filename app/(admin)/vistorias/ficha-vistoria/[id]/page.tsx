@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit3, Map, Grid2X2, Save, FileText, Loader2 } from "lucide-react";
-import { RoomBuilderForm } from "@/components/ficha-vistoria/RoomBuilderForm";
-import { FloorPlanVisualizer, Room, RoomType } from "@/components/ficha-vistoria/FloorPlanVisualizer";
-import { DetailSections } from "@/components/ficha-vistoria/DetailSections";
-import { InspectionEditorPanel } from "@/components/ficha-vistoria/InspectionEditorPanel";
-import { CommentData } from "@/components/ficha-vistoria/CommentsTimeline";
-import ConnectionStatus from "@/components/ConnectionStatus";
-import { getVistoriaById, updateVistoria, addVistoriaComment } from "@/app/(admin)/vistorias/actions";
-import { BottomNavigationMobile } from "@/components/ficha-vistoria/BottomNavigationMobile";
+import { ArrowLeft, Edit3, Map, Grid2X2, Save, FileText, Loader2, Share2, Copy, Check } from "lucide-react";
+import { RoomBuilderForm } from "@/components/vistorias/ficha-vistoria/RoomBuilderForm";
+import { FloorPlanVisualizer, Room, RoomType } from "@/components/vistorias/ficha-vistoria/FloorPlanVisualizer";
+import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSections";
+import { InspectionEditorPanel } from "@/components/vistorias/ficha-vistoria/InspectionEditorPanel";
+import { CommentData } from "@/components/vistorias/ficha-vistoria/CommentsTimeline";
+import ConnectionStatus from "@/components/shared/ConnectionStatus";
+import { getVistoriaById, updateVistoria, addVistoriaComment, generateTokenAcesso, resolveContestacao } from "@/app/(admin)/vistorias/actions";
+import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 
 interface InfoGeralItem {
@@ -51,7 +51,7 @@ export default function FichaVistoriaPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'form' | 'planta'>('planta');
   const [activeMobileTab, setActiveMobileTab] = useState<'planta' | 'ambientes' | 'relatorio'>('planta');
-  const [activeEditorTab, setActiveEditorTab] = useState<'comments' | 'report'>('comments');
+  const [activeEditorTab, setActiveEditorTab] = useState<'comments' | 'report' | 'contestations'>('comments');
 
   const handleMobileTabChange = (tab: 'planta' | 'ambientes' | 'relatorio') => {
     setActiveMobileTab(tab);
@@ -69,6 +69,11 @@ export default function FichaVistoriaPage() {
   const [proprietario, setProprietario] = useState<string>("");
   const [vistoriador, setVistoriador] = useState<string>("");
   const [assinatura, setAssinatura] = useState<string | null>(null);
+  const [tokenAcesso, setTokenAcesso] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [contestations, setContestations] = useState<any[]>([]);
 
   // Load from database on mount
   useEffect(() => {
@@ -169,6 +174,8 @@ export default function FichaVistoriaPage() {
         setVistoriaStatus(dbData.status || "");
         setProprietario(dbData.proprietario || "Proprietário");
         setAssinatura(dbData.assinatura || null);
+        setTokenAcesso(dbData.tokenAcesso || null);
+        setContestations(dbData.contestacaoVistorias || []);
         
         if (dbData.vistoriador) {
           setVistoriador(`${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}`);
@@ -184,6 +191,48 @@ export default function FichaVistoriaPage() {
 
     loadVistoria();
   }, [vistoriaId]);
+
+  const handleOpenShare = async () => {
+    setIsShareModalOpen(true);
+    if (!tokenAcesso) {
+      setIsGeneratingToken(true);
+      try {
+        const res = await generateTokenAcesso(vistoriaId);
+        if (res.success && res.tokenAcesso) {
+          setTokenAcesso(res.tokenAcesso);
+        } else {
+          alert("Não foi possível gerar o link de acesso. Verifique sua conexão.");
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsGeneratingToken(false);
+      }
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!tokenAcesso) return;
+    const url = `${window.location.origin}/public/vistorias/acesso/${tokenAcesso}`;
+    navigator.clipboard.writeText(url);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleResolveContestacao = async (contestacaoId: string, input: any) => {
+    try {
+      const res = await resolveContestacao(contestacaoId, input);
+      if (res.success && res.data) {
+        // Atualiza a lista localmente
+        setContestations(prev => prev.map(c => c.id === contestacaoId ? { ...c, ...res.data } : c));
+        alert("Contestação marcada como resolvida!");
+      } else {
+        alert(res.error || "Erro ao resolver contestação.");
+      }
+    } catch (err: any) {
+      alert("Erro de conexão ao tentar resolver contestação.");
+    }
+  };
 
   const handleAddRoom = (room: Room) => {
     setRooms(prev => [...prev, room]);
@@ -420,6 +469,14 @@ export default function FichaVistoriaPage() {
 
         <div className="flex items-center gap-3 print:hidden">
           <button
+            onClick={handleOpenShare}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] transition-all shadow-sm"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Enviar p/ Inquilino</span>
+          </button>
+
+          <button
             onClick={handleSaveDatabase}
             disabled={isSaving}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#708D81] text-white rounded-lg text-sm font-semibold hover:bg-[#5b756b] transition-all shadow-sm disabled:opacity-60"
@@ -434,7 +491,7 @@ export default function FichaVistoriaPage() {
 
           <button
             onClick={() => window.print()}
-            className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] transition-all shadow-sm"
+            className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-slate-100 border border-slate-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all shadow-sm"
           >
             <FileText className="w-4 h-4" />
             <span>Gerar PDF Oficial</span>
@@ -542,6 +599,8 @@ export default function FichaVistoriaPage() {
             onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
             activeTab={activeEditorTab}
             onTabChange={setActiveEditorTab}
+            contestations={contestations}
+            onResolveContestacao={handleResolveContestacao}
           />
         </div>
 
@@ -549,6 +608,67 @@ export default function FichaVistoriaPage() {
 
       {/* Bottom Navigation for mobile screens */}
       <BottomNavigationMobile activeTab={activeMobileTab} onChange={handleMobileTabChange} />
+
+      {/* Share Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-[#EEEEF3] flex flex-col">
+            <div className="bg-[#004777] p-5 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                <h3 className="font-bold text-base">Enviar para Inquilino</h3>
+              </div>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="text-white/80 hover:text-white transition-colors text-2xl font-light"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-4">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Copie o link abaixo e envie para o inquilino. Para acessar o laudo de vistoria com segurança, ele precisará informar seu CPF/CNPJ de cadastro.
+              </p>
+
+              {isGeneratingToken ? (
+                <div className="flex items-center justify-center py-6 gap-2 text-[#004777] text-sm font-semibold">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Gerando link seguro...</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 mt-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={typeof window !== "undefined" ? `${window.location.origin}/public/vistorias/acesso/${tokenAcesso || ""}` : ""}
+                      className="flex-1 bg-gray-50 border border-[#EEEEF3] px-3 py-2.5 rounded-lg text-xs font-mono select-all focus:outline-none"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-4 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{isCopied ? "Copiado" : "Copiar"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-[#EEEEF3]">
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(false)}
+                  className="px-4 py-2 border border-[#EEEEF3] rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

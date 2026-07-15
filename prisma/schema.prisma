@@ -17,10 +17,25 @@ datasource db {
 //*************************************************************
 model Imob {
   id                     String                  @id @default(uuid())
-  orgId                  String
+  orgId                  String                  @unique
+  razaoSocial            String?
+  nomeFantasia           String?
+  cnpj                   String?
+  telefone               String?
+  emailContato           String?
+  logoUrl                String?
+  creci                  String?
+  cep                    String?
+  logradouro             String?
+  numero                 String?
+  complemento            String?
+  bairro                 String?
+  cidade                 String?
+  uf                     String?
   users                  Users[]
   imovels                Imovel[]
   contratoImovelLocacaos ContratoImovelLocacao[]
+  configuracaoInter      ConfiguracaoInter?
 
   @@map("imob")
 }
@@ -60,6 +75,8 @@ model Imovel {
   cidade          String
   uf              String
   cep             Int
+  latitude        Float?
+  longitude       Float?
   tipo            TipoImovel @default(CASA)
   forVenda        Boolean    @default(false)
   forLocacao      Boolean    @default(false)
@@ -76,6 +93,7 @@ model Imovel {
   quartos   Int?     @default(0)
   banheiros Int?     @default(0)
   vagas     Int?     @default(0)
+  publicado Boolean  @default(false)
 
   loteamentoId String?
   loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)
@@ -83,6 +101,8 @@ model Imovel {
   loteNumero   String?
   topografia   String?
   statusLote   StatusLote? @default(DISPONIVEL)
+
+  aluguelDados Json?
 
   imobId                 String
   imob                   Imob                    @relation(fields: [imobId], references: [id], onDelete: Cascade)
@@ -96,24 +116,74 @@ model Imovel {
 }
 
 //*************************************************************
-// --------------- lOCACAAO --------------------
-//*************************************************************
-
 model ImovelLocacao {
-  id            String   @id @default(uuid())
-  dataInicio    DateTime
-  valorAluguel  Float
-  dataFim       DateTime
-  hasCondominio Boolean
-  hasIPTU       Boolean
-  valorTotal    Float
+  id                     String   @id @default(uuid())
+  dataInicio             DateTime
+  valorAluguel           Float?
+  dataFim                DateTime
+  hasCondominio          Boolean
+  hasIPTU                Boolean
+  valorTotal             Float
+  
+  // Relação com múltiplos períodos vigentes e históricos
+  periodos               PeriodoContratoLocacao[]
 
+  // --- REAJUSTE ---
+  proximoReajuste       DateTime?
+  periodicidadeReajuste Int? // Salva em meses. Ex: 12
+  indiceReajuste        String? // Ex: "IGPM", "IPCA", "INPC"
+
+  // --- QUEBRA DE CONTRATO ---
+  multaQuebraContrato Float? // Valor ou percentual (ex: 8.33)
+  tipoMultaQuebra     String? // "PERCENTUAL", "MESES" ou "VALOR"
+  vencimentoQuebra    DateTime? // "Quebra do contrato vence em"
+
+  // --- PONTUALIDADE (Mantido opcional na tabela pai) ---
+  descontoPontualidade Float? // Ex: 5.11
+  tipoDesconto         String? // "PERCENTUAL" ou "VALOR"
+  diasAntecedenciaDesc Int? // "Até quantos dias antes" (Ex: 12)
+
+  // --- MULTA E JUROS (Mantido opcional na tabela pai) ---
+  multaAtrasoPercentual  Float? // Ex: 2.00
+  diasCarenciaMulta      Int? // "Cobrar após X dias" (Ex: 1)
+  jurosAtrasoPercentual  Float? // Juros mensal pro rata (Ex: 1.00)
+  diasCarenciaJuros      Int? // "Cobrar após X dias" (Ex: 1)
   imovelId               String
   imovel                 Imovel                  @relation(fields: [imovelId], references: [id], onDelete: Cascade)
   locadors               Locador[]
   contratoImovelLocacaos ContratoImovelLocacao[]
 
   @@map("imovel_locacao")
+}
+
+model PeriodoContratoLocacao {
+  id                    String        @id @default(uuid())
+  imovelLocacaoId       String
+  imovelLocacao         ImovelLocacao @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+
+  dataInicio            DateTime
+  dataFim               DateTime      // Fim do período (ex: De 27/08/2024 a 26/08/2025)
+
+  valorAluguel          Float
+  hasCondominio         Boolean       @default(false)
+  valorCondominio       Float?
+  hasIPTU               Boolean       @default(false)
+  valorIPTU             Float?
+  valorTotal            Float
+
+  descontoPontualidade  Float?
+  tipoDesconto          String?       // "PERCENTUAL" ou "VALOR"
+  diasAntecedenciaDesc  Int?
+
+  multaAtrasoPercentual Float?
+  diasCarenciaMulta     Int?
+  jurosAtrasoPercentual Float?
+  diasCarenciaJuros     Int?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@map("periodo_contrato_locacao")
 }
 
 model Locador {
@@ -209,18 +279,19 @@ model ImovelVenda {
 }
 
 model Loteamento {
-  id             String   @id @default(uuid())
-  nome           String
-  slug           String   @unique
-  cidade         String
-  uf             String
-  descricao      String   @db.Text
-  imagens        Json?
-  infraestrutura Json?
-  coordenadasSvg Json?
-  lotes          Imovel[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(uuid())
+  nome            String
+  slug            String   @unique
+  cidade          String
+  uf              String
+  descricao       String   @db.Text
+  imagens         Json?
+  infraestrutura  Json?
+  coordenadasSvg  Json?
+  dadosCondominio Json?
+  lotes           Imovel[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("loteamento")
 }
@@ -242,6 +313,20 @@ model Lead {
   origem        String     @default("SITE")
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+
+  // Preferências de Interesse para Match de Imóveis
+  interesseTipo      TipoImovel?
+  interesseNegocio   String? // 'VENDA', 'LOCACAO' ou 'AMBOS'
+  interessePrecoMin  Float?
+  interessePrecoMax  Float?
+  interesseQuartos   Int?
+  interesseBanheiros Int?
+  interesseVagas     Int?
+  interesseBairros   String?
+
+  // Automação de E-mail
+  envioAutomatico Boolean   @default(false)
+  ultimoEnvioAuto DateTime?
 
   @@map("lead")
 }
@@ -325,20 +410,26 @@ model Vistoria {
   longitude            Float?
   fotoItems            FotoItem[]
   contestacaoVistorias ContestacaoVistoria[]
+  tokenAcesso          String?               @unique
 
   @@map("vistoria")
 }
 
 model ContestacaoVistoria {
-  id           String   @id @default(uuid())
-  vistoriaId   String
-  vistoria     Vistoria @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
-  ambienteId   String? // Opcional: Se for contestação de um cômodo específico
-  ambienteNome String?
-  descricao    String   @db.Text
-  midias       Json? // Fotos anexadas pelo inquilino
-  createdAt    DateTime @default(now())
-  resolvido    Boolean  @default(false)
+  id                  String    @id @default(uuid())
+  vistoriaId          String
+  vistoria            Vistoria  @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  ambienteId          String? // Opcional: Se for contestação de um cômodo específico
+  ambienteNome        String?
+  descricao           String    @db.Text
+  midias              Json? // Fotos anexadas pelo inquilino
+  createdAt           DateTime  @default(now())
+  resolvido           Boolean   @default(false)
+  respostaAdmin       String?   @db.Text
+  profissionalNome    String?
+  profissionalContato String?
+  comprovanteUrl      String?
+  resolvidoEm         DateTime?
 }
 
 // Enum simples para a aba Limpeza
@@ -360,6 +451,7 @@ enum TipoImovel {
   LOTE
   COMERCIAL
   RURAL
+  KITNET
 }
 
 enum TipoVistoria {
@@ -535,7 +627,29 @@ model TransacaoFinanceira {
   comissao     Comissao[]
   conciliacoes MovimentacaoBancaria[]
 
+  // Integration Fields
+  interNossoNumero String? @unique
+  interPixCode     String? // PIX Copy & Paste string
+  interBarcode     String? // Boleto Barcode
+  interPdfKey      String? // File name/key in RustFS/MinIO
+  interStatus      String? // Inter's status: APROVADO, PAGO, VENCIDO, etc.
+
   @@map("transacao_financeira")
+}
+
+model ConfiguracaoInter {
+  id           String   @id @default(uuid())
+  imobId       String   @unique
+  imob         Imob     @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  clientId     String
+  clientSecret String
+  certPem      String   @db.Text
+  keyPem       String   @db.Text
+  sandbox      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("configuracao_inter")
 }
 
 enum TipoNegocioComissao {

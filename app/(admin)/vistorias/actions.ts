@@ -2,12 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 import {
     TipoVistoria,
     VistoriaStatus,
     LimpezaStatus,
     TipoImovelVistoriado
 } from "@/generated/prisma";
+import { auth } from "@clerk/nextjs/server";
 
 // Auxiliar para gerar código sequencial de vistoria (ex: VIS-2026-001)
 async function generateVistoriaCode(): Promise<string> {
@@ -55,6 +57,9 @@ export async function getVistoriaById(id: string) {
                     orderBy: { ordem: "asc" },
                 },
                 comentariosVistoria: {
+                    orderBy: { createdAt: "desc" },
+                },
+                contestacaoVistorias: {
                     orderBy: { createdAt: "desc" },
                 },
             },
@@ -165,6 +170,13 @@ export async function updateVistoria(
     }
 ) {
     try {
+        if (input.status === VistoriaStatus.CONCLUIDA) {
+            const { orgRole } = await auth();
+            if (orgRole !== "org:admin") {
+                return { success: false, error: "Apenas corretores/administradores podem concluir vistorias." };
+            }
+        }
+
         const vistoria = await prisma.$transaction(async (tx: any) => {
             // 1. Atualizar campos principais da vistoria
             const updatedVistoria = await tx.vistoria.update({
@@ -313,4 +325,192 @@ export async function getVistoriaForContrato(imovelId: string) {
         },
     })
     return vistoria
+}
+
+export async function generateTokenAcesso(vistoriaId: string) {
+    try {
+        const vistoria = await prisma.vistoria.findUnique({
+            where: { id: vistoriaId },
+            select: { tokenAcesso: true }
+        });
+
+        if (vistoria?.tokenAcesso) {
+            return { success: true, tokenAcesso: vistoria.tokenAcesso };
+        }
+
+        const token = crypto.randomUUID();
+        await prisma.vistoria.update({
+            where: { id: vistoriaId },
+            data: { tokenAcesso: token }
+        });
+
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
+        return { success: true, tokenAcesso: token };
+    } catch (error: any) {
+        console.error("Erro ao gerar token de acesso:", error);
+        return { success: false, error: error.message || "Erro ao gerar token." };
+    }
+}
+
+export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string) {
+    try {
+        const vistoria = await prisma.vistoria.findUnique({
+            where: { tokenAcesso },
+            include: {
+                imovel: {
+                    include: {
+                        contratoImovelLocacaos: {
+                            include: {
+                                locatarios: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!vistoria) {
+            return { success: false, error: "Vistoria não encontrada." };
+        }
+
+        const cleanInput = cpfCnpj.replace(/\D/g, "");
+
+        // Se houver contratos ativos, procura por um locatário com esse CPF/CNPJ
+        const contratos = vistoria.imovel.contratoImovelLocacaos;
+        const matches = contratos.some(contrato => 
+            contrato.locatarios.some(locatario => 
+                locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
+            )
+        );
+
+        if (!matches) {
+            return { success: false, error: "Acesso não autorizado. Verifique os dados informados." };
+        }
+
+        return { success: true, vistoriaId: vistoria.id };
+    } catch (error: any) {
+        console.error("Erro ao validar acesso do inquilino:", error);
+        return { success: false, error: error.message || "Erro ao validar acesso." };
+    }
+}
+
+export async function getVistoriaByToken(tokenAcesso: string) {
+    try {
+        const vistoria = await prisma.vistoria.findUnique({
+            where: { tokenAcesso },
+            include: {
+                imovel: true,
+                ambienteVistorias: {
+                    orderBy: { ordem: "asc" },
+                },
+                contestacaoVistorias: {
+                    orderBy: { createdAt: "desc" }
+                }
+            }
+        });
+
+        if (!vistoria) {
+            return { success: false, error: "Vistoria não encontrada." };
+        }
+
+        return { success: true, data: vistoria };
+    } catch (error: any) {
+        console.error("Erro ao carregar vistoria pelo token:", error);
+        return { success: false, error: error.message || "Erro ao buscar vistoria." };
+    }
+}
+
+export async function submitContestacao(input: {
+    tokenAcesso: string;
+    ambienteId?: string;
+    ambienteNome?: string;
+    descricao: string;
+    midias?: any[];
+}) {
+    try {
+        const vistoria = await prisma.vistoria.findUnique({
+            where: { tokenAcesso: input.tokenAcesso }
+        });
+
+        if (!vistoria) {
+            return { success: false, error: "Vistoria não encontrada." };
+        }
+
+        const novaContestacao = await prisma.contestacaoVistoria.create({
+            data: {
+                vistoriaId: vistoria.id,
+                ambienteId: input.ambienteId || null,
+                ambienteNome: input.ambienteNome || null,
+                descricao: input.descricao,
+                midias: input.midias ? (input.midias as any) : undefined,
+                resolvido: false
+            }
+        });
+
+        // Atualiza status da vistoria para CONTESTADA
+        await prisma.vistoria.update({
+            where: { id: vistoria.id },
+            data: { status: "CONTESTADA" }
+        });
+
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoria.id}`);
+        return { success: true, data: novaContestacao };
+    } catch (error: any) {
+        console.error("Erro ao enviar contestação:", error);
+        return { success: false, error: error.message || "Erro ao enviar contestação." };
+    }
+}
+
+export async function resolveContestacao(
+    contestacaoId: string,
+    input: {
+        respostaAdmin?: string;
+        profissionalNome?: string;
+        profissionalContato?: string;
+        comprovanteUrl?: string;
+    }
+) {
+    try {
+        const { orgRole } = await auth();
+        if (orgRole !== "org:admin") {
+            return { success: false, error: "Apenas corretores/administradores podem resolver contestações." };
+        }
+
+        const contestacao = await prisma.contestacaoVistoria.update({
+            where: { id: contestacaoId },
+            data: {
+                resolvido: true,
+                resolvidoEm: new Date(),
+                respostaAdmin: input.respostaAdmin,
+                profissionalNome: input.profissionalNome,
+                profissionalContato: input.profissionalContato,
+                comprovanteUrl: input.comprovanteUrl
+            }
+        });
+
+        // Verifica se todas as contestações daquela vistoria foram resolvidas
+        const pendentes = await prisma.contestacaoVistoria.count({
+            where: {
+                vistoriaId: contestacao.vistoriaId,
+                resolvido: false
+            }
+        });
+
+        // Se resolveu tudo, podemos voltar o status da vistoria para CONCLUIDA (ou aguardando aprovação se fizer sentido, mas CONCLUIDA/AGUARDANDO_APROVACAO)
+        if (pendentes === 0) {
+            await prisma.vistoria.update({
+                where: { id: contestacao.vistoriaId },
+                data: { status: "CONCLUIDA" }
+            });
+        }
+
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${contestacao.vistoriaId}`);
+        return { success: true, data: contestacao };
+    } catch (error: any) {
+        console.error("Erro ao resolver contestação:", error);
+        return { success: false, error: error.message || "Erro ao resolver contestação." };
+    }
 }

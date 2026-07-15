@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { updateLeadStatus } from "@/app/actions/leadActions";
 import { LeadStatus } from "@/generated/prisma";
 import { Phone, Mail, MessageSquare, Calendar, DollarSign, MapPin, ArrowLeft, ArrowRight, Trash2, Search, Sparkles } from "lucide-react";
+import { LeadDetailsModal } from "./LeadDetailsModal";
 
 // Definição dos tipos locais compatíveis com o Prisma
 interface Lead {
@@ -34,6 +35,16 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads as Lead[]);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  const handleUpdateLead = (updatedLead: Lead) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === updatedLead.id ? updatedLead : l))
+    );
+    if (selectedLead && selectedLead.id === updatedLead.id) {
+      setSelectedLead(updatedLead);
+    }
+  };
 
   // Filtrar leads por pesquisa (nome, fone, e-mail ou lote)
   const filteredLeads = leads.filter((lead) => {
@@ -147,8 +158,12 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
 
                         {/* Nome do Lead */}
                         <div>
-                          <h4 className="font-extrabold text-sm text-brand-text group-hover:text-brand-primary transition-colors">
+                          <h4 
+                            onClick={() => setSelectedLead(lead)}
+                            className="font-extrabold text-sm text-brand-text group-hover:text-brand-primary transition-colors cursor-pointer hover:underline flex items-center gap-1.5"
+                          >
                             {lead.nome}
+                            <Sparkles className="w-3.5 h-3.5 text-brand-accent-gold opacity-0 group-hover:opacity-100 transition-opacity" />
                           </h4>
                         </div>
 
@@ -236,6 +251,14 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
         })}
 
       </div>
+
+      {selectedLead && (
+        <LeadDetailsModal
+          lead={selectedLead}
+          onClose={() => setSelectedLead(null)}
+          onUpdateLead={handleUpdateLead}
+        />
+      )}
     </div>
   );
 }

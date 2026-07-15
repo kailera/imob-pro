@@ -142,13 +142,9 @@ export const getCompleteContratoLocacao = async (id: string) => {
     const contrato = await prisma.contratoImovelLocacao.findUnique({
         where: { id },
         include: {
+            // 1. Trazemos o imóvel e apenas as vistorias dele
             imovel: {
                 include: {
-                    imovelLocacaos: {
-                        include: {
-                            locadors: true,
-                        },
-                    },
                     vistorias: {
                         include: {
                             vistoriador: true,
@@ -160,6 +156,19 @@ export const getCompleteContratoLocacao = async (id: string) => {
                     },
                 },
             },
+            // 2. NOVA ABORDAGEM: Em vez de trazer tudo pelo 'imovel', 
+            // trazemos diretamente a locação específica atrelada a este contrato
+            imovelLocacao: {
+                include: {
+                    locadors: true,
+                    periodos: {
+                        orderBy: {
+                            dataInicio: "asc",
+                        },
+                    },
+                },
+            },
+            // 3. Trazemos as outras relações normalmente
             locatarios: true,
             fiadors: true,
             transacaoFinanceiras: {
@@ -169,6 +178,7 @@ export const getCompleteContratoLocacao = async (id: string) => {
             },
         },
     });
+
     return contrato;
 };
 
@@ -180,15 +190,18 @@ export const getContratosLocacao = async () => {
                     include: {
                         imovelLocacaos: {
                             include: {
-                                locadors: true
+                                locadors: true,
+                                periodos: {
+                                    orderBy: {
+                                        dataInicio: "asc",
+                                    },
+                                },
                             }
                         }
                     },
                 },
                 locatarios: true,
                 fiadors: true,
-
-
             },
             orderBy: {
                 id: "desc",
@@ -215,5 +228,168 @@ export const getCobrancas = async () => {
     } catch (error: any) {
         console.error("Erro ao carregar cobranças:", error);
         return { success: false, error: error.message || "Erro ao carregar cobranças." };
+    }
+};
+
+// Adicionar um novo sub-período
+export const addPeriodoContratoLocacao = async (input: {
+    imovelLocacaoId: string;
+    dataInicio: string;
+    dataFim: string;
+    valorAluguel: number;
+    hasCondominio: boolean;
+    valorCondominio: number;
+    hasIPTU: boolean;
+    valorIPTU: number;
+    descontoPontualidade?: number | null;
+    tipoDesconto?: string | null;
+    diasAntecedenciaDesc?: number | null;
+    multaAtrasoPercentual?: number | null;
+    diasCarenciaMulta?: number | null;
+    jurosAtrasoPercentual?: number | null;
+    diasCarenciaJuros?: number | null;
+}) => {
+    try {
+        const dataInicioObj = new Date(input.dataInicio);
+        const dataFimObj = new Date(input.dataFim);
+
+        // Validar sobreposição de datas
+        const periodosExistentes = await prisma.periodoContratoLocacao.findMany({
+            where: { imovelLocacaoId: input.imovelLocacaoId },
+        });
+
+        for (const p of periodosExistentes) {
+            const pInicio = new Date(p.dataInicio);
+            const pFim = new Date(p.dataFim);
+
+            if (
+                (dataInicioObj >= pInicio && dataInicioObj <= pFim) ||
+                (dataFimObj >= pInicio && dataFimObj <= pFim) ||
+                (pInicio >= dataInicioObj && pInicio <= dataFimObj)
+            ) {
+                return { success: false, error: "A vigência deste período sobrepõe-se a um período existente." };
+            }
+        }
+
+        const novoPeriodo = await prisma.periodoContratoLocacao.create({
+            data: {
+                imovelLocacaoId: input.imovelLocacaoId,
+                dataInicio: dataInicioObj,
+                dataFim: dataFimObj,
+                valorAluguel: input.valorAluguel,
+                hasCondominio: input.hasCondominio,
+                valorCondominio: input.valorCondominio,
+                hasIPTU: input.hasIPTU,
+                valorIPTU: input.valorIPTU,
+                valorTotal: input.valorAluguel + input.valorCondominio + input.valorIPTU,
+                descontoPontualidade: input.descontoPontualidade,
+                tipoDesconto: input.tipoDesconto,
+                diasAntecedenciaDesc: input.diasAntecedenciaDesc,
+                multaAtrasoPercentual: input.multaAtrasoPercentual,
+                diasCarenciaMulta: input.diasCarenciaMulta,
+                jurosAtrasoPercentual: input.jurosAtrasoPercentual,
+                diasCarenciaJuros: input.diasCarenciaJuros,
+            },
+        });
+
+        revalidatePath("/locacao");
+        return { success: true, data: novoPeriodo };
+    } catch (error: any) {
+        console.error("Erro ao adicionar período:", error);
+        return { success: false, error: error.message || "Erro ao adicionar período." };
+    }
+};
+
+// Editar um período existente
+export const updatePeriodoContratoLocacao = async (id: string, input: {
+    dataInicio: string;
+    dataFim: string;
+    valorAluguel: number;
+    hasCondominio: boolean;
+    valorCondominio: number;
+    hasIPTU: boolean;
+    valorIPTU: number;
+    descontoPontualidade?: number | null;
+    tipoDesconto?: string | null;
+    diasAntecedenciaDesc?: number | null;
+    multaAtrasoPercentual?: number | null;
+    diasCarenciaMulta?: number | null;
+    jurosAtrasoPercentual?: number | null;
+    diasCarenciaJuros?: number | null;
+}) => {
+    try {
+        const dataInicioObj = new Date(input.dataInicio);
+        const dataFimObj = new Date(input.dataFim);
+
+        // Obter o período atual
+        const periodoAtual = await prisma.periodoContratoLocacao.findUnique({
+            where: { id },
+        });
+
+        if (!periodoAtual) {
+            return { success: false, error: "Período não encontrado." };
+        }
+
+        // Validar sobreposição de datas com outros períodos
+        const periodosExistentes = await prisma.periodoContratoLocacao.findMany({
+            where: { 
+                imovelLocacaoId: periodoAtual.imovelLocacaoId,
+                id: { not: id }
+            },
+        });
+
+        for (const p of periodosExistentes) {
+            const pInicio = new Date(p.dataInicio);
+            const pFim = new Date(p.dataFim);
+
+            if (
+                (dataInicioObj >= pInicio && dataInicioObj <= pFim) ||
+                (dataFimObj >= pInicio && dataFimObj <= pFim) ||
+                (pInicio >= dataInicioObj && pInicio <= dataFimObj)
+            ) {
+                return { success: false, error: "A vigência deste período sobrepõe-se a um período existente." };
+            }
+        }
+
+        const periodoAtualizado = await prisma.periodoContratoLocacao.update({
+            where: { id },
+            data: {
+                dataInicio: dataInicioObj,
+                dataFim: dataFimObj,
+                valorAluguel: input.valorAluguel,
+                hasCondominio: input.hasCondominio,
+                valorCondominio: input.valorCondominio,
+                hasIPTU: input.hasIPTU,
+                valorIPTU: input.valorIPTU,
+                valorTotal: input.valorAluguel + input.valorCondominio + input.valorIPTU,
+                descontoPontualidade: input.descontoPontualidade,
+                tipoDesconto: input.tipoDesconto,
+                diasAntecedenciaDesc: input.diasAntecedenciaDesc,
+                multaAtrasoPercentual: input.multaAtrasoPercentual,
+                diasCarenciaMulta: input.diasCarenciaMulta,
+                jurosAtrasoPercentual: input.jurosAtrasoPercentual,
+                diasCarenciaJuros: input.diasCarenciaJuros,
+            },
+        });
+
+        revalidatePath("/locacao");
+        return { success: true, data: periodoAtualizado };
+    } catch (error: any) {
+        console.error("Erro ao atualizar período:", error);
+        return { success: false, error: error.message || "Erro ao atualizar período." };
+    }
+};
+
+// Excluir um período
+export const deletePeriodoContratoLocacao = async (id: string) => {
+    try {
+        await prisma.periodoContratoLocacao.delete({
+            where: { id },
+        });
+        revalidatePath("/locacao");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erro ao excluir período:", error);
+        return { success: false, error: error.message || "Erro ao excluir período." };
     }
 };

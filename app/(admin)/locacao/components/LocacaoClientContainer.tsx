@@ -51,6 +51,33 @@ export default function LocacaoClientContainer({
         setSelectedTemplateId(templateId);
         setActiveTab('modelos'); // Joga o usuário automaticamente pra aba de modelos!
     };
+    // Extrai inquilinos, fiadores e proprietários dos contratos existentes
+    const { allLocatarios, allFiadores, allLocador } = initialContratos.reduce(
+        (acc, contrato) => {
+            if (contrato.locatarios) acc.allLocatarios.push(...contrato.locatarios);
+            if (contrato.fiadors) acc.allFiadores.push(...contrato.fiadors);
+
+            if (contrato.imovel) {
+                const locadoresDoContrato = contrato.imovel.imovelLocacaos?.flatMap((i: any) => i.locadors || []) || [];
+                acc.allLocador.push(...locadoresDoContrato);
+            }
+
+            return acc;
+        },
+        {
+            allLocatarios: [] as any[],
+            allFiadores: [] as any[],
+            allLocador: [] as any[]
+        }
+    );
+
+    const removerDuplicados = (arr: any[]) =>
+        Array.from(new Map(arr.map((item) => [item.id, item])).values());
+
+    const locatariosUnicos = removerDuplicados(allLocatarios);
+    const fiadoresUnicos = removerDuplicados(allFiadores);
+    const locadoresUnicos = removerDuplicados(allLocador);
+
     // Totais de cobrança (mantive os mocks do seu código original para não quebrar o componente)
     const cobrancasTotals = {
         registrado: 13150.50, liquidado: 6600.00, baixado: 0.00,
@@ -140,30 +167,13 @@ export default function LocacaoClientContainer({
                 />
             )}
 
-            {/* ── MODAL DE NOVO CONTRATO ── */}
-            {isAddContractModalOpen && (
-                // Temporário até extrairmos o "monstro" do modal
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white p-6 rounded-xl shadow-xl">
-                        <h2 className="text-lg font-bold mb-4 text-[#280003]">Modal de Novo Contrato</h2>
-                        <p className="text-sm text-gray-600 mb-4">Aqui entrarão os seus formulários de novo inquilino e vínculo de imóvel.</p>
-                        <button
-                            onClick={() => setIsAddContractModalOpen(false)}
-                            className="bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold"
-                        >
-                            Fechar
-                        </button>
-                    </div>
-                </div>
-            )}
-
             <NovoContratoModal
                 isOpen={isAddContractModalOpen}
                 onClose={() => setIsAddContractModalOpen(false)}
-                allLocatarios={[]} // Passe os arrays extraídos de initialContratos aqui
-                allFiadores={[]}
-                allLocador={[]}
-                templates={[]} // Você pode buscar os templates no Server ou passar via props
+                allLocatarios={locatariosUnicos}
+                allFiadores={fiadoresUnicos}
+                allLocador={locadoresUnicos}
+                templates={templates}
                 onSuccess={handleContratoGerado}
             />
         </div>

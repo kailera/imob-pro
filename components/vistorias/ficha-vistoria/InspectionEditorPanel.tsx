@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageSquarePlus, FileText, AlertTriangle, Key } from "lucide-react";
+import { MessageSquarePlus, FileText, AlertTriangle, Key, Loader2 } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
+import { useAuth } from "@clerk/nextjs";
 import { CommentForm } from "./CommentForm";
 import { CommentsTimeline, CommentData } from "./CommentsTimeline";
 
@@ -25,8 +26,10 @@ interface InspectionEditorPanelProps {
   onUpdateKeys: (quantidade: number, observacao: string) => void;
   infoGeralItems: InfoGeralItem[];
   onUpdateInfoGeralItem: (id: number, newConteudo: string) => void;
-  activeTab?: 'comments' | 'report';
-  onTabChange?: (tab: 'comments' | 'report') => void;
+  activeTab?: 'comments' | 'report' | 'contestations';
+  onTabChange?: (tab: 'comments' | 'report' | 'contestations') => void;
+  contestations?: any[];
+  onResolveContestacao?: (id: string, input: any) => Promise<void>;
 }
 
 interface InfoGeralItem {
@@ -49,9 +52,13 @@ export function InspectionEditorPanel({
   infoGeralItems,
   onUpdateInfoGeralItem,
   activeTab: controlledActiveTab,
-  onTabChange
+  onTabChange,
+  contestations = [],
+  onResolveContestacao
 }: InspectionEditorPanelProps) {
-  const [internalTab, setInternalTab] = useState<'comments' | 'report'>('comments');
+  const { orgRole } = useAuth();
+  const isAdmin = orgRole === "org:admin";
+  const [internalTab, setInternalTab] = useState<'comments' | 'report' | 'contestations'>('comments');
   const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalTab;
   const setActiveTab = onTabChange !== undefined ? onTabChange : setInternalTab;
 
@@ -59,6 +66,13 @@ export function InspectionEditorPanel({
   const [tempObs, setTempObs] = useState(reportObservation);
   const [tempChavesQtd, setTempChavesQtd] = useState(chavesQuantidade);
   const [tempChavesObs, setTempChavesObs] = useState(chavesObservacao);
+
+  // States para Formulários de Resolução de Contestação
+  const [respostas, setRespostas] = useState<Record<string, string>>({});
+  const [profissionais, setProfissionais] = useState<Record<string, string>>({});
+  const [contatos, setContatos] = useState<Record<string, string>>({});
+  const [comprovantes, setComprovantes] = useState<Record<string, string>>({});
+  const [loadingResolution, setLoadingResolution] = useState<Record<string, boolean>>({});
 
   // Sincronizar com mudanças externas
   useEffect(() => {
@@ -76,6 +90,24 @@ export function InspectionEditorPanel({
   useEffect(() => {
     setTempChavesObs(chavesObservacao);
   }, [chavesObservacao]);
+
+  const handleResolveSubmit = async (contestacaoId: string) => {
+    if (!onResolveContestacao) return;
+    setLoadingResolution(prev => ({ ...prev, [contestacaoId]: true }));
+    try {
+      await onResolveContestacao(contestacaoId, {
+        respostaAdmin: respostas[contestacaoId] || "",
+        profissionalNome: profissionais[contestacaoId] || "",
+        profissionalContato: contatos[contestacaoId] || "",
+        comprovanteUrl: comprovantes[contestacaoId] || ""
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao resolver contestação.");
+    } finally {
+      setLoadingResolution(prev => ({ ...prev, [contestacaoId]: false }));
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-[#EEEEF3] shadow-sm flex flex-col overflow-hidden h-[calc(100vh-8rem)]">
@@ -111,10 +143,19 @@ export function InspectionEditorPanel({
         >
           Relatório Geral
         </button>
+        <button
+          onClick={() => setActiveTab('contestations')}
+          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 text-center ${activeTab === 'contestations'
+            ? 'border-[#004777] text-[#004777] bg-white'
+            : 'border-transparent text-gray-500 hover:text-[#280003] hover:bg-gray-100/50'
+            }`}
+        >
+          Contestações ({contestations.filter(c => !c.resolvido).length})
+        </button>
       </div>
 
       {/* Tab Contents */}
-      {activeTab === 'comments' ? (
+      {activeTab === 'comments' && (
         <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Formulário Modularizado (Clean Code) */}
           <CommentForm rooms={rooms} onAddComment={onAddComment} onUpdateRoom={onUpdateRoom} />
@@ -122,7 +163,9 @@ export function InspectionEditorPanel({
           {/* Linha do Tempo Modularizada (Clean Code) */}
           <CommentsTimeline comments={comments} />
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'report' && (
         <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-5 bg-white">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -221,14 +264,124 @@ export function InspectionEditorPanel({
               ))}
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="bg-[#004777]/5 rounded-xl border border-[#004777]/10 p-4 mt-2">
-            <h4 className="text-xs font-bold text-[#004777] uppercase tracking-wider mb-1">
-              Sincronização em Tempo Real
-            </h4>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              O relatório geral consolida o estado de entrega do imóvel. Ao atualizar qualquer campo, a visualização à esquerda e os dados do PDF oficial serão atualizados automaticamente.
-            </p>
+      {activeTab === 'contestations' && (
+        <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-5 bg-white">
+          <div className="flex flex-col gap-4">
+            {contestations.length === 0 ? (
+              <div className="text-center text-gray-400 py-12 text-xs font-semibold">
+                Nenhuma contestação enviada pelo inquilino.
+              </div>
+            ) : (
+              contestations.map((c) => (
+                <div key={c.id} className="border border-[#EEEEF3] rounded-xl p-4 flex flex-col gap-3.5 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold uppercase">
+                      {c.ambienteNome || "Geral"}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${c.resolvido ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                      {c.resolvido ? "Resolvida" : "Pendente"}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-gray-700 font-medium">
+                    {c.descricao}
+                  </p>
+
+                  {/* Midias da contestacao */}
+                  {c.midias && Array.isArray(c.midias) && c.midias.length > 0 && (
+                    <div className="flex gap-2">
+                      {c.midias.map((m: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={m.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-[#004777] bg-slate-100 border px-2 py-1 rounded hover:bg-slate-200 font-semibold"
+                        >
+                          Ver Anexo {idx + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Form de Resolução se pendente */}
+                  {!c.resolvido ? (
+                    !isAdmin ? (
+                      <div className="border-t border-red-100 bg-red-50/50 p-3 mt-1 rounded-lg text-[11px] text-red-700 font-semibold">
+                        Apenas corretores/administradores têm permissão para resolver contestações.
+                      </div>
+                    ) : (
+                      <div className="border-t border-[#EEEEF3] pt-3 mt-1 flex flex-col gap-3">
+                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                          Resolver Contestação
+                        </h4>
+                        
+                        <div className="flex flex-col gap-2">
+                          <textarea
+                            placeholder="Resposta / Ação tomada pelo administrador..."
+                            value={respostas[c.id] || ""}
+                            onChange={(e) => setRespostas(prev => ({ ...prev, [c.id]: e.target.value }))}
+                            rows={2}
+                            className="w-full p-2.5 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              placeholder="Nome do Profissional..."
+                              value={profissionais[c.id] || ""}
+                              onChange={(e) => setProfissionais(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              className="p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Contato (Telefone)..."
+                              value={contatos[c.id] || ""}
+                              onChange={(e) => setContatos(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              className="p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
+                            />
+                          </div>
+                          <input
+                            type="url"
+                            placeholder="URL do Comprovante (PDF/Imagem)..."
+                            value={comprovantes[c.id] || ""}
+                            onChange={(e) => setComprovantes(prev => ({ ...prev, [c.id]: e.target.value }))}
+                            className="p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => handleResolveSubmit(c.id)}
+                          disabled={loadingResolution[c.id]}
+                          className="py-2 bg-[#708D81] hover:bg-[#5b756b] text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
+                          {loadingResolution[c.id] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            "Marcar como Resolvida"
+                          )}
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="bg-[#708D81]/10 border border-[#708D81]/25 p-3 rounded-lg flex flex-col gap-1.5 text-xs text-gray-600">
+                      <span className="font-bold text-[#5b756b] flex items-center gap-1">✓ Resolvido</span>
+                      {c.respostaAdmin && <p className="italic">"{c.respostaAdmin}"</p>}
+                      {c.profissionalNome && (
+                        <p>🔧 Profissional: <strong>{c.profissionalNome}</strong> {c.profissionalContato && `(${c.profissionalContato})`}</p>
+                      )}
+                      {c.comprovanteUrl && (
+                        <a href={c.comprovanteUrl} target="_blank" rel="noopener noreferrer" className="text-[#004777] font-bold hover:underline">
+                          Visualizar Comprovante
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
-import { Navbar } from "@/components/Navbar";
-import OfflineSyncInit from "@/components/OfflineSyncInit";
+import { Navbar } from "@/components/shared/Navbar";
+import OfflineSyncInit from "@/components/shared/OfflineSyncInit";
 
 export default function AdminLayout({
   children,

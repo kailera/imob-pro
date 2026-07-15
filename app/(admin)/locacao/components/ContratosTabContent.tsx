@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { DataTable, Column } from '@/components/DataTable';
+import { DataTable, Column } from '@/components/shared/DataTable';
 
 // Podemos exportar a interface para reuso, caso o pai precise dela
 export interface Contrato {

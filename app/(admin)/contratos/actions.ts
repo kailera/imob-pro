@@ -188,6 +188,21 @@ export async function createContratoLocacao(input: {
         },
       });
 
+      // 1.1 Criar o primeiro Período Contratual vigente
+      await tx.periodoContratoLocacao.create({
+        data: {
+          imovelLocacaoId: imovelLocacao.id,
+          dataInicio: new Date(input.dataInicio),
+          dataFim: new Date(input.dataFim),
+          valorAluguel: input.valorAluguel,
+          hasCondominio: input.valorCondominio > 0,
+          valorCondominio: input.valorCondominio,
+          hasIPTU: input.valorIPTU > 0,
+          valorIPTU: input.valorIPTU,
+          valorTotal: input.valorAluguel + input.valorCondominio + input.valorIPTU,
+        },
+      });
+
       // 2. Vincular proprietário (Locador)
       if (input.landlordData) {
         await tx.locador.create({

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { LoteamentoClient } from "./LoteamentoClient";
-import { LotInfo } from "@/components/SubdivisionMap";
+import { LotInfo } from "@/components/loteamentos/SubdivisionMap";
 import { Compass, ShieldCheck, Map, Trees, Award, Building, CheckCircle, MapPin, Calendar, HelpCircle } from "lucide-react";
 import Link from "next/link";
 

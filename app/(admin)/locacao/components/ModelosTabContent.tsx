@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FileText, Settings, Download, Printer, Check, Info, Loader2 } from 'lucide-react';
-import { ContractRenderer } from '@/components/ContractRenderer'; // Ajuste o caminho se necessário
+import { ContractRenderer } from '@/components/contratos/ContractRenderer'; // Ajuste o caminho se necessário
 
 // Definições de tipos
 export interface ContractTemplate {

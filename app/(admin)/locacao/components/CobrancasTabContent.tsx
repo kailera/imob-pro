@@ -1,6 +1,6 @@
-import FinancialFilterBar from "@/components/FinancialFilterBar";
-import FinancialSummary from "@/components/FinancialSummary";
-import FinancialTable from "@/components/FinancialTable";
+import FinancialFilterBar from "@/components/cobrancas/FinancialFilterBar";
+import FinancialSummary from "@/components/cobrancas/FinancialSummary";
+import FinancialTable from "@/components/cobrancas/FinancialTable";
 
 interface ICobrancaTabContent {
     cobrancaTotals: any;

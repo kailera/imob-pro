@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { SubdivisionMap, LotInfo } from "@/components/SubdivisionMap";
-import { FinanceSimulator } from "@/components/FinanceSimulator";
+import { SubdivisionMap, LotInfo } from "@/components/loteamentos/SubdivisionMap";
+import { FinanceSimulator } from "@/components/loteamentos/FinanceSimulator";
 
 interface LoteamentoClientProps {
   initialLots: LotInfo[];

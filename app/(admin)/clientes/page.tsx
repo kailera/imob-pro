@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { DataTable, Column } from '@/components/DataTable';
+import { DataTable, Column } from '@/components/shared/DataTable';
 
 interface Cliente {
   nome: string;

@@ -4,6 +4,7 @@ import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, Layo
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { UserButton, OrganizationSwitcher, SignInButton, SignUpButton, Show } from "@clerk/nextjs";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: Home },
@@ -71,15 +72,35 @@ export function Navbar() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#004777] rounded-full"></span>
           </button>
 
-          {/* User Profile */}
-          <div className="flex items-center gap-3 pl-4 border-l border-[#EEEEF3]">
-            <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-sm font-medium text-[#280003]">Imob Pro Admin</span>
-              <span className="text-xs text-[#280003]/60">Administrador</span>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-[#004777]/10 flex items-center justify-center text-[#004777] font-bold text-sm">
-              IP
-            </div>
+          {/* User Profile & Organization switcher */}
+          <div className="flex items-center gap-4 pl-4 border-l border-[#EEEEF3]">
+            <Show when="signed-in">
+              <div className="hidden sm:block">
+                <OrganizationSwitcher 
+                  afterCreateOrganizationUrl="/admin"
+                  appearance={{
+                    elements: {
+                      rootBox: "text-xs font-semibold text-gray-600"
+                    }
+                  }}
+                />
+              </div>
+              <UserButton />
+            </Show>
+            <Show when="signed-out">
+              <div className="flex gap-2">
+                <SignInButton mode="modal">
+                  <button className="text-xs bg-[#004777] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-[#004777]/90 transition-all cursor-pointer">
+                    Entrar
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="text-xs bg-[#708D81] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-[#708D81]/90 transition-all cursor-pointer">
+                    Cadastrar
+                  </button>
+                </SignUpButton>
+              </div>
+            </Show>
           </div>
 
           {/* Mobile Menu Button */}

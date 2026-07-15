@@ -1,15 +1,15 @@
 "use client"
 import React, { useState, useEffect, useMemo } from 'react';
-import { DataTable, Column } from '@/components/DataTable';
+import { DataTable, Column } from '@/components/shared/DataTable';
 import { Key, DollarSign, FileText, Printer, Check, Info, ChevronRight, Plus, X, Loader2, Building, User, Calendar, Shield, Settings, Download, Search } from 'lucide-react';
-import FinancialFilterBar from '@/components/FinancialFilterBar';
-import FinancialTable, { BilletData } from '@/components/FinancialTable';
-import FinancialSummary from '@/components/FinancialSummary';
+import FinancialFilterBar from '@/components/cobrancas/FinancialFilterBar';
+import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTable';
+import FinancialSummary from '@/components/cobrancas/FinancialSummary';
 import { getImoveis } from '@/app/actions/imoveisActions';
 import LocacaoApartamentosTemplate from '@/lib/templates/LocacaoontratoLocacaoApartamentos';
 import LocacaocontratoResidencialSimples from '@/lib/templates/LocacaocontratoResidencialSimples';
 import LocacaocontratoResidencialCompleto from '@/lib/templates/LocacaocontratoResidencialCompleto';
-import { ContractRenderer } from '@/components/ContractRenderer';
+import { ContractRenderer } from '@/components/contratos/ContractRenderer';
 import {
   getInquilinos,
   getFiadores,

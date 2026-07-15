@@ -4,6 +4,8 @@ import fs from 'fs';
 import { prisma } from '@/lib/prisma';
 import PizZip from 'pizzip';
 import { extractVariablesFromDocx } from '@/lib/contract-parser';
+import { PutObjectCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
+import { s3Client, bucketName } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,18 +22,41 @@ export async function POST(req: NextRequest) {
     const templateId = crypto.randomUUID();
     const fileExtension = '.docx';
     const fileName = `${templateId}${fileExtension}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'templates-docx');
-
-    // Garantir que o diretório existe
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, fileName);
+    
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Salvar o arquivo no disco
-    fs.writeFileSync(filePath, buffer);
+    // Identificar modo de demonstração local ou upload S3
+    const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === 'true';
+
+    if (isDevMock) {
+      console.log('[upload-template] Utilizando gravação no disco local.');
+      const uploadDir = path.join(process.cwd(), 'public', 'templates-docx');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const filePath = path.join(uploadDir, fileName);
+      fs.writeFileSync(filePath, buffer);
+    } else {
+      console.log('[upload-template] Enviando para S3/RustFS.');
+      const key = `templates-docx/${fileName}`;
+      const uploadParams = {
+        Bucket: bucketName,
+        Key: key,
+        Body: buffer,
+        ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      };
+
+      try {
+        await s3Client.send(new PutObjectCommand(uploadParams));
+      } catch (uploadError: any) {
+        if (uploadError.name === 'NoSuchBucket') {
+          await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
+          await s3Client.send(new PutObjectCommand(uploadParams));
+        } else {
+          throw uploadError;
+        }
+      }
+    }
 
     // Processar o arquivo DOCX usando PizZip para extrair variáveis e texto
     let variables: string[] = [];

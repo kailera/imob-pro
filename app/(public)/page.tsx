@@ -1,5 +1,5 @@
-import { SiteHero } from "@/components/SiteHero";
-import { FeaturedProperties } from "@/components/FeaturedProperties";
+import { SiteHero } from "@/components/public/SiteHero";
+import { FeaturedProperties } from "@/components/public/FeaturedProperties";
 import { ShieldCheck, Sparkles, Zap, Star, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -10,9 +10,10 @@ export const metadata = {
 };
 
 export default async function PublicHome() {
-  // Buscar imóveis do banco de dados (excluindo lotes individuais de loteamento)
+  // Buscar imóveis do banco de dados (excluindo lotes individuais de loteamento) - Limite de 3
   const rawImoveis = await prisma.imovel.findMany({
     where: {
+      publicado: true,
       NOT: {
         codigo: {
           startsWith: "LOTE-"
@@ -21,7 +22,8 @@ export default async function PublicHome() {
     },
     orderBy: {
       codigo: "desc"
-    }
+    },
+    take: 3
   });
 
   const properties = rawImoveis.map((im) => ({
@@ -35,6 +37,8 @@ export default async function PublicHome() {
     parking: im.vagas || 0,
     area: im.area || 0,
     image: im.imagens?.[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+    images: im.imagens || [],
+    description: im.descricao || "",
     neighborhood: im.bairro,
     city: `${im.cidade}/${im.uf}`
   }));
@@ -79,6 +83,67 @@ export default async function PublicHome() {
 
       {/* Featured Properties grid */}
       <FeaturedProperties properties={properties} />
+
+      {/* Premium Navigation Banners */}
+      <section className="py-12 bg-zinc-50 border-t border-zinc-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Banner 1: Compra */}
+            <Link 
+              href="/busca?operation=venda"
+              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80" 
+                alt="Comprar Imóveis" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                <span className="text-[10px] font-bold tracking-widest text-brand-accent-gold uppercase">Venda</span>
+                <h3 className="text-xl font-bold tracking-tight">Compra de Imóveis</h3>
+                <p className="text-white/70 text-xs font-medium">Explore casas e apartamentos à venda →</p>
+              </div>
+            </Link>
+
+            {/* Banner 2: Aluguel */}
+            <Link 
+              href="/busca?operation=locacao"
+              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80" 
+                alt="Alugar Imóveis" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                <span className="text-[10px] font-bold tracking-widest text-brand-accent-green uppercase font-semibold">Locação</span>
+                <h3 className="text-xl font-bold tracking-tight">Aluguel de Imóveis</h3>
+                <p className="text-white/70 text-xs font-medium">Encontre as melhores opções para alugar →</p>
+              </div>
+            </Link>
+
+            {/* Banner 3: Loteamento Village Parra */}
+            <Link 
+              href="/loteamentos"
+              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" 
+                alt="Loteamento Village Parra" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                <span className="text-[10px] font-bold tracking-widest text-amber-400 uppercase">Terrenos</span>
+                <h3 className="text-xl font-bold tracking-tight">Loteamento Parra</h3>
+                <p className="text-white/70 text-xs font-medium">Conquiste o seu lote dos sonhos →</p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* Pillars / Value Propositions */}
       <section id="sobre" className="py-20 bg-white">

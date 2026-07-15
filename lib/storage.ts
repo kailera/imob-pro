@@ -1,17 +1,17 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-const endpoint = process.env.RUSTFS_ENDPOINT;
-const accessKeyId = process.env.RUSTFS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.RUSTFS_SECRET_ACCESS_KEY;
+const endpoint = process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";
+const accessKeyId = process.env.RUSTFS_ACCESS_KEY_ID || process.env.RUSTFS_ACCESS_KEY || "minioadmin";
+const secretAccessKey = process.env.RUSTFS_SECRET_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY || "minioadmin";
 
 export const s3Client = new S3Client({
-  endpoint: endpoint || "http://localhost:9000", // Fallback padrão
-  region: "us-east-1", // O SDK do S3 exige uma região fictícia
+  endpoint,
+  region: "us-east-1",
   credentials: {
-    accessKeyId: accessKeyId || "minioadmin",
-    secretAccessKey: secretAccessKey || "minioadmin",
+    accessKeyId,
+    secretAccessKey,
   },
-  forcePathStyle: true, // Necessário para provedores S3 compatíveis como RustFS e MinIO
+  forcePathStyle: true,
 });
 
-export const bucketName = process.env.RUSTFS_BUCKET_NAME || "vistorias";
+export const bucketName = process.env.RUSTFS_BUCKET_NAME || process.env.RUSTFS_BUCKET || "vistorias";

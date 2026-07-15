@@ -1,6 +1,6 @@
 import { Metadata } from "next";
-import PaymentsFilterBar from "@/components/PaymentsFilterBar";
-import PaymentsTable, { PaymentData } from "@/components/PaymentsTable";
+import PaymentsFilterBar from "@/components/pagamentos/PaymentsFilterBar";
+import PaymentsTable, { PaymentData } from "@/components/pagamentos/PaymentsTable";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {

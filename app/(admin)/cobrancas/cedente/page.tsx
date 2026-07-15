@@ -1,5 +1,5 @@
 import React from 'react';
-import CedenteForm from '@/components/CedenteForm';
+import CedenteForm from '@/components/cobrancas/CedenteForm';
 import { List, Settings, Info, Home, ChevronRight } from 'lucide-react';
 
 export default function CedenteConfigPage() {

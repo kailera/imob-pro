@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SmartSelector } from '@/components/SmartSelector';
-import { LiveFilledDocument } from '@/components/LiveFilledDocument';
+import { SmartSelector } from '@/components/contratos/SmartSelector';
+import { LiveFilledDocument } from '@/components/contratos/LiveFilledDocument';
 import { Save, FileDown, ArrowLeft, Check } from 'lucide-react';
 import Link from 'next/link';
 

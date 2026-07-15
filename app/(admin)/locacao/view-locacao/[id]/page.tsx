@@ -1,19 +1,20 @@
 import { Fiador, Locador, Locatario, TransacaoFinanceira } from "@/generated/prisma"
 import { getCompleteContratoLocacao } from "../../actions"
 import Link from "next/link"
-import { 
-    Home, 
-    User, 
-    Shield, 
-    FileText, 
-    ClipboardList, 
-    DollarSign, 
-    Calendar, 
-    ArrowLeft, 
-    Mail, 
-    Phone, 
-    MapPin, 
-    File, 
+import ControleLocaticioClient from "../../components/ControleLocaticioClient"
+import {
+    Home,
+    User,
+    Shield,
+    FileText,
+    ClipboardList,
+    DollarSign,
+    Calendar,
+    ArrowLeft,
+    Mail,
+    Phone,
+    MapPin,
+    File,
     TrendingUp,
     Clock,
     UserCheck,
@@ -71,9 +72,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
     const { imovel, locatarios, fiadors, transacaoFinanceiras } = contrato
 
     // Encontra os detalhes de locação específicos deste contrato
-    const imovelLocacao = imovel?.imovelLocacaos?.find(
-        (loc) => loc.id === contrato.imovelLocacaoId
-    )
+    const imovelLocacao = contrato.imovelLocacao
     const locadores = imovelLocacao?.locadors || []
     const vistorias = imovel?.vistorias || []
 
@@ -90,7 +89,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
     return (
         <div className="flex-1 bg-[#EEEEF3] p-4 lg:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
-                
+
                 {/* Botão Voltar e Cabeçalho */}
                 <div className="flex flex-col gap-2">
                     <Link href="/locacao" className="inline-flex items-center gap-2 text-xs font-bold text-[#280003]/80 hover:text-[#280003] transition-all w-fit">
@@ -159,16 +158,34 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
 
                 {/* Main Content Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
+
                     {/* Left & Center Columns (2/3 of space) */}
                     <div className="lg:col-span-2 space-y-6">
-                        
+
                         {/* Imóvel */}
                         <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
-                            <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
-                                <Home className="w-4 h-4 text-amber-600" />
-                                Dados do Imóvel
-                            </h2>
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                                <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2">
+                                    <Home className="w-4 h-4 text-amber-600" />
+                                    Dados do Imóvel
+                                </h2>
+                                {imovel && (
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${imovel.publicado
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                            : "bg-zinc-50 text-zinc-500 border-zinc-200"
+                                            }`}>
+                                            {imovel.publicado ? "Publicado" : "Não Publicado"}
+                                        </span>
+                                        <Link
+                                            href={`/imoveis?edit=${imovel.id}`}
+                                            className="text-[10px] font-bold text-[#004777] hover:underline"
+                                        >
+                                            Editar na Vitrine
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
                             {imovel ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium text-gray-700">
                                     <div className="space-y-1">
@@ -180,7 +197,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                         <span className="text-brand-dark font-bold">{imovel.tipo}</span>
                                     </div>
                                     <div className="space-y-1 md:col-span-2">
-                                        <span className="text-gray-400 block font-bold text-[9px] uppercase tracking-wider">Endereço</span>
+                                        <span className="text-gray-400 block font-bold text -[9px] uppercase tracking-wider">Endereço</span>
                                         <span className="text-brand-dark font-bold flex items-center gap-1">
                                             <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                             {imovel.bairro}, {imovel.cidade} - {imovel.uf}, CEP: {imovel.cep} (Nº {imovel.numero})
@@ -229,7 +246,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                                         {locador.genero}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-gray-600">
                                                     <div className="flex items-center gap-1.5">
                                                         <Mail className="w-3.5 h-3.5 text-gray-400" />
@@ -297,7 +314,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                                         {locatario.genero}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-gray-600">
                                                     <div className="flex items-center gap-1.5">
                                                         <Mail className="w-3.5 h-3.5 text-gray-400" />
@@ -365,7 +382,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                                         {fiador.genero}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-gray-600">
                                                     <div className="flex items-center gap-1.5">
                                                         <Mail className="w-3.5 h-3.5 text-gray-400" />
@@ -414,7 +431,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
 
                     {/* Right Column (1/3 of space) */}
                     <div className="space-y-6">
-                        
+
                         {/* Detalhes do Contrato */}
                         <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
                             <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
@@ -444,6 +461,11 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                 </div>
                             </div>
                         </div>
+                        {/* Controle Locatício e Encargos */}
+                        <ControleLocaticioClient
+                            periodos={imovelLocacao?.periodos || []}
+                            imovelLocacaoId={imovelLocacao?.id || ""}
+                        />
 
                         {/* Histórico de Vistorias */}
                         <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
@@ -507,9 +529,8 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                                     <span className="font-bold text-xs text-gray-800 leading-tight block truncate max-w-[120px]" title={tx.descricao}>
                                                         {tx.descricao}
                                                     </span>
-                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                                                        isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-                                                    }`}>
+                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                                                        }`}>
                                                         {isPaid ? "Liquidado" : "Pendente"}
                                                     </span>
                                                 </div>

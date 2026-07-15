@@ -43,18 +43,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Template não encontrado: ${templateId}` }, { status: 404 });
     }
 
-    // Caminho absoluto para o template (dentro de /public/templates-docx/)
-    const templatePath = path.join(process.cwd(), 'public', 'templates-docx', fileName);
+    let content: Buffer;
+    const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === 'true';
+    const isDefaultTemplate = !dbTemplate;
 
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json(
-        { error: `Arquivo de template não encontrado: ${fileName}. Verifique se o .docx está em public/templates-docx/` },
-        { status: 404 }
-      );
+    if (isDefaultTemplate || isDevMock) {
+      const templatePath = path.join(process.cwd(), 'public', 'templates-docx', fileName);
+      if (!fs.existsSync(templatePath)) {
+        return NextResponse.json(
+          { error: `Arquivo de template não encontrado localmente: ${fileName}.` },
+          { status: 404 }
+        );
+      }
+      content = fs.readFileSync(templatePath);
+    } else {
+      const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+      const { s3Client, bucketName } = await import('@/lib/storage');
+      const key = `templates-docx/${fileName}`;
+      try {
+        const s3Item = await s3Client.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
+        const responseBody = await s3Item.Body?.transformToByteArray();
+        if (!responseBody) {
+          throw new Error('S3 body is empty');
+        }
+        content = Buffer.from(responseBody);
+      } catch (s3Err: any) {
+        console.error(`Erro ao ler template ${fileName} do S3:`, s3Err);
+        return NextResponse.json(
+          { error: `Falha ao ler o arquivo de template no armazenamento em nuvem.` },
+          { status: 500 }
+        );
+      }
     }
-
-    // Lê o arquivo .docx como buffer
-    const content = fs.readFileSync(templatePath);
 
     // PizZip descomprime o .docx (formato ZIP/OOXML)
     const zip = new PizZip(content);

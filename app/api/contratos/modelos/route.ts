@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { prisma } from '@/lib/prisma';
 import { extractVariablesFromDocx } from '@/lib/contract-parser';
+import { s3Client, bucketName } from '@/lib/storage';
+import { GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 // Importamos os templates padrões para servir como fallback/iniciais
 import LocacaocontratoResidencialSimples from '@/lib/templates/LocacaocontratoResidencialSimples';
@@ -111,26 +113,41 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === 'true';
+
     const formattedDbTemplates = await Promise.all(
       dbTemplates.map(async t => {
         let vars = t.variables || [];
         
-        // Se as variáveis estiverem vazias ou não qualificadas, reprocessamos o arquivo local
+        // Se as variáveis estiverem vazias, tentamos ler e reprocessar o arquivo
         if (vars.length === 0) {
-          const filePath = path.join(process.cwd(), 'public', 'templates-docx', t.fileName);
-          if (fs.existsSync(filePath)) {
-            try {
-              const buffer = fs.readFileSync(filePath);
-              vars = extractVariablesFromDocx(buffer);
-              
-              // Atualizar no banco de dados para a próxima vez
+          try {
+            let buffer: Buffer;
+
+            if (isDevMock) {
+              const filePath = path.join(process.cwd(), 'public', 'templates-docx', t.fileName);
+              if (fs.existsSync(filePath)) {
+                buffer = fs.readFileSync(filePath);
+                vars = extractVariablesFromDocx(buffer);
+              }
+            } else {
+              const key = `templates-docx/${t.fileName}`;
+              const s3Item = await s3Client.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
+              const responseBody = await s3Item.Body?.transformToByteArray();
+              if (responseBody) {
+                buffer = Buffer.from(responseBody);
+                vars = extractVariablesFromDocx(buffer);
+              }
+            }
+
+            if (vars.length > 0) {
               await prisma.contractTemplate.update({
                 where: { id: t.id },
                 data: { variables: vars }
               });
-            } catch (err) {
-              console.error(`Erro ao atualizar variáveis dinamicamente para o template ${t.id}:`, err);
             }
+          } catch (err) {
+            console.error(`Erro ao atualizar variáveis dinamicamente para o template ${t.id}:`, err);
           }
         }
 
@@ -173,13 +190,26 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Template não encontrado.' }, { status: 404 });
     }
 
-    // Deletar o arquivo do disco
-    const filePath = path.join(process.cwd(), 'public', 'templates-docx', template.fileName);
-    if (fs.existsSync(filePath)) {
+    // Identificar modo de demonstração local ou upload S3
+    const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === 'true';
+
+    if (isDevMock) {
+      // Deletar o arquivo do disco local
+      const filePath = path.join(process.cwd(), 'public', 'templates-docx', template.fileName);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileErr) {
+          console.error(`[modelos-delete] Falha ao excluir arquivo local: ${template.fileName}`, fileErr);
+        }
+      }
+    } else {
+      // Deletar do S3/RustFS
+      const key = `templates-docx/${template.fileName}`;
       try {
-        fs.unlinkSync(filePath);
-      } catch (fileErr) {
-        console.error(`[modelos-delete] Falha ao excluir arquivo: ${template.fileName}`, fileErr);
+        await s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+      } catch (s3Err) {
+        console.error(`[modelos-delete] Falha ao excluir arquivo S3: ${template.fileName}`, s3Err);
       }
     }
 

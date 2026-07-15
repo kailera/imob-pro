@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import PWARegister from "@/components/PWARegister";
+import PWARegister from "@/components/shared/PWARegister";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ptBR } from "@clerk/localizations";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,20 +18,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="h-full antialiased">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#004777" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Imob Pro" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
-      <body className={`${inter.className} min-h-full flex flex-col bg-[#EEEEF3] text-[#280003]`}>
-        <PWARegister />
-        {children}
-      </body>
-    </html>
+    <ClerkProvider localization={ptBR}>
+      <html lang="pt-BR" className="h-full antialiased">
+        <head>
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="theme-color" content="#004777" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="Imob Pro" />
+          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        </head>
+        <body className={`${inter.className} min-h-full flex flex-col bg-[#EEEEF3] text-[#280003]`}>
+          <PWARegister />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
 

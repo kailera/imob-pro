@@ -16,10 +16,10 @@ import {
   X,
   Plus
 } from "lucide-react";
-import { KpiCard } from "@/components/KpiCard";
-import { ChartPlaceholder } from "@/components/ChartPlaceholder";
-import { VistoriaDetails, Vistoria } from "@/components/VistoriaDetails";
-import ConnectionStatus from "@/components/ConnectionStatus";
+import { KpiCard } from "@/components/vistorias/KpiCard";
+import { ChartPlaceholder } from "@/components/vistorias/ChartPlaceholder";
+import { VistoriaDetails, Vistoria } from "@/components/vistorias/VistoriaDetails";
+import ConnectionStatus from "@/components/shared/ConnectionStatus";
 import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria } from "@/app/(admin)/vistorias/actions";
 import { db } from "@/lib/db";
 
