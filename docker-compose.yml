@@ -43,6 +43,8 @@ services:
     networks:
       - proxy_network
       - imob_internal_network
+    ports:
+      - "3000:3000"
     environment:
       # Database
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
@@ -79,6 +81,8 @@ services:
     image: rustfs/rustfs:latest
     container_name: imobpro-storages3
     restart: unless-stopped
+    ports:
+      - "9001:9001"
     logging:
       driver: "json-file"
       options:
