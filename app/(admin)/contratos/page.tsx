@@ -84,13 +84,18 @@ export default function ContratosPage() {
   const [selectedId, setSelectedId] = useState('');
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
-  const [companySettings, setCompanySettings] = useState({
-    SYS_NOME_IMOBILIARIA: 'Scatolin Imóveis',
-    SYS_CNPJ_IMOBILIARIA: '00.000.000/0000-00',
-    SYS_NOME_REPRESENTANTE: 'Laís Fernanda Caravante Mariano Escatolin',
-    SYS_CRECI_IMOBILIARIA: '293493-F',
-    SYS_ENDERECO_IMOBILIARIA: 'Passeio Cristalina, 113, Zona Norte, Ilha Solteira - SP',
+  const [companySettings, setCompanySettings] = useState<Record<string, string>>({
+    SYS_NOME_IMOBILIARIA: '',
+    SYS_RAZAO_SOCIAL_IMOBILIARIA: '',
+    SYS_CNPJ_IMOBILIARIA: '',
+    SYS_CRECI_IMOBILIARIA: '',
+    SYS_NOME_REPRESENTANTE: '',
+    SYS_ENDERECO_IMOBILIARIA: '',
+    SYS_TELEFONE_IMOBILIARIA: '',
+    SYS_EMAIL_IMOBILIARIA: '',
   });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Estado para upload de novos templates
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -132,8 +137,45 @@ export default function ContratosPage() {
     }
   };
 
+  const fetchImobSettings = async () => {
+    try {
+      const res = await fetch('/api/contratos/imob-settings');
+      if (res.ok) {
+        const data = await res.json();
+        setCompanySettings(data.settings);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar configurações da imobiliária', e);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    setSaveSuccess(false);
+    try {
+      const res = await fetch('/api/contratos/imob-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(companySettings),
+      });
+      if (res.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        const err = await res.json();
+        alert(`Erro ao salvar: ${err.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro de rede ao salvar configurações.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchImobSettings();
   }, []);
 
   const handleGenerateDocument = async () => {
@@ -378,16 +420,53 @@ export default function ContratosPage() {
         )}
 
         {activeTab === 'config' && (
-          <div className="bg-white p-8 rounded-2xl border border-black/5 shadow-sm max-w-4xl mx-auto">
-            <h2 className="text-lg font-bold mb-2">Configurações da Empresa</h2>
-            <p className="text-sm text-gray-500 mb-6">Estes valores substituem chaves com o prefixo "SYS_" automaticamente em todos os contratos.</p>
+          <div className="bg-white p-8 rounded-2xl border border-black/5 shadow-sm max-w-4xl mx-auto flex flex-col gap-6">
+            <div>
+              <h2 className="text-lg font-bold mb-1">Configurações da Empresa</h2>
+              <p className="text-sm text-gray-500">Estes valores são carregados do perfil da imobiliária e substituem as variáveis <code className="bg-amber-50 text-amber-700 px-1 rounded font-mono text-xs">SYS_*</code> em todos os contratos gerados.</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              {Object.entries(companySettings).map(([key, val]) => (
+              {([
+                ['SYS_NOME_IMOBILIARIA', 'Nome Fantasia da Imobiliária'],
+                ['SYS_RAZAO_SOCIAL_IMOBILIARIA', 'Razão Social'],
+                ['SYS_CNPJ_IMOBILIARIA', 'CNPJ'],
+                ['SYS_CRECI_IMOBILIARIA', 'CRECI'],
+                ['SYS_NOME_REPRESENTANTE', 'Nome do Representante / Corretor'],
+                ['SYS_ENDERECO_IMOBILIARIA', 'Endereço Completo'],
+                ['SYS_TELEFONE_IMOBILIARIA', 'Telefone'],
+                ['SYS_EMAIL_IMOBILIARIA', 'E-mail de Contato'],
+              ] as [string, string][]).map(([key, label]) => (
                 <div key={key} className="flex flex-col gap-1.5">
-                  <label className="text-xs uppercase font-bold text-gray-600">{key.replace('SYS_', '').replace(/_/g, ' ')}</label>
-                  <input value={val} onChange={e => setCompanySettings({ ...companySettings, [key]: e.target.value })} className="w-full border p-2.5 rounded-xl bg-gray-50 border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#004777]" />
+                  <label className="text-xs uppercase font-bold text-gray-600 flex items-center gap-1.5">
+                    {label}
+                    <span className="font-mono text-[9px] text-amber-600 bg-amber-50 px-1 py-0.5 rounded normal-case">{key}</span>
+                  </label>
+                  <input
+                    value={companySettings[key] || ''}
+                    onChange={e => setCompanySettings({ ...companySettings, [key]: e.target.value })}
+                    className="w-full border p-2.5 rounded-xl bg-gray-50 border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#004777] text-sm"
+                  />
                 </div>
               ))}
+            </div>
+            <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
+              <button
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="bg-[#004777] text-white px-6 py-2.5 rounded-xl font-medium hover:bg-[#00365c] transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
+              >
+                {isSavingSettings ? (
+                  <><Loader2 size={16} className="animate-spin" /> Salvando...</>
+                ) : (
+                  <><Settings size={16} /> Salvar Configurações</>
+                )}
+              </button>
+              {saveSuccess && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                  <Check size={16} /> Salvo com sucesso!
+                </span>
+              )}
+              <p className="text-xs text-gray-400 ml-auto">Os dados do perfil principal ficam em <strong>Configurações → Imobiliária</strong>.</p>
             </div>
           </div>
         )}

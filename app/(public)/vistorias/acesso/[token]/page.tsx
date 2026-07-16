@@ -49,7 +49,7 @@ export default function TenantAccessPage() {
             <ShieldCheck className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Acesso Seguro do Inquilino</h1>
+            <h1 className="text-xl font-bold">Acesso Seguro da Vistoria</h1>
             <p className="text-xs text-white/70 mt-1">
               Confirme sua identidade para visualizar e contestar a vistoria do imóvel.
             </p>
@@ -67,7 +67,7 @@ export default function TenantAccessPage() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="cpf-input" className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              CPF ou CNPJ do Locatário
+              CPF ou CNPJ do Locatário ou Proprietário
             </label>
             <input
               id="cpf-input"

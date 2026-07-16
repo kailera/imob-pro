@@ -364,6 +364,11 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
                             include: {
                                 locatarios: true
                             }
+                        },
+                        imovelLocacaos: {
+                            include: {
+                                locadors: true
+                            }
                         }
                     }
                 }
@@ -376,21 +381,29 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
 
         const cleanInput = cpfCnpj.replace(/\D/g, "");
 
-        // Se houver contratos ativos, procura por um locatário com esse CPF/CNPJ
+        // Procurar por locatário com esse CPF/CNPJ
         const contratos = vistoria.imovel.contratoImovelLocacaos;
-        const matches = contratos.some(contrato => 
+        const matchesLocatario = contratos.some(contrato => 
             contrato.locatarios.some(locatario => 
                 locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
             )
         );
 
-        if (!matches) {
+        // Procurar por proprietário (locador) com esse CPF/CNPJ
+        const locacoes = vistoria.imovel.imovelLocacaos;
+        const matchesLocador = locacoes.some(locacao =>
+            locacao.locadors.some(locador =>
+                locador.cpfCnpj.replace(/\D/g, "") === cleanInput
+            )
+        );
+
+        if (!matchesLocatario && !matchesLocador) {
             return { success: false, error: "Acesso não autorizado. Verifique os dados informados." };
         }
 
         return { success: true, vistoriaId: vistoria.id };
     } catch (error: any) {
-        console.error("Erro ao validar acesso do inquilino:", error);
+        console.error("Erro ao validar acesso da vistoria:", error);
         return { success: false, error: error.message || "Erro ao validar acesso." };
     }
 }

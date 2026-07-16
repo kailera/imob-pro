@@ -25,6 +25,7 @@ model Imob {
   emailContato           String?
   logoUrl                String?
   creci                  String?
+  representanteNome      String?
   cep                    String?
   logradouro             String?
   numero                 String?
