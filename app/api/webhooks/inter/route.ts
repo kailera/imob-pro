@@ -64,6 +64,15 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      if (statusTransacao === "LIQUIDADO") {
+        try {
+          const { criarRepassePendente } = await import("@/app/actions/financeiroActions");
+          await criarRepassePendente(transacao.id);
+        } catch (repasseErr) {
+          console.error("[webhook-inter] Erro ao criar repasse automático:", repasseErr);
+        }
+      }
+
       console.log(`[webhook-inter] Transação ${transacao.id} atualizada com sucesso para status: ${statusTransacao} (Inter: ${situacao})`);
     }
 

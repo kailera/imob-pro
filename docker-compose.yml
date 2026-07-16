@@ -5,6 +5,8 @@ services:
     image: postgres:15-alpine
     container_name: imob-pro-postgres
     restart: unless-stopped
+    ports:
+      - "5432:5432"
     logging:
       driver: "json-file"
       options:

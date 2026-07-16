@@ -103,17 +103,36 @@ async function getPayments(): Promise<PaymentData[]> {
       const ownerName = match ? match[1] : tx.descricao.replace("Repasse - ", "");
       const propertyRef = match ? match[2] : "Imóvel Geral";
 
+      const meta = (tx.metadata as any) || {};
+
+      // Parse competence (e.g. "2026-08" -> "Agosto/2026")
+      let compLabel = "Junho/2026";
+      if (meta.competence) {
+        const [ano, mes] = meta.competence.split("-");
+        const dateComp = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+        const rawComp = dateComp.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        compLabel = rawComp.charAt(0).toUpperCase() + rawComp.slice(1);
+      }
+
+      const grossValue = meta.grossTotalValue !== undefined ? meta.grossTotalValue : (tx.valor / 0.9);
+      const feePercent = meta.adminFeePercent !== undefined ? meta.adminFeePercent : 10.0;
+      const feeValue = meta.adminFeeValue !== undefined ? meta.adminFeeValue : (tx.valor * 0.1);
+      const admFeeString = `${feePercent}% (R$ ${feeValue.toFixed(2)})`;
+      const netValue = tx.valor;
+
       return {
         id: tx.id,
         ownerName,
         ownerCpf: "***.***.***-**",
         propertyRef,
-        competence: "Junho/2026",
-        grossValue: tx.valor / 0.9,
-        admFeeString: "10% (R$ " + (tx.valor * 0.1).toFixed(2) + ")",
-        netValue: tx.valor,
+        competence: compLabel,
+        grossValue,
+        admFeeString,
+        netValue,
         paymentStatus: isPaid ? "Pago" : "Pendente",
         nfeStatus: isPaid ? "Emitida" : "Aguardando",
+        imovelId: tx.imovelId,
+        metadata: meta,
       };
     });
   } catch (err) {

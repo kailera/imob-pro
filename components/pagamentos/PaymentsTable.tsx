@@ -1,4 +1,13 @@
-import { FileText, Eye, Download } from "lucide-react";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { FileText, Eye, Download, X, Loader2, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { 
+  getDespesasManutencaoDisponiveis, 
+  atualizarRepasseAjustadoAction, 
+  liquidarRepasseAction 
+} from "@/app/actions/financeiroActions";
 
 export interface PaymentData {
   id: string;
@@ -11,6 +20,8 @@ export interface PaymentData {
   netValue: number;
   paymentStatus: "Pago" | "Pendente";
   nfeStatus: "Emitida" | "Aguardando" | "Erro na NF-e" | "Pendente";
+  imovelId?: string | null;
+  metadata?: any;
 }
 
 interface PaymentsTableProps {
@@ -18,6 +29,103 @@ interface PaymentsTableProps {
 }
 
 export default function PaymentsTable({ payments }: PaymentsTableProps) {
+  const router = useRouter();
+  
+  // Modal states
+  const [adjustingPayment, setAdjustingPayment] = useState<PaymentData | null>(null);
+  const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+  const [maintenanceExpenses, setMaintenanceExpenses] = useState<any[]>([]);
+  const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Dynamic values calculated locally
+  const [localNetValue, setLocalNetValue] = useState(0);
+
+  // Recalculate net value when checklist selection changes
+  useEffect(() => {
+    if (!adjustingPayment) return;
+    
+    const meta = adjustingPayment.metadata || {};
+    const grossTotal = adjustingPayment.grossValue; // Rent + Condo + IPTU
+    const adminFee = meta.adminFeeValue || (adjustingPayment.grossValue * 0.1);
+    
+    // Sum selected maintenance costs
+    const selectedMaintenanceTotal = maintenanceExpenses
+      .filter((exp) => selectedDeductionIds.includes(exp.id))
+      .reduce((sum, exp) => sum + exp.valor, 0);
+      
+    const computedNet = grossTotal - adminFee - selectedMaintenanceTotal;
+    setLocalNetValue(computedNet < 0 ? 0 : computedNet);
+  }, [selectedDeductionIds, maintenanceExpenses, adjustingPayment]);
+
+  const handleOpenAdjustModal = async (payment: PaymentData) => {
+    setAdjustingPayment(payment);
+    setSelectedDeductionIds(payment.metadata?.deductedMaintenanceIds || []);
+    setLocalNetValue(payment.netValue);
+    setMaintenanceExpenses([]);
+    setErrorMsg(null);
+    
+    if (payment.imovelId && payment.metadata?.competence) {
+      setLoadingMaintenance(true);
+      try {
+        const res = await getDespesasManutencaoDisponiveis(payment.imovelId, payment.metadata.competence);
+        if (res.success && res.data) {
+          // Merge already checked expenses if they are not in the response list anymore
+          const fetchedList = res.data;
+          const checkedIds = payment.metadata.deductedMaintenanceIds || [];
+          
+          setMaintenanceExpenses(fetchedList);
+        } else {
+          setErrorMsg(res.error || "Erro ao carregar despesas de manutenção.");
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || "Erro inesperado.");
+      } finally {
+        setLoadingMaintenance(false);
+      }
+    }
+  };
+
+  const handleToggleDeduction = (id: string) => {
+    setSelectedDeductionIds((prev) =>
+      prev.includes(id) ? prev.filter((dId) => dId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSaveAdjustment = async (liquidate: boolean) => {
+    if (!adjustingPayment) return;
+    setIsSaving(true);
+    setErrorMsg(null);
+    try {
+      // 1. Atualizar o repasse no banco
+      const res = await atualizarRepasseAjustadoAction(
+        adjustingPayment.id,
+        selectedDeductionIds,
+        localNetValue
+      );
+      
+      if (!res.success) {
+        throw new Error(res.error || "Erro ao salvar os ajustes de repasse.");
+      }
+      
+      // 2. Opcionalmente liquidar o repasse
+      if (liquidate) {
+        const liqRes = await liquidarRepasseAction(adjustingPayment.id);
+        if (!liqRes.success) {
+          throw new Error(liqRes.error || "Erro ao liquidar o repasse.");
+        }
+      }
+      
+      setAdjustingPayment(null);
+      router.refresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Falha na operação.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -182,6 +290,15 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center space-x-2">
+                    {payment.paymentStatus === "Pendente" && (
+                      <button
+                        onClick={() => handleOpenAdjustModal(payment)}
+                        className="inline-flex items-center px-3 py-1.5 border border-zinc-250 rounded-lg text-xs font-semibold text-[#280003] hover:bg-zinc-50 shadow-sm transition-colors cursor-pointer"
+                      >
+                        Ajustar Repasse
+                      </button>
+                    )}
+                    
                     {payment.nfeStatus === "Emitida" ? (
                       <>
                         <button
@@ -210,6 +327,144 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
           </tbody>
         </table>
       </div>
+
+      {/* MODAL DE AJUSTE DE REPASSE */}
+      {adjustingPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100">
+            
+            {/* Header */}
+            <div className="bg-[#280003] text-white p-6 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-lg">Ajustar Repasse</h3>
+                <p className="text-xs text-white/70 mt-0.5">
+                  {adjustingPayment.ownerName} - {adjustingPayment.competence}
+                </p>
+              </div>
+              <button 
+                onClick={() => setAdjustingPayment(null)}
+                disabled={isSaving}
+                className="p-1 rounded-full hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              {errorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs flex items-center gap-2">
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* Valores Principais */}
+              <div className="grid grid-cols-2 gap-4 border-b border-zinc-100 pb-4">
+                <div>
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">Aluguel Bruto (Recebido)</span>
+                  <span className="text-lg font-bold text-gray-800">{formatCurrency(adjustingPayment.grossValue)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">Taxa de Administração</span>
+                  <span className="text-lg font-bold text-red-600">
+                    - {formatCurrency(
+                      adjustingPayment.metadata?.adminFeeValue || (adjustingPayment.grossValue * 0.1)
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Manutenções / Deduções Opcionais */}
+              <div className="space-y-3">
+                <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
+                  Despesas de Manutenção (Deduções do Mês)
+                </span>
+
+                {loadingMaintenance ? (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#280003]" />
+                    <span>Carregando manutenções associadas...</span>
+                  </div>
+                ) : maintenanceExpenses.length === 0 ? (
+                  <p className="text-xs text-gray-400 bg-zinc-50 border border-zinc-100 rounded-xl p-3.5">
+                    Nenhuma despesa de manutenção liquidada para este imóvel nesta competência.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-zinc-150 rounded-xl p-3 bg-zinc-50/50">
+                    {maintenanceExpenses.map((exp) => (
+                      <label 
+                        key={exp.id} 
+                        className="flex items-center justify-between p-2 hover:bg-zinc-100/50 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedDeductionIds.includes(exp.id)}
+                            onChange={() => handleToggleDeduction(exp.id)}
+                            disabled={isSaving}
+                            className="h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-350 accent-[#280003] cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-semibold text-gray-800 block">{exp.descricao}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              Pago em {new Date(exp.dataPagamento).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-red-600">- {formatCurrency(exp.valor)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Resultado Líquido */}
+              <div className="bg-[#280003]/5 border border-[#280003]/10 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Valor Líquido a Repassar</span>
+                  <span className="text-xs text-gray-400">Total menos encargos e manutenções</span>
+                </div>
+                <span className="text-2xl font-black text-[#280003]">{formatCurrency(localNetValue)}</span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100">
+                <button
+                  type="button"
+                  onClick={() => setAdjustingPayment(null)}
+                  disabled={isSaving}
+                  className="px-5 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-gray-700 text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveAdjustment(false)}
+                  disabled={isSaving}
+                  className="px-5 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-[#280003] text-sm font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving ? "Salvando..." : "Salvar Apenas"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveAdjustment(true)}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#280003] hover:bg-[#280003]/90 text-white text-sm font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                  ) : (
+                    <Check className="w-4.5 h-4.5 text-emerald-400" />
+                  )}
+                  <span>Confirmar e Liquidar</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

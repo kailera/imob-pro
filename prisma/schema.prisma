@@ -614,6 +614,7 @@ model TransacaoFinanceira {
   dataPagamento  DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  metadata       Json?
 
   // Relacionamentos opcionais
   imovelId   String?

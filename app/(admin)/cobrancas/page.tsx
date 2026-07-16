@@ -5,7 +5,8 @@ import FinancialFilterBar from '@/components/cobrancas/FinancialFilterBar';
 import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTable';
 import FinancialSummary from '@/components/cobrancas/FinancialSummary';
 import { gerarBolePixWrapperAction } from '@/app/actions/interActions';
-import { Zap, Play, X, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
+import { Zap, Play, X, CheckCircle, AlertTriangle, Loader2, Calendar } from 'lucide-react';
 
 const DEFAULT_COBRANCAS: BilletData[] = [
   {
@@ -96,6 +97,31 @@ export default function CobrancasPage() {
   const [batchSuccessCount, setBatchSuccessCount] = useState(0);
   const [batchErrors, setBatchErrors] = useState<{ sacado: string; error: string }[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
+
+  // Estados de Geração de Cobranças Mensais
+  const [showGenModal, setShowGenModal] = useState(false);
+  const [genMonth, setGenMonth] = useState(new Date().getMonth() + 1);
+  const [genYear, setGenYear] = useState(new Date().getFullYear());
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genResult, setGenResult] = useState<{ success: boolean; count?: number; error?: string } | null>(null);
+
+  const handleGenerateMonthlyBillings = async () => {
+    setIsGenerating(true);
+    setGenResult(null);
+    try {
+      const res = await gerarCobrançasMensaisAction(Number(genMonth), Number(genYear));
+      if (res.success) {
+        setGenResult({ success: true, count: res.geradosCount });
+        loadData();
+      } else {
+        setGenResult({ success: false, error: res.error });
+      }
+    } catch (err: any) {
+      setGenResult({ success: false, error: err.message || "Erro inesperado." });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   async function loadData() {
     try {
@@ -253,16 +279,29 @@ export default function CobrancasPage() {
             <p className="text-sm text-gray-500 mt-1">Gerencie os recebimentos, boletos e repasses</p>
           </div>
 
-          {pendingBatchList.length > 0 && (
+          <div className="flex items-center flex-wrap gap-3">
             <button
-              onClick={handleBatchGenerate}
-              disabled={isBatchProcessing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#280003] hover:bg-[#280003]/90 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
+              onClick={() => {
+                setGenResult(null);
+                setShowGenModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-zinc-200 hover:bg-zinc-50 text-[#280003] font-semibold rounded-xl text-sm transition-all shadow-sm cursor-pointer"
             >
-              <Zap className="w-4 h-4 text-amber-400" />
-              <span>Gerar {pendingBatchList.length} Boletos Pendentes</span>
+              <Calendar className="w-4 h-4 text-[#280003]/70" />
+              <span>Gerar Cobranças Mensais</span>
             </button>
-          )}
+
+            {pendingBatchList.length > 0 && (
+              <button
+                onClick={handleBatchGenerate}
+                disabled={isBatchProcessing}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#280003] hover:bg-[#280003]/90 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Gerar {pendingBatchList.length} Boletos Pendentes</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <FinancialFilterBar />
@@ -364,6 +403,133 @@ export default function CobrancasPage() {
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 py-2">
                   <Loader2 className="w-4 h-4 animate-spin text-[#280003]" />
                   Aguardando intervalo de segurança anti-rate-limit...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE GERAÇÃO DE COBRANÇAS MENSAIS */}
+      {showGenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100">
+            
+            {/* Header */}
+            <div className="bg-[#280003] text-white p-6 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-lg">Gerar Cobranças Mensais</h3>
+                <p className="text-xs text-white/70 mt-0.5">Disparar faturamento de contratos ativos</p>
+              </div>
+              {!isGenerating && (
+                <button 
+                  onClick={() => setShowGenModal(false)}
+                  className="p-1 rounded-full hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {!genResult ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Mês de Competência</label>
+                      <select
+                        value={genMonth}
+                        onChange={(e) => setGenMonth(Number(e.target.value))}
+                        disabled={isGenerating}
+                        className="block w-full border border-zinc-200 rounded-xl px-3 py-2 text-sm text-[#280003] bg-white cursor-pointer focus:outline-none"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                          <option key={m} value={m}>
+                            {String(m).padStart(2, '0')} - {new Date(2026, m - 1, 1).toLocaleString('pt-BR', { month: 'long' })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Ano de Competência</label>
+                      <select
+                        value={genYear}
+                        onChange={(e) => setGenYear(Number(e.target.value))}
+                        disabled={isGenerating}
+                        className="block w-full border border-zinc-200 rounded-xl px-3 py-2 text-sm text-[#280003] bg-white cursor-pointer focus:outline-none"
+                      >
+                        {[2025, 2026, 2027, 2028, 2029].map((y) => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500 bg-zinc-50 border border-zinc-100 p-3.5 rounded-2xl">
+                    Este processo irá percorrer todos os contratos de locação ativos e criar cobranças de aluguel pendentes para o período selecionado (evitando duplicatas automaticamente).
+                  </p>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowGenModal(false)}
+                      disabled={isGenerating}
+                      className="px-5 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-gray-700 text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGenerateMonthlyBillings}
+                      disabled={isGenerating}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#280003] hover:bg-[#280003]/90 text-white text-sm font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Gerando...</span>
+                        </>
+                      ) : (
+                        <span>Iniciar Geração</span>
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4 text-center py-4">
+                  {genResult.success ? (
+                    <div className="space-y-3">
+                      <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <CheckCircle className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <h4 className="font-bold text-gray-800 text-lg">Geração Concluída!</h4>
+                      <p className="text-sm text-gray-600">
+                        Foram geradas com sucesso <span className="font-extrabold text-[#280003]">{genResult.count}</span> novas cobranças para a competência {String(genMonth).padStart(2, '0')}/{genYear}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                        <AlertTriangle className="w-6 h-6 text-red-600" />
+                      </div>
+                      <h4 className="font-bold text-gray-800 text-lg">Erro na Geração</h4>
+                      <p className="text-sm text-red-600">{genResult.error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-center pt-4 border-t border-zinc-100">
+                    <button
+                      onClick={() => {
+                        setShowGenModal(false);
+                        setGenResult(null);
+                      }}
+                      className="px-6 py-2.5 rounded-xl bg-[#280003] hover:bg-[#280003]/90 text-white text-sm font-bold shadow-sm transition-all cursor-pointer"
+                    >
+                      Fechar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

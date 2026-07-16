@@ -426,6 +426,15 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       },
     });
 
+    if (statusTransacao === "LIQUIDADO") {
+      try {
+        const { criarRepassePendente } = await import("@/app/actions/financeiroActions");
+        await criarRepassePendente(transacaoId);
+      } catch (repasseErr) {
+        console.error("Erro ao criar repasse automático após consulta Inter:", repasseErr);
+      }
+    }
+
     return {
       success: true,
       status: situacao,
