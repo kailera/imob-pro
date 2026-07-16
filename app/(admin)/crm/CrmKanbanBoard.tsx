@@ -18,6 +18,7 @@ interface Lead {
   origem: string;
   createdAt: Date;
   updatedAt: Date;
+  interesseNegocio?: string | null;
 }
 
 interface CrmKanbanBoardProps {
@@ -167,18 +168,52 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                           </h4>
                         </div>
 
-                        {/* Detalhes de Interesse (Lote e Valor) */}
+                        {/* Detalhes de Interesse */}
                         <div className="bg-brand-bg-primary/30 p-2.5 rounded-lg border border-brand-bg-primary/50 text-xs space-y-1.5">
-                          {lead.loteInfo && (
-                            <div className="flex items-center gap-1.5 text-brand-text/80 font-medium">
-                              <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0" />
-                              <span className="truncate">{lead.loteInfo}</span>
-                            </div>
-                          )}
+                          {lead.loteInfo && (() => {
+                            // Contrapropostas: "Contraproposta: Código X - Título | Procura: ..."
+                            const isContraproposta = lead.loteInfo.startsWith("Contraproposta:");
+                            const imovelPart = isContraproposta
+                              ? lead.loteInfo.split(" | Procura:")[0].replace("Contraproposta: ", "")
+                              : null;
+                            const procuraPart = isContraproposta && lead.loteInfo.includes(" | Procura:")
+                              ? lead.loteInfo.split(" | Procura:")[1]
+                              : null;
+
+                            return (
+                              <>
+                                <div className="flex items-start gap-1.5 text-brand-text/80 font-medium">
+                                  <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0 mt-0.5" />
+                                  <span className="line-clamp-2">
+                                    {isContraproposta ? imovelPart : lead.loteInfo}
+                                  </span>
+                                </div>
+                                {procuraPart && (
+                                  <div className="flex items-start gap-1.5 text-zinc-500 italic">
+                                    <MessageSquare className="w-3 h-3 shrink-0 mt-0.5" />
+                                    <span className="line-clamp-1 text-[10px]">{procuraPart}</span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                           {lead.valorSimulado && (
                             <div className="flex items-center gap-1.5 text-brand-primary font-bold">
                               <DollarSign className="w-3.5 h-3.5 shrink-0" />
-                              <span>Parcela: R$ {lead.valorSimulado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês</span>
+                              <span>
+                                {lead.origem === "CONTRAPROPOSTA" ? "Proposta: " : "Parcela: "}
+                                R$ {lead.valorSimulado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                {lead.origem !== "CONTRAPROPOSTA" && "/mês"}
+                              </span>
+                            </div>
+                          )}
+                          {lead.interesseNegocio && lead.interesseNegocio !== "AMBOS" && (
+                            <div className="flex items-center gap-1">
+                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                                lead.interesseNegocio === "VENDA" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                              }`}>
+                                {lead.interesseNegocio === "VENDA" ? "Compra" : "Locação"}
+                              </span>
                             </div>
                           )}
                         </div>

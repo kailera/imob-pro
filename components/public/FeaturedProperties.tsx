@@ -97,7 +97,10 @@ interface FeaturedPropertiesProps {
 export function FeaturedProperties({ properties = [] }: FeaturedPropertiesProps) {
   const [filter, setFilter] = useState<"todos" | "venda" | "locacao">("todos");
 
-  const filteredProperties = properties.filter(
+  // Usar imóveis reais do banco; se não houver nenhum publicado, usar demonstração
+  const displayProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
+
+  const filteredProperties = displayProperties.filter(
     (p) => filter === "todos" || p.operation === filter
   );
 

@@ -242,17 +242,56 @@ export function LeadDetailsModal({ lead, onClose, onUpdateLead }: LeadDetailsMod
 
                 <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200/60 space-y-4">
                   <h3 className="font-extrabold text-sm text-zinc-900 uppercase tracking-wider">Origem do Lead</h3>
-                  <div className="space-y-2 text-sm text-zinc-700">
-                    {lead.loteInfo && (
-                      <div>
-                        <span className="text-xs text-zinc-400 block">Referência / Lote de Interesse</span>
-                        <span className="font-semibold">{lead.loteInfo}</span>
-                      </div>
-                    )}
+                  <div className="space-y-3 text-sm text-zinc-700">
+                    {/* Badge da origem */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] bg-brand-accent-gold text-brand-text font-extrabold uppercase px-2 py-0.5 rounded-md">
+                        {lead.origem.replace("_", " ")}
+                      </span>
+                      {lead.interesseNegocio && lead.interesseNegocio !== "AMBOS" && (
+                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                          lead.interesseNegocio === "VENDA" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                        }`}>
+                          {lead.interesseNegocio === "VENDA" ? "Compra" : "Locação"}
+                        </span>
+                      )}
+                    </div>
+
+                    {lead.loteInfo && (() => {
+                      const isContraproposta = lead.loteInfo.startsWith("Contraproposta:");
+                      const imovelPart = isContraproposta
+                        ? lead.loteInfo.split(" | Procura:")[0].replace("Contraproposta: ", "")
+                        : lead.loteInfo;
+                      const procuraPart = isContraproposta && lead.loteInfo.includes(" | Procura:")
+                        ? lead.loteInfo.split(" | Procura:")[1]
+                        : null;
+                      return (
+                        <>
+                          <div>
+                            <span className="text-xs text-zinc-400 block mb-0.5">
+                              {isContraproposta ? "Imóvel de Interesse" : "Referência / Lote de Interesse"}
+                            </span>
+                            <span className="font-semibold">{imovelPart}</span>
+                          </div>
+                          {procuraPart && (
+                            <div>
+                              <span className="text-xs text-zinc-400 block mb-0.5">Descrição do que procura</span>
+                              <span className="text-zinc-600 leading-relaxed block">{procuraPart}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
                     {lead.valorSimulado && (
                       <div>
-                        <span className="text-xs text-zinc-400 block">Valor Simulado / Contraproposta</span>
-                        <span className="font-bold text-brand-primary">R$ {lead.valorSimulado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        <span className="text-xs text-zinc-400 block mb-0.5">
+                          {lead.origem === "CONTRAPROPOSTA" ? "Valor da Proposta" : "Valor Simulado / Parcela"}
+                        </span>
+                        <span className="font-bold text-brand-primary text-lg">
+                          R$ {lead.valorSimulado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          {lead.origem !== "CONTRAPROPOSTA" && <span className="text-sm font-semibold text-zinc-500">/mês</span>}
+                        </span>
                       </div>
                     )}
                   </div>

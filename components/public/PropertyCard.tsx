@@ -81,9 +81,11 @@ export function PropertyCard({ property }: PropertyCardProps) {
     setValor(formatted);
   };
 
-  const formattedPrice = property.operation === "locacao"
-    ? `R$ ${property.price.toLocaleString("pt-BR")}/mês`
-    : `R$ ${property.price.toLocaleString("pt-BR")}`;
+  const formattedPrice = !property.price || property.price === 0
+    ? "Consulte-nos"
+    : property.operation === "locacao"
+      ? `R$ ${property.price.toLocaleString("pt-BR")}/mês`
+      : `R$ ${property.price.toLocaleString("pt-BR")}`;
 
   const allImages = property.images && property.images.length > 0
     ? property.images
