@@ -1,6 +1,6 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-const endpoint = process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";
+const endpoint = process.env.RUSTFS_ENDPOINT_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
 const accessKeyId = process.env.RUSTFS_ACCESS_KEY_ID || process.env.RUSTFS_ACCESS_KEY || "minioadmin";
 const secretAccessKey = process.env.RUSTFS_SECRET_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY || "minioadmin";
 
