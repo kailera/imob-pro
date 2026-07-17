@@ -48,7 +48,7 @@ services:
         condition: service_healthy
     networks:
       - proxy_network
-      - imob_internal_networks
+      - imob_internal_network
     ports:
       - "3000:3000"
     environment:
