@@ -32,6 +32,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        - NEXT_PUBLIC_CLERK_SIGN_IN_URL=${NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+        - NEXT_PUBLIC_CLERK_SIGN_UP_URL=${NEXT_PUBLIC_CLERK_SIGN_UP_URL}
     container_name: imob-pro-app
     restart: unless-stopped
     logging:
@@ -44,7 +48,7 @@ services:
         condition: service_healthy
     networks:
       - proxy_network
-      - imob_internal_network
+      - imob_internal_networks
     ports:
       - "3000:3000"
     environment:
@@ -98,6 +102,15 @@ services:
       - rustfs_data:/data
     networks:
       - imob_internal_network
+      - proxy_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.imobpro-storage.rule=Host(`imobprostorage.euatendo.online`)"
+      - "traefik.http.routers.imobpro-storage.entrypoints=websecure"
+      - "traefik.http.routers.imobpro-storage.tls=true"
+      - "traefik.http.routers.imobpro-storage.tls.certresolver=lets-encrypt"
+      - "traefik.http.services.imobpro-storage.loadbalancer.server.port=9001"
+      - "traefik.docker.network=proxy_network"
 
 volumes:
   postgres_data:

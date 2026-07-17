@@ -25,6 +25,12 @@ COPY . .
 
 # Variável dummy para o prisma.config.ts não quebrar no build
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
 
 # Gerar o Prisma Client diretamente no builder para garantir OpenSSL e binários corretos
 RUN npx prisma generate
