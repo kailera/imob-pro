@@ -286,9 +286,7 @@ export async function addVistoriaComment(
 export async function getVistoriadores() {
     try {
         const users = await prisma.users.findMany({
-            where: {
-                role: "VISTORIADOR",
-            },
+
         });
         return { success: true, data: users };
     } catch (error: any) {
@@ -383,8 +381,8 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
 
         // Procurar por locatário com esse CPF/CNPJ
         const contratos = vistoria.imovel.contratoImovelLocacaos;
-        const matchesLocatario = contratos.some(contrato => 
-            contrato.locatarios.some(locatario => 
+        const matchesLocatario = contratos.some(contrato =>
+            contrato.locatarios.some(locatario =>
                 locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
             )
         );
