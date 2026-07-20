@@ -3,6 +3,8 @@ import { getContratosLocacao, getCobrancas } from './actions';
 import { getImoveis } from '@/app/actions/imoveisActions';
 import LocacaoClientContainer from './components/LocacaoClientContainer';
 import NovoContratoModal from './components/NovoContratoModal';
+export const dynamic = 'force-dynamic';
+
 
 // 1. O componente agora é uma função assíncrona pura no servidor
 export default async function LocacaoPage() {
