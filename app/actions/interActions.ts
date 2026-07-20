@@ -148,7 +148,7 @@ export async function getInterPdfUrlAction(pdfKey: string): Promise<string> {
     
     if (process.env.RUSTFS_PUBLIC_URL) {
       try {
-        const rawUrlObj = new URL(raw);
+        const rawUrlObj = new URL(rawUrl);
         const publicUrlObj = new URL(process.env.RUSTFS_PUBLIC_URL);
         rawUrlObj.protocol = publicUrlObj.protocol;
         rawUrlObj.host = publicUrlObj.host;

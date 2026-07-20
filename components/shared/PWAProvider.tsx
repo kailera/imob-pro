@@ -54,7 +54,49 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 6. Registro do Service Worker
+    // 6. Interceptador Global de Erros de Server Action Outdated (Build/Version Mismatch)
+    let isReloading = false;
+    const triggerAutoReload = () => {
+      if (!isReloading) {
+        isReloading = true;
+        alert("O sistema foi atualizado para uma nova versão. A página será atualizada agora.");
+        window.location.reload();
+      }
+    };
+
+    const isServerActionError = (text: string) => {
+      return (
+        text.includes("was not found on the server") ||
+        text.includes("failed-to-find-server-action") ||
+        (text.includes("Server Action") && text.includes("not found"))
+      );
+    };
+
+    const originalAlert = window.alert;
+    window.alert = function (message?: any) {
+      const msgStr = String(message || "");
+      if (isServerActionError(msgStr)) {
+        triggerAutoReload();
+        return;
+      }
+      return originalAlert.apply(this, arguments as any);
+    };
+
+    const handleGlobalError = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const errorObj = "reason" in event ? event.reason : event.error;
+      const msgStr = String(errorObj?.message || errorObj || (event as ErrorEvent).message || "");
+      if (isServerActionError(msgStr)) {
+        if ("preventDefault" in event && typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        triggerAutoReload();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleGlobalError);
+    window.addEventListener("error", handleGlobalError);
+
+    // 7. Registro do Service Worker
     if ("serviceWorker" in navigator) {
       let refreshing = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -80,6 +122,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       } else {
         window.addEventListener("load", handleLoad);
         return () => {
+          window.alert = originalAlert;
+          window.removeEventListener("unhandledrejection", handleGlobalError);
+          window.removeEventListener("error", handleGlobalError);
           window.removeEventListener("load", handleLoad);
           window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
         };
@@ -87,6 +132,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
+      window.alert = originalAlert;
+      window.removeEventListener("unhandledrejection", handleGlobalError);
+      window.removeEventListener("error", handleGlobalError);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
   }, []);
