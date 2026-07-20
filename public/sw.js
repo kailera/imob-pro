@@ -63,15 +63,17 @@ self.addEventListener("fetch", (event) => {
           });
           return response;
         })
-        .catch(() => {
+        .catch(async () => {
           // Em caso de falha de rede (offline), busca no cache
-          return caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // Fallback genérico se a rota não estiver no cache
-            return caches.match("/vistorias");
-          });
+          const cachedResponse = await caches.match(request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          const fallback = await caches.match("/vistorias");
+          if (fallback) {
+            return fallback;
+          }
+          return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
         })
     );
     return;
