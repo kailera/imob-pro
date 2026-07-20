@@ -14,9 +14,45 @@ interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
   onAddClick?: () => void;
+  searchValue?: string;
+  onSearchChange?: (val: string) => void;
+  searchPlaceholder?: string;
 }
 
-export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProps<T>) {
+export function DataTable<T>({
+  title,
+  data,
+  columns,
+  onAddClick,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder = "Buscar...",
+}: DataTableProps<T>) {
+  const [internalSearch, setInternalSearch] = React.useState("");
+
+  const currentSearch = searchValue !== undefined ? searchValue : internalSearch;
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (onSearchChange) {
+      onSearchChange(val);
+    } else {
+      setInternalSearch(val);
+    }
+  };
+
+  const filteredData = React.useMemo(() => {
+    if (!currentSearch.trim()) return data;
+    const q = currentSearch.toLowerCase().trim();
+    return data.filter((item) => {
+      return columns.some((col) => {
+        const val = item[col.accessorKey];
+        if (val === null || val === undefined) return false;
+        return String(val).toLowerCase().includes(q);
+      });
+    });
+  }, [data, columns, currentSearch]);
+
   return (
     <div className="flex flex-col gap-6 w-full text-[#280003]">
       {/* Header */}
@@ -31,19 +67,23 @@ export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProp
             </div>
             <input
               type="text"
-              placeholder="Buscar..."
+              value={currentSearch}
+              onChange={handleSearchChange}
+              placeholder={searchPlaceholder}
               className="block w-full pl-10 pr-3 py-2 border border-gray-100 shadow-sm rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#004777] focus:border-[#004777] sm:text-sm transition-colors"
             />
           </div>
 
           {/* Add Button */}
-          <button
-            onClick={onAddClick}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#004777] text-white px-4 py-2 rounded-xl hover:bg-[#003355] transition-colors font-medium text-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar Novo
-          </button>
+          {onAddClick && (
+            <button
+              onClick={onAddClick}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#004777] text-white px-4 py-2 rounded-xl hover:bg-[#003355] transition-colors font-medium text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Novo
+            </button>
+          )}
         </div>
       </div>
 
@@ -64,7 +104,7 @@ export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProp
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((row, rowIndex) => (
+              {filteredData.map((row, rowIndex) => (
                 <tr key={rowIndex} className="hover:bg-gray-50 transition-colors group">
                   {columns.map((col, colIndex) => (
                     <td key={colIndex} className="px-6 py-4 text-sm text-[#280003]">
@@ -73,7 +113,7 @@ export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProp
                   ))}
                 </tr>
               ))}
-              {data.length === 0 && (
+              {filteredData.length === 0 && (
                 <tr>
                   <td colSpan={columns.length} className="px-6 py-12 text-center text-sm text-gray-500">
                     Nenhum registro encontrado.
