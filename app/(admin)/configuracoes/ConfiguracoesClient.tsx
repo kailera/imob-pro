@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { saveInterConfigAction, getInterConfigAction } from "@/app/actions/interActions";
-import { getImobConfigAction, saveImobConfigAction, createNewUser, getUsers } from "@/app/(admin)/configuracoes/configuracoesActions";
+import { getImobConfigAction, saveImobConfigAction, createNewUser, getUsers, getCurrentUserRole } from "@/app/(admin)/configuracoes/configuracoesActions";
 import {
   Building,
   Key,
@@ -21,8 +21,8 @@ import { ModelosTab } from "./components/ModelosTab";
 
 export default function ConfiguracoesClient() {
   const { orgId, orgRole } = useAuth();
-  const isAdmin = !orgRole || orgRole === "org:admin"; // Em dev local (sem orgRole) permite acesso
-  const [activeTab, setActiveTab] = useState<"perfil" | "inter" | "users" | "modelos">("perfil");
+
+
   const [isPending, startTransition] = useTransition();
 
   // Estado Banco Inter
@@ -57,6 +57,11 @@ export default function ConfiguracoesClient() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userDbRole, setUserDbRole] = useState<string | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
+
+
+  const isAdmin = !orgRole || orgRole === "org:admin" || userDbRole === "ADMIN" || userDbRole === "CORRETOR"; const [activeTab, setActiveTab] = useState<"perfil" | "inter" | "users" | "modelos">("perfil");
 
   async function handleCreateUserSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -110,6 +115,17 @@ export default function ConfiguracoesClient() {
       if (imobRes.success && imobRes.imob) {
         setImob(imobRes.imob);
         setLogoUrl(imobRes.imob.logoUrl);
+      }
+
+      try {
+        const roleRes = await getCurrentUserRole();
+        if (roleRes.success && roleRes.role) {
+          setUserDbRole(roleRes.role);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar role do usuário:", err);
+      } finally {
+        setLoadingRole(false);
       }
 
       // Templates
@@ -314,8 +330,8 @@ export default function ConfiguracoesClient() {
             setMessage(null);
           }}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === "perfil"
-              ? "bg-[#280003]/5 text-[#280003]"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-[#280003]/5 text-[#280003]"
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
             }`}
         >
           <Building className="w-4 h-4" />
@@ -327,8 +343,8 @@ export default function ConfiguracoesClient() {
             setMessage(null);
           }}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === "inter"
-              ? "bg-[#280003]/5 text-[#280003]"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-[#280003]/5 text-[#280003]"
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
             }`}
         >
           <Key className="w-4 h-4" />
@@ -340,8 +356,8 @@ export default function ConfiguracoesClient() {
             setMessage(null);
           }}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === "users"
-              ? "bg-[#280003]/5 text-[#280003]"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-[#280003]/5 text-[#280003]"
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
             }`}
         >
           <Users className="w-4 h-4" />
@@ -353,8 +369,8 @@ export default function ConfiguracoesClient() {
             setMessage(null);
           }}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === "modelos"
-              ? "bg-[#280003]/5 text-[#280003]"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-[#280003]/5 text-[#280003]"
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
             }`}
         >
           <FileText className="w-4 h-4" />
@@ -368,8 +384,8 @@ export default function ConfiguracoesClient() {
         {message && (
           <div
             className={`p-4 rounded-xl mb-6 flex items-start gap-3 border ${message.type === "success"
-                ? "bg-emerald-50 text-emerald-800 border-emerald-200/60"
-                : "bg-red-50 text-red-800 border-red-200/60"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200/60"
+              : "bg-red-50 text-red-800 border-red-200/60"
               }`}
           >
             {message.type === "success" ? (

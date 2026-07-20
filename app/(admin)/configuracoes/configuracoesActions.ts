@@ -232,3 +232,22 @@ async function createUserInClerk(input: {
     return { success: false, error: error.message };
   }
 }
+
+export async function getCurrentUserRole() {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Usuário não autenticado." };
+    }
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    return { success: true, role: user?.role || null };
+  } catch (error: any) {
+    console.error("Erro ao obter papel do usuário:", error);
+    return { success: false, error: error.message || "Erro de conexão." };
+  }
+}

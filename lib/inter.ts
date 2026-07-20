@@ -187,11 +187,17 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
     }
 
+    const todayStr = new Date().toISOString().split("T")[0];
+    let dataVencimentoStr = new Date(transacao.dataVencimento).toISOString().split("T")[0];
+    if (dataVencimentoStr < todayStr) {
+      dataVencimentoStr = todayStr;
+    }
+
     const cleanCpfCnpj = locatario.cpfCnpj.replace(/\D/g, "");
     const payload = {
       seuNumero: transacao.id.replace(/-/g, "").substring(0, 15),
       valorNominal: transacao.valor,
-      dataVencimento: transacao.dataVencimento.toISOString().split("T")[0],
+      dataVencimento: dataVencimentoStr,
       numDiasAgenda: 30, // Fica recebível por 30 dias após vencimento
       pagador: {
         cpfCnpj: cleanCpfCnpj,
