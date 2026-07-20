@@ -75,6 +75,7 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
       - RUSTFS_PUBLIC_URL=${RUSTFS_PUBLIC_URL}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.imob-pro.rule=Host(`imobpro.euatendo.online`)"
@@ -99,6 +100,7 @@ services:
       - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
       - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
       - ENABLE_CONSOLE=true
+      - RUSTFS_CORS_ALLOWED_ORIGINS=*
     volumes:
       - rustfs_data:/data
     networks:
