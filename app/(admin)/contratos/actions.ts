@@ -185,6 +185,12 @@ export async function updateLocatario(id: string, input: LocatarioInput) {
 // 3.2 Atualizar Locador (Proprietário)
 export async function updateLocador(id: string, input: any) {
   try {
+    // 1. Recupera o registro atual para saber o nome original
+    const currentLocador = await prisma.locador.findUnique({
+      where: { id }
+    });
+
+    // 2. Atualiza o registro alvo principal
     const locador = await prisma.locador.update({
       where: { id },
       data: {
@@ -202,6 +208,35 @@ export async function updateLocador(id: string, input: any) {
         genero: input.genero,
         documentoUrl: input.documentoUrl || [],
       },
+    });
+
+    // 3. Sincroniza todos os homônimos existentes na base (mesmo nome, case-insensitive)
+    const nomeBusca = currentLocador?.nome || input.nome;
+    await prisma.locador.updateMany({
+      where: {
+        nome: {
+          equals: nomeBusca,
+          mode: 'insensitive'
+        },
+        id: {
+          not: id // não re-atualiza o principal
+        }
+      },
+      data: {
+        nome: input.nome, // atualiza se mudou o nome
+        cpfCnpj: input.cpfCnpj,
+        telefone: input.telefone || [],
+        email: input.email,
+        endereco: input.endereco || [],
+        dataNasc: input.dataNasc,
+        rg: input.rg,
+        orgaoEmissor: input.orgaoEmissor,
+        estadoCivil: input.estadoCivil,
+        profissao: input.profissao,
+        nacionalidade: input.nacionalidade,
+        genero: input.genero,
+        documentoUrl: input.documentoUrl || [],
+      }
     });
 
     revalidatePath("/locacao");

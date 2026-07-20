@@ -236,19 +236,33 @@ async function main() {
         },
       });
 
-      // 5. Criar o Locador com placeholders
+      // 5. Buscar se já existe algum Locador cadastrado com o mesmo nome para reutilizar seus dados cadastrais (CPF, email, etc.)
+      const locadorNomeNormalizado = locadorNome || "Locador Não Informado";
+      const existingLocador = await prisma.locador.findFirst({
+        where: {
+          nome: {
+            equals: locadorNomeNormalizado,
+            mode: 'insensitive'
+          }
+        }
+      });
+
+      // Criar o Locador para esta locação específica, herdando dados cadastrais caso já existam
       await prisma.locador.create({
         data: {
-          nome: locadorNome || "Locador Não Informado",
-          cpfCnpj: "", // Será preenchido manualmente
-          email: "",
-          dataNasc: "",
-          rg: "",
-          orgaoEmissor: "",
-          estadoCivil: "",
-          profissao: "",
-          nacionalidade: "",
-          genero: "",
+          nome: locadorNomeNormalizado,
+          cpfCnpj: existingLocador?.cpfCnpj || "",
+          email: existingLocador?.email || "",
+          telefone: existingLocador?.telefone || [],
+          endereco: existingLocador?.endereco || [],
+          dataNasc: existingLocador?.dataNasc || "",
+          rg: existingLocador?.rg || "",
+          orgaoEmissor: existingLocador?.orgaoEmissor || "",
+          estadoCivil: existingLocador?.estadoCivil || "",
+          profissao: existingLocador?.profissao || "",
+          nacionalidade: existingLocador?.nacionalidade || "",
+          genero: existingLocador?.genero || "",
+          documentoUrl: existingLocador?.documentoUrl || [],
           imovelLocacaoId: locacao.id,
         },
       });

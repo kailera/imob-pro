@@ -568,7 +568,7 @@ export default function ImovelFormModal({
                     <option value="">Selecione um proprietário existente...</option>
                     {allLocadores.map((loc) => (
                       <option key={loc.id} value={loc.id}>
-                        {loc.nome} ({formatCpfCnpj(loc.cpfCnpj)})
+                        {loc.nome} ({loc.cpfCnpj ? formatCpfCnpj(loc.cpfCnpj) : "Sem CPF"})
                       </option>
                     ))}
                   </select>

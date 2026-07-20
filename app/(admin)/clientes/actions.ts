@@ -186,3 +186,109 @@ export async function getClientes() {
     return { success: false, error: error.message || "Erro ao carregar clientes." };
   }
 }
+
+export async function getClienteDetails(id: string, perfil: "Proprietário" | "Inquilino" | "Fiador" | "Comprador") {
+  try {
+    if (perfil === "Proprietário") {
+      const data = await prisma.locador.findUnique({ where: { id } });
+      return { success: true, data };
+    } else if (perfil === "Inquilino") {
+      const data = await prisma.locatario.findUnique({ where: { id } });
+      return { success: true, data };
+    } else if (perfil === "Fiador") {
+      const data = await prisma.fiador.findUnique({ where: { id } });
+      return { success: true, data };
+    } else if (perfil === "Comprador") {
+      const data = await prisma.lead.findUnique({ where: { id } });
+      return { success: true, data };
+    }
+    return { success: false, error: "Perfil inválido" };
+  } catch (error: any) {
+    console.error("Erro ao carregar detalhes do cliente:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateCliente(id: string, perfil: "Proprietário" | "Inquilino" | "Fiador" | "Comprador", input: any) {
+  try {
+    const { revalidatePath } = await import("next/cache");
+
+    if (perfil === "Proprietário") {
+      const current = await prisma.locador.findUnique({ where: { id } });
+      const nomeBusca = current?.nome || input.nome;
+
+      const updated = await prisma.locador.update({
+        where: { id },
+        data: input,
+      });
+
+      // Sincroniza homônimos
+      await prisma.locador.updateMany({
+        where: {
+          nome: { equals: nomeBusca, mode: 'insensitive' },
+          id: { not: id }
+        },
+        data: input
+      });
+
+      revalidatePath("/clientes");
+      return { success: true, data: updated };
+    } else if (perfil === "Inquilino") {
+      const current = await prisma.locatario.findUnique({ where: { id } });
+      const nomeBusca = current?.nome || input.nome;
+
+      const updated = await prisma.locatario.update({
+        where: { id },
+        data: input,
+      });
+
+      // Sincroniza homônimos
+      await prisma.locatario.updateMany({
+        where: {
+          nome: { equals: nomeBusca, mode: 'insensitive' },
+          id: { not: id }
+        },
+        data: input
+      });
+
+      revalidatePath("/clientes");
+      return { success: true, data: updated };
+    } else if (perfil === "Fiador") {
+      const current = await prisma.fiador.findUnique({ where: { id } });
+      const nomeBusca = current?.nome || input.nome;
+
+      const updated = await prisma.fiador.update({
+        where: { id },
+        data: input,
+      });
+
+      // Sincroniza homônimos
+      await prisma.fiador.updateMany({
+        where: {
+          nome: { equals: nomeBusca, mode: 'insensitive' },
+          id: { not: id }
+        },
+        data: input
+      });
+
+      revalidatePath("/clientes");
+      return { success: true, data: updated };
+    } else if (perfil === "Comprador") {
+      const updated = await prisma.lead.update({
+        where: { id },
+        data: {
+          nome: input.nome,
+          telefone: input.telefone,
+          email: input.email,
+        },
+      });
+
+      revalidatePath("/clientes");
+      return { success: true, data: updated };
+    }
+    return { success: false, error: "Perfil inválido" };
+  } catch (error: any) {
+    console.error("Erro ao atualizar cliente:", error);
+    return { success: false, error: error.message };
+  }
+}

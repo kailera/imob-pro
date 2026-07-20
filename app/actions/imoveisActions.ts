@@ -350,7 +350,23 @@ export async function getLocadores() {
         nome: "asc",
       },
     });
-    return { success: true, data: list };
+    
+    // Deduplica a lista de locadores pelo nome (case-insensitive),
+    // priorizando o registro que possui CPF/CNPJ preenchido.
+    const uniqueMap = new Map<string, typeof list[number]>();
+    for (const loc of list) {
+      const key = loc.nome.trim().toLowerCase();
+      const existing = uniqueMap.get(key);
+      if (!existing || (!existing.cpfCnpj && loc.cpfCnpj)) {
+        uniqueMap.set(key, loc);
+      }
+    }
+    
+    const uniqueList = Array.from(uniqueMap.values()).sort((a, b) => 
+      a.nome.localeCompare(b.nome, 'pt-BR')
+    );
+
+    return { success: true, data: uniqueList };
   } catch (error: any) {
     console.error("Erro ao buscar proprietários:", error);
     return { success: false, error: error.message || "Erro ao buscar proprietários." };
