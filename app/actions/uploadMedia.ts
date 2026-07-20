@@ -1,7 +1,50 @@
 "use server";
 
 import { PutObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, bucketName } from "@/lib/storage";
+import { videoQueue } from "@/lib/videoProcessor";
+
+export async function getPresignedUploadUrl(
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; fileKey: string; publicUrl: string }> {
+  const extension = fileName.split(".").pop() || "";
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  
+  const isVideo = contentType.startsWith("video/");
+  const fileKey = isVideo 
+    ? `comments/temp/${uniqueId}.${extension}` 
+    : `comments/${uniqueId}.${extension}`;
+
+  const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === "true";
+  const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+  const publicUrl = `${endpoint}/${bucketName}/${fileKey}`;
+
+  if (isDevMock) {
+    console.log("Modo de demonstração local ativo. Gerando mock de uploadUrl.");
+    return {
+      uploadUrl: `/api/mock-upload?key=${fileKey}`,
+      fileKey,
+      publicUrl
+    };
+  }
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: fileKey,
+      ContentType: contentType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+
+    return { uploadUrl, fileKey, publicUrl };
+  } catch (error: any) {
+    console.error("Erro ao gerar URL pré-assinada:", error);
+    throw new Error("Não foi possível gerar a URL de upload.");
+  }
+}
 
 export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: string; type: "image" | "video" }> {
   const file = formData.get("file") as File;
@@ -69,5 +112,16 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     const url = `data:${file.type};base64,${base64}`;
     return { url, type };
   }
+}
+
+export async function triggerVideoCompression(fileKey: string): Promise<{ success: boolean }> {
+  console.log(`[triggerVideoCompression] Recebida notificação para enfileirar compressão do arquivo: ${fileKey}`);
+  
+  // Enfileira de forma assíncrona sem bloquear a resposta HTTP
+  videoQueue.enqueue(fileKey).catch(err => {
+    console.error("[triggerVideoCompression] Falha ao enfileirar processamento:", err);
+  });
+
+  return { success: true };
 }
 

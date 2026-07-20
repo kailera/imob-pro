@@ -21,9 +21,11 @@ interface MapSearchContainerProps {
 }
 
 function SearchParamsLoader({ 
-  setOperation 
+  setOperation,
+  setSearchQuery
 }: { 
-  setOperation: React.Dispatch<React.SetStateAction<"todos" | "venda" | "locacao">> 
+  setOperation: React.Dispatch<React.SetStateAction<"todos" | "venda" | "locacao">>;
+  setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
 }) {
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -31,7 +33,11 @@ function SearchParamsLoader({
     if (op === "venda" || op === "locacao") {
       setOperation(op);
     }
-  }, [searchParams, setOperation]);
+    const q = searchParams.get("search");
+    if (q) {
+      setSearchQuery(q);
+    }
+  }, [searchParams, setOperation, setSearchQuery]);
   return null;
 }
 
@@ -45,13 +51,17 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
   const [maxPrice, setMaxPrice] = useState<number | "">("");
   const [beds, setBeds] = useState<number | "">("");
 
+  // Estado de bounds do mapa e controle de busca geográfico (QuintoAndar)
+  const [mapBounds, setMapBounds] = useState<any>(null);
+  const [searchInMapArea, setSearchInMapArea] = useState<boolean>(true);
+
   // Estado Compartilhado de Hover
   const [hoveredPropertyId, setHoveredPropertyId] = useState<string | null>(null);
   
   // Controle de Visualização Mobile
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
-  // Filtragem dos Imóveis
+  // Filtragem dos Imóveis base (sem limites do mapa, para alimentar os pins no mapa)
   const filteredProperties = initialProperties.filter((p) => {
     // Filtro por operação
     if (operation !== "todos" && p.operation !== operation) return false;
@@ -78,6 +88,17 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
     return true;
   });
 
+  // Filtragem adicional de imóveis para exibição na lista (limites do mapa)
+  const listProperties = filteredProperties.filter((p) => {
+    if (searchInMapArea && mapBounds) {
+      if (p.latitude != null && p.longitude != null) {
+        return mapBounds.contains([p.latitude, p.longitude]);
+      }
+      return false;
+    }
+    return true;
+  });
+
   const handleMarkerClick = (p: any) => {
     // Rola até o card correspondente na lista
     const element = document.getElementById(`property-card-${p.id}`);
@@ -89,7 +110,7 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] w-full overflow-hidden">
       <Suspense fallback={null}>
-        <SearchParamsLoader setOperation={setOperation} />
+        <SearchParamsLoader setOperation={setOperation} setSearchQuery={setSearchQuery} />
       </Suspense>
 
       {/* Top Bar: Busca e Filtros rápidos */}
@@ -191,14 +212,14 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
           {/* Header de Resultados */}
           <div className="flex justify-between items-center border-b border-zinc-200 pb-3">
             <h2 className="text-zinc-900 font-extrabold text-lg tracking-tight">
-              {filteredProperties.length} {filteredProperties.length === 1 ? "imóvel encontrado" : "imóveis encontrados"}
+              {listProperties.length} {listProperties.length === 1 ? "imóvel encontrado" : "imóveis encontrados"}
             </h2>
           </div>
 
-          {filteredProperties.length === 0 ? (
+          {listProperties.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-zinc-400 space-y-3">
               <SlidersHorizontal className="w-10 h-10 text-zinc-300" />
-              <p className="text-sm font-semibold">Nenhum imóvel corresponde aos filtros selecionados.</p>
+              <p className="text-sm font-semibold">Nenhum imóvel corresponde aos filtros selecionados nesta área.</p>
               <button 
                 onClick={() => {
                   setOperation("todos");
@@ -206,6 +227,7 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
                   setSearchQuery("");
                   setMaxPrice("");
                   setBeds("");
+                  setSearchInMapArea(false);
                 }}
                 className="text-xs text-[#004777] font-bold hover:underline"
               >
@@ -214,7 +236,7 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-              {filteredProperties.map((p) => (
+              {listProperties.map((p) => (
                 <div
                   key={p.id}
                   id={`property-card-${p.id}`}
@@ -235,15 +257,33 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
 
         {/* Coluna Direita: Mapa Interativo (Ocupa full em mobile se viewMode === 'map') */}
         <section 
-          className={`w-full md:w-1/2 h-full transition-all duration-300 ${
+          className={`w-full md:w-1/2 h-full transition-all duration-300 relative ${
             viewMode === "map" ? "block" : "hidden md:block"
           }`}
         >
+          {/* Caixa de Seleção Flutuante - Estilo QuintoAndar */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-full shadow-lg border border-zinc-200/80 flex items-center gap-2 transition-all hover:bg-white hover:scale-102">
+            <input
+              type="checkbox"
+              id="search-map-area"
+              checked={searchInMapArea}
+              onChange={(e) => setSearchInMapArea(e.target.checked)}
+              className="w-4 h-4 text-[#004777] border-zinc-300 rounded focus:ring-[#004777] cursor-pointer"
+            />
+            <label 
+              htmlFor="search-map-area" 
+              className="text-[11px] font-extrabold text-zinc-700 cursor-pointer select-none whitespace-nowrap"
+            >
+              Buscar conforme movo o mapa
+            </label>
+          </div>
+
           <MapComponent
             properties={filteredProperties}
             hoveredPropertyId={hoveredPropertyId}
             onHoverProperty={setHoveredPropertyId}
             onClickProperty={handleMarkerClick}
+            onBoundsChange={setMapBounds}
           />
         </section>
 

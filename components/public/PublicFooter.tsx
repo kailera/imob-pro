@@ -64,11 +64,7 @@ export function PublicFooter() {
                   Loteamentos (Lançamentos)
                 </Link>
               </li>
-              <li>
-                <Link href="/admin" className="text-sm text-white/70 hover:text-brand-accent-gold transition-colors">
-                  Área do Cliente (Painel)
-                </Link>
-              </li>
+
             </ul>
           </div>
 

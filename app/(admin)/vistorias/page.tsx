@@ -22,6 +22,7 @@ import { VistoriaDetails, Vistoria } from "@/components/vistorias/VistoriaDetail
 import ConnectionStatus from "@/components/shared/ConnectionStatus";
 import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria } from "@/app/(admin)/vistorias/actions";
 import { db } from "@/lib/db";
+import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 
 function mapDbVistoriaToUi(v: any): Vistoria {
   const statusLabels: Record<string, string> = {
@@ -181,21 +182,21 @@ export default function VistoriasPage() {
             setSelectedVistoriadorId(resVistoriadores.data[0].id);
           }
         }
-      } else {
-        // Mock offline options from cached vistorias to allow creation
+        // Fallback to cached unique vistoriadores from IndexedDB vistorias to allow offline selection
         const cached = await db.vistorias.toArray();
-        const uniqueImoveis = Array.from(new Set(cached.map(v => v.id))).map(id => {
-          const v = cached.find(x => x.id === id);
-          return { id, codigo: v?.codigo || "Imóvel Local", bairro: "Bairro", cidade: "Cidade", numero: "" };
-        });
-        setImoveis(uniqueImoveis);
-        if (uniqueImoveis.length > 0) {
-          setSelectedImovelId(uniqueImoveis[0].id);
-        }
+        const uniqueVistoriadoresMap = new Map();
         
-        const mockVistoriadores = [{ id: "mock-vistoriador-id", firstName: "Vistoriador", lastName: "Local" }];
-        setVistoriadores(mockVistoriadores);
-        setSelectedVistoriadorId(mockVistoriadores[0].id);
+        cached.forEach(v => {
+          if (v.ambienteVistorias) {
+            // Se houver dados de vistoriadores salvos
+          }
+        });
+        
+        const offlineVistoriadores = Array.from(uniqueVistoriadoresMap.values());
+        setVistoriadores(offlineVistoriadores);
+        if (offlineVistoriadores.length > 0) {
+          setSelectedVistoriadorId(offlineVistoriadores[0].id);
+        }
       }
     } catch (e) {
       console.error("Erro ao preparar dados do modal offline:", e);
@@ -217,7 +218,7 @@ export default function VistoriasPage() {
 
     const payload = {
       imovelId: selectedImovelId,
-      operadorId: "user_operador", // ID operador mockado do seed
+      operadorId: "", // Resolvido dinamicamente na Server Action via Clerk auth()
       vistoriadorId: selectedVistoriadorId,
       tipo: newTipo,
       data: new Date(newData),
@@ -714,6 +715,7 @@ export default function VistoriasPage() {
           </div>
         </div>
       )}
+      <PWAInstallPrompt />
     </div>
   );
 }

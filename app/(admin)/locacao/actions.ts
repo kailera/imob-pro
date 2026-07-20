@@ -200,6 +200,16 @@ export const getContratosLocacao = async () => {
                         }
                     },
                 },
+                imovelLocacao: {
+                    include: {
+                        locadors: true,
+                        periodos: {
+                            orderBy: {
+                                dataInicio: "asc",
+                            },
+                        },
+                    }
+                },
                 locatarios: true,
                 fiadors: true,
             },
@@ -248,6 +258,7 @@ export const addPeriodoContratoLocacao = async (input: {
     diasCarenciaMulta?: number | null;
     jurosAtrasoPercentual?: number | null;
     diasCarenciaJuros?: number | null;
+    indiceReajuste?: string | null;
 }) => {
     try {
         const dataInicioObj = new Date(input.dataInicio);
@@ -289,6 +300,7 @@ export const addPeriodoContratoLocacao = async (input: {
                 diasCarenciaMulta: input.diasCarenciaMulta,
                 jurosAtrasoPercentual: input.jurosAtrasoPercentual,
                 diasCarenciaJuros: input.diasCarenciaJuros,
+                indiceReajuste: input.indiceReajuste,
             },
         });
 
@@ -316,6 +328,7 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
     diasCarenciaMulta?: number | null;
     jurosAtrasoPercentual?: number | null;
     diasCarenciaJuros?: number | null;
+    indiceReajuste?: string | null;
 }) => {
     try {
         const dataInicioObj = new Date(input.dataInicio);
@@ -369,6 +382,7 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
                 diasCarenciaMulta: input.diasCarenciaMulta,
                 jurosAtrasoPercentual: input.jurosAtrasoPercentual,
                 diasCarenciaJuros: input.diasCarenciaJuros,
+                indiceReajuste: input.indiceReajuste,
             },
         });
 

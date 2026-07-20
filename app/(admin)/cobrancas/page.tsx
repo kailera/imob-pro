@@ -90,6 +90,23 @@ export default function CobrancasPage() {
   const [cobrancas, setCobrancas] = useState<BilletData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Filters state
+  const [filters, setFilters] = useState({
+    dateField: 'vencimento',
+    status: 'Todas',
+    banco: 'Todos',
+    conta: 'Todas as contas',
+    startDate: '',
+    endDate: '',
+    mesReferencia: 'TODOS',
+    search: ''
+  });
+
   // Estados do processamento em lote
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [batchTotal, setBatchTotal] = useState(0);
@@ -124,12 +141,35 @@ export default function CobrancasPage() {
   };
 
   async function loadData() {
+    setLoading(true);
     try {
-      const res = await fetch('/api/financeiro/transacoes?categoria=ALUGUEL');
+      const params = new URLSearchParams({
+        categoria: 'ALUGUEL',
+        page: String(currentPage),
+        limit: '10',
+        dateField: filters.dateField,
+        status: filters.status,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        search: filters.search
+      });
+
+      const res = await fetch(`/api/financeiro/transacoes?${params.toString()}`);
       if (!res.ok) throw new Error();
-      const data = await res.json();
+      const responseData = await res.json();
       
-      if (data.length === 0) {
+      const rawData = responseData.data || [];
+      const total = responseData.total || 0;
+      setTotalPages(responseData.totalPages || 1);
+      setTotalItems(total);
+
+      const noFiltersApplied = 
+        filters.status === 'Todas' && 
+        filters.startDate === '' && 
+        filters.endDate === '' && 
+        filters.search === '';
+
+      if (rawData.length === 0 && noFiltersApplied && currentPage === 1) {
         // Inicializar banco com dados mockados de demonstração se estiver vazio
         const savedList: BilletData[] = [];
         for (const item of DEFAULT_COBRANCAS) {
@@ -164,9 +204,11 @@ export default function CobrancasPage() {
           }
         }
         setCobrancas(savedList);
+        setTotalPages(1);
+        setTotalItems(savedList.length);
       } else {
         // Mapear do banco de dados para a interface da tabela
-        const mapped: BilletData[] = data.map((tx: any) => {
+        const mapped: BilletData[] = rawData.map((tx: any) => {
           const formatShortDate = (dStr: string | null) => {
             if (!dStr) return null;
             const d = new Date(dStr);
@@ -178,6 +220,21 @@ export default function CobrancasPage() {
           };
 
           const situacaoLabel = tx.status === 'LIQUIDADO' ? 'Liquidado' : tx.status === 'CANCELADO' ? 'Cancelado' : 'Recepcionado';
+
+          const locatarioObj = tx.contrato?.locatarios?.[0];
+          let sacadoTelefone = "";
+          if (locatarioObj?.telefone) {
+            try {
+              const telList = typeof locatarioObj.telefone === 'string' 
+                ? JSON.parse(locatarioObj.telefone) 
+                : locatarioObj.telefone;
+              if (Array.isArray(telList) && telList.length > 0) {
+                sacadoTelefone = telList[0]?.numero || "";
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
 
           return {
             id: tx.id,
@@ -191,6 +248,7 @@ export default function CobrancasPage() {
             cedente: 'Imob Pro',
             sacadoNome: tx.descricao.replace('Aluguel - ', ''),
             sacadoCpf: '***.***.***-**',
+            sacadoTelefone,
             pagamentoData: formatShortDate(tx.dataPagamento),
             pagamentoValor: tx.status === 'LIQUIDADO' ? tx.valor : null,
             interNossoNumero: tx.interNossoNumero,
@@ -210,9 +268,17 @@ export default function CobrancasPage() {
     }
   }
 
+  const handleApplyFilters = () => {
+    if (currentPage === 1) {
+      loadData();
+    } else {
+      setCurrentPage(1);
+    }
+  };
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentPage]);
 
   const pendingBatchList = cobrancas.filter(
     c => !c.interNossoNumero && (c.situacao === 'Pendente' || c.situacao === 'Recepcionado')
@@ -304,13 +370,24 @@ export default function CobrancasPage() {
           </div>
         </div>
 
-        <FinancialFilterBar />
+        <FinancialFilterBar 
+          filters={filters}
+          onChange={(updates) => setFilters(prev => ({ ...prev, ...updates }))}
+          onApply={handleApplyFilters}
+        />
         {loading ? (
           <div className="text-center py-12 text-[#280003] font-semibold">Carregando cobranças...</div>
         ) : (
           <>
             <FinancialSummary totals={totals} />
-            <FinancialTable data={cobrancas} onRefresh={loadData} />
+            <FinancialTable 
+              data={cobrancas} 
+              onRefresh={loadData}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+            />
           </>
         )}
       </div>

@@ -43,15 +43,56 @@ const parseEndereco = (field: any): EnderecoDetalhado | null => {
 
 const parseDocumentos = (field: any): DocumentoUpload[] => {
     if (!field) return []
+    let parsed: any = null
+    
     if (typeof field === "string") {
-        try { return JSON.parse(field) } catch { return [] }
+        try { parsed = JSON.parse(field) } catch { return [] }
+    } else {
+        parsed = field
     }
-    if (Array.isArray(field)) return field as unknown as DocumentoUpload[]
+
+    if (Array.isArray(parsed)) {
+        return parsed.map((doc: any) => ({
+            nome: doc.descricao || doc.nome || "Documento",
+            url: doc.url
+        }))
+    }
+
+    if (typeof parsed === "object" && parsed !== null) {
+        const list: DocumentoUpload[] = []
+        
+        if (parsed.docPessoal) list.push({ nome: "Documento Pessoal", url: parsed.docPessoal })
+        if (parsed.comprovanteResidencia) list.push({ nome: "Comprovante de Residência", url: parsed.comprovanteResidencia })
+        if (parsed.holeriteConjuge) list.push({ nome: "Holerite do Cônjuge", url: parsed.holeriteConjuge })
+        if (parsed.holerite1Nilson) list.push({ nome: "Holerite 1", url: parsed.holerite1Nilson })
+        if (parsed.holerite2Nilson) list.push({ nome: "Holerite 2", url: parsed.holerite2Nilson })
+        
+        if (Array.isArray(parsed.uploadedFinalDocs)) {
+            parsed.uploadedFinalDocs.forEach((doc: any) => {
+                list.push({
+                    nome: doc.descricao || doc.nome || "Documento Adicional",
+                    url: doc.url
+                })
+            })
+        }
+        
+        return list
+    }
+
     return []
 }
 
-export default async function ViewLocacao({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params
+
+export default async function ViewLocacao({ 
+    params,
+    searchParams 
+}: { 
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+    const { id } = await params;
+    const { edit } = await searchParams;
+    const isEditMode = edit === "true";
     const contrato = await getCompleteContratoLocacao(id)
 
     if (!contrato) {
@@ -75,6 +116,7 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
     const imovelLocacao = contrato.imovelLocacao
     const locadores = imovelLocacao?.locadors || []
     const vistorias = imovel?.vistorias || []
+    const contratoDocumentos = parseDocumentos(contrato.documentoUrl)
 
     const formatCurrency = (val: number | null | undefined) => {
         if (val === null || val === undefined) return "R$ 0,00"
@@ -98,10 +140,17 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-2xl lg:text-3xl font-bold text-[#280003]">Detalhes do Contrato</h1>
-                                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold uppercase tracking-wider">
+                                <h1 className="text-2xl lg:text-3xl font-bold text-[#280003]">
+                                    {isEditMode ? "Editar Contrato" : "Detalhes do Contrato"}
+                                </h1>
+                                <span className="px-3 py-1 bg-emerald-55/10 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold uppercase tracking-wider">
                                     Ativo
                                 </span>
+                                {isEditMode && (
+                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-xs font-bold uppercase tracking-wider">
+                                        Modo Edição
+                                    </span>
+                                )}
                             </div>
                             <p className="text-xs text-gray-500 mt-1">ID do Contrato: {contrato.id}</p>
                         </div>
@@ -461,10 +510,36 @@ export default async function ViewLocacao({ params }: { params: Promise<{ id: st
                                 </div>
                             </div>
                         </div>
+
+                        {/* Documentos do Contrato */}
+                        {contratoDocumentos.length > 0 && (
+                            <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
+                                <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
+                                    <File className="w-4 h-4 text-emerald-600" />
+                                    Documentos do Contrato
+                                </h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {contratoDocumentos.map((doc, idx) => (
+                                        <a
+                                            key={idx}
+                                            href={doc.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 hover:underline bg-white px-2.5 py-1.5 border border-gray-150 rounded-lg"
+                                        >
+                                            <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                                            {doc.nome}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Controle Locatício e Encargos */}
                         <ControleLocaticioClient
                             periodos={imovelLocacao?.periodos || []}
                             imovelLocacaoId={imovelLocacao?.id || ""}
+                            isEditMode={isEditMode}
                         />
 
                         {/* Histórico de Vistorias */}

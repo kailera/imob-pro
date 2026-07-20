@@ -134,7 +134,7 @@ export function DetailSections({
                   const roomMedia = roomComments.flatMap(c => c.media || []);
 
                   return (
-                    <div key={room.id} className="bg-white border border-[#EEEEF3] rounded-lg p-4 flex flex-col gap-3 shadow-xs">
+                    <div key={room.id} className="bg-white border border-[#EEEEF3] rounded-lg p-4 flex flex-col gap-3 shadow-xs print:break-inside-avoid print:border-b print:border-gray-200 print:rounded-none print:shadow-none print:px-0 print:py-4">
                       <div className="flex items-center justify-between border-b border-gray-50 pb-2">
                         <strong className="text-sm text-[#280003]">{room.name}</strong>
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">

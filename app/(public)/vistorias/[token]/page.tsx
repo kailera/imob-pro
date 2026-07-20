@@ -16,13 +16,16 @@ import {
   MapPin,
   Check,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Film
 } from "lucide-react";
 import { getVistoriaByToken, submitContestacao } from "@/app/(admin)/vistorias/actions";
+import { getPresignedUploadUrl, triggerVideoCompression } from "@/app/actions/uploadMedia";
 
 interface MidiaItem {
   url: string;
   nome: string;
+  type?: "image" | "video";
 }
 
 export default function TenantDashboardPage() {
@@ -37,8 +40,8 @@ export default function TenantDashboardPage() {
   // Form de Contestação
   const [selectedAmbienteId, setSelectedAmbienteId] = useState("geral");
   const [descricao, setDescricao] = useState("");
-  const [midiaUrl, setMidiaUrl] = useState("");
   const [midias, setMidias] = useState<MidiaItem[]>([]);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [formError, setFormError] = useState("");
@@ -47,7 +50,7 @@ export default function TenantDashboardPage() {
     // 1. Verificar autorização no sessionStorage
     const isAuth = sessionStorage.getItem(`vistoria_auth_${token}`) === "true";
     if (!isAuth) {
-      router.push(`/public/vistorias/acesso/${token}`);
+      router.push(`/vistorias/acesso/${token}`);
       return;
     }
     setAuthorized(true);
@@ -59,7 +62,7 @@ export default function TenantDashboardPage() {
         if (res.success && res.data) {
           setVistoria(res.data);
         } else {
-          router.push(`/public/vistorias/acesso/${token}`);
+          router.push(`/vistorias/acesso/${token}`);
         }
       } catch (err) {
         console.error(err);
@@ -70,10 +73,61 @@ export default function TenantDashboardPage() {
     loadData();
   }, [token]);
 
-  const handleAddMidia = () => {
-    if (!midiaUrl) return;
-    setMidias(prev => [...prev, { url: midiaUrl, nome: `Foto_${prev.length + 1}` }]);
-    setMidiaUrl("");
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    
+    setUploadProgress("Iniciando...");
+    try {
+      let idx = 0;
+      for (const file of files) {
+        setUploadProgress(`Preparando arquivo ${idx + 1}...`);
+        const { uploadUrl, fileKey, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
+        
+        const isVideo = file.type.startsWith("video/");
+        
+        setUploadProgress(`Enviando ${idx + 1}/${files.length}: 0%`);
+        
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", uploadUrl);
+          xhr.setRequestHeader("Content-Type", file.type);
+          
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              setUploadProgress(`Enviando ${idx + 1}/${files.length}: ${percent}%`);
+            }
+          };
+          
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Erro status: ${xhr.status}`));
+          };
+          xhr.onerror = () => reject(new Error("Erro de rede ao enviar arquivo."));
+          xhr.send(file);
+        });
+
+        setMidias(prev => [...prev, {
+          url: publicUrl,
+          nome: file.name,
+          type: isVideo ? "video" : "image"
+        }]);
+
+        if (isVideo) {
+          setUploadProgress(`Enfileirando vídeo ${idx + 1}...`);
+          await triggerVideoCompression(fileKey);
+        }
+
+        idx++;
+      }
+    } catch (error) {
+      console.error("Erro no upload:", error);
+      alert("Ocorreu um erro no upload dos arquivos da contestação.");
+    } finally {
+      setUploadProgress("");
+      e.target.value = "";
+    }
   };
 
   const handleRemoveMidia = (index: number) => {
@@ -268,40 +322,55 @@ export default function TenantDashboardPage() {
                 />
               </div>
 
-              {/* URL da Mídia */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">URL da Foto (opcional)</label>
+              {/* Arquivos de Mídia */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center justify-between">
+                  <span>Anexar Fotos ou Vídeos (opcional)</span>
+                  {uploadProgress && (
+                    <span className="text-[#004777] text-[10px] font-semibold animate-pulse flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> {uploadProgress}
+                    </span>
+                  )}
+                </label>
                 <div className="flex gap-2">
                   <input
-                    type="url"
-                    placeholder="https://exemplo.com/foto.jpg"
-                    value={midiaUrl}
-                    onChange={(e) => setMidiaUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                    type="file"
+                    id="tenant-file-upload"
+                    accept="image/*,video/*"
+                    multiple
+                    disabled={submitting || !!uploadProgress}
+                    onChange={handleFileChange}
+                    className="hidden"
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddMidia}
-                    className="px-3 bg-gray-100 hover:bg-gray-200 border border-[#EEEEF3] text-xs font-bold text-gray-600 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  <label
+                    htmlFor="tenant-file-upload"
+                    className="flex-1 px-3 py-3 border border-dashed border-[#EEEEF3] hover:border-[#004777] bg-gray-50/50 hover:bg-white rounded-xl text-center text-xs font-semibold text-gray-500 hover:text-[#004777] cursor-pointer transition-all flex items-center justify-center gap-2"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Adicionar
-                  </button>
+                    <Plus className="w-4 h-4" /> Escolher Fotos/Vídeos
+                  </label>
                 </div>
               </div>
 
-              {/* Midias List */}
+              {/* Preview das Mídias Selecionadas para Upload */}
               {midias.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-1">
+                <div className="flex flex-wrap gap-2 mt-1 p-2 bg-white border border-[#EEEEF3] rounded-xl">
                   {midias.map((m, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 bg-gray-50 border border-[#EEEEF3] px-2 py-1 rounded-lg text-[10px]">
-                      <ImageIcon className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="truncate max-w-[80px]">{m.nome}</span>
+                    <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-[#EEEEF3] bg-gray-50 flex items-center justify-center group">
+                      {m.type === "image" ? (
+                        <img src={m.url} alt={m.nome} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white relative">
+                          <Film className="w-4 h-4 text-gray-400" />
+                          <span className="text-[7px] mt-0.5 font-bold uppercase text-gray-400">Vídeo</span>
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleRemoveMidia(idx)}
-                        className="text-red-500 hover:text-red-700 font-bold ml-1"
+                        className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all"
+                        title="Remover"
                       >
-                        ×
+                        <Plus className="w-2.5 h-2.5 rotate-45" />
                       </button>
                     </div>
                   ))}
@@ -355,18 +424,34 @@ export default function TenantDashboardPage() {
 
                     {/* Mídias da contestação */}
                     {c.midias && Array.isArray(c.midias) && c.midias.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {c.midias.map((m: any, idx: number) => (
-                          <a
-                            key={idx}
-                            href={m.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-[9px] text-[#004777] font-semibold border border-slate-200"
-                          >
-                            <ImageIcon className="w-3 h-3" /> Foto {idx + 1} <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        ))}
+                      <div className="flex flex-wrap gap-2 pb-1">
+                        {c.midias.map((m: any, idx: number) => {
+                          const isVideo = m.type === "video" || m.url?.toLowerCase().includes(".mp4") || m.url?.toLowerCase().includes(".webm");
+                          const isProcessing = m.url?.includes("/temp/");
+                          return (
+                            <div key={idx} className="relative flex items-center">
+                              <a
+                                href={m.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-[9px] text-[#004777] font-semibold border border-slate-200 transition-colors"
+                              >
+                                {isVideo ? (
+                                  <Film className="w-3.5 h-3.5 text-gray-400" />
+                                ) : (
+                                  <ImageIcon className="w-3.5 h-3.5 text-gray-400" />
+                                )}
+                                <span>{isVideo ? "Vídeo" : "Foto"} {idx + 1}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              {isProcessing && (
+                                <span className="absolute -top-1.5 -right-1 bg-yellow-500 text-white text-[6px] font-bold uppercase tracking-wider px-1 rounded shadow animate-pulse">
+                                  Otimizando
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 

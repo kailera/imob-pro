@@ -207,6 +207,35 @@ export async function liquidarRepasseAction(repasseId: string) {
   }
 }
 
+// Marcar cobrança como liquidada (paga)
+export async function liquidarCobrancaAction(cobrancaId: string, dataPagamento: Date, valorPagamento: number) {
+  try {
+    await prisma.transacaoFinanceira.update({
+      where: { id: cobrancaId },
+      data: {
+        status: "LIQUIDADO",
+        dataPagamento: new Date(dataPagamento),
+        valor: valorPagamento,
+      },
+    });
+
+    // Tenta criar o repasse automático correspondente se for uma cobrança de aluguel
+    try {
+      await criarRepassePendente(cobrancaId);
+    } catch (repasseErr) {
+      console.error("Erro ao criar repasse automático após liquidação manual:", repasseErr);
+    }
+
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao liquidar cobrança:", error);
+    return { success: false, error: error.message || "Erro ao registrar pagamento." };
+  }
+}
+
 // Cria automaticamente o repasse de locador correspondente a um aluguel liquidado
 export async function criarRepassePendente(rentTransactionId: string) {
   try {

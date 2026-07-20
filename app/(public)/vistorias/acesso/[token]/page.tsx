@@ -29,7 +29,7 @@ export default function TenantAccessPage() {
       if (res.success) {
         // Salva autorização no sessionStorage para a sessão atual
         sessionStorage.setItem(`vistoria_auth_${token}`, "true");
-        router.push(`/public/vistorias/${token}`);
+        router.push(`/vistorias/${token}`);
       } else {
         setError(res.error || "Acesso negado. CPF/CNPJ incorreto.");
       }

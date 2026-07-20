@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import PWARegister from "@/components/shared/PWARegister";
+import { PWAProvider } from "@/components/shared/PWAProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ptBR } from "@clerk/localizations";
 
@@ -16,7 +16,7 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+  }>) {
   return (
     <ClerkProvider localization={ptBR}>
       <html lang="pt-BR" className="h-full antialiased">
@@ -29,11 +29,13 @@ export default function RootLayout({
           <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         </head>
         <body className={`${inter.className} min-h-full flex flex-col bg-[#EEEEF3] text-[#280003]`}>
-          <PWARegister />
-          {children}
+          <PWAProvider>
+            {children}
+          </PWAProvider>
         </body>
       </html>
     </ClerkProvider>
   );
 }
+
 

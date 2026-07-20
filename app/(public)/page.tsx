@@ -232,12 +232,7 @@ export default async function PublicHome() {
               Falar com Consultor
               <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
-            <Link
-              href="/admin"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white/10 text-white font-bold text-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              Entrar no Painel
-            </Link>
+
           </div>
         </div>
       </section>

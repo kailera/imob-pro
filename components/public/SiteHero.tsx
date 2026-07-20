@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, MapPin, Building, DollarSign } from "lucide-react";
 
 export function SiteHero() {
+  const router = useRouter();
   const [operation, setOperation] = useState<"venda" | "locacao">("venda");
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyType, setPropertyType] = useState("");
@@ -11,8 +13,14 @@ export function SiteHero() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Busca executada:", { operation, searchQuery, propertyType, priceRange });
-    alert(`Buscando imóveis para ${operation === "venda" ? "Compra" : "Aluguel"} em: "${searchQuery || "Qualquer lugar"}"`);
+    // Redirect to public busca page
+    const params = new URLSearchParams();
+    params.set("operation", operation);
+    if (searchQuery.trim()) {
+      // MapSearchContainer filters internally, let's pass search parameter
+      params.set("search", searchQuery.trim());
+    }
+    router.push(`/busca?${params.toString()}`);
   };
 
   return (

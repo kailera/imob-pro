@@ -86,6 +86,8 @@ export async function POST(req: Request) {
       let dbRole: UsersRole = UsersRole.OPERADOR;
       if (role === "org:admin" || role === "admin") {
         dbRole = UsersRole.ADMIN;
+      } else if (role === "org:corretor" || role === "corretor") {
+        dbRole = UsersRole.CORRETOR;
       }
 
       const email = public_user_data.identifier || "";
@@ -98,6 +100,7 @@ export async function POST(req: Request) {
           email: email,
           firstName: public_user_data.first_name || "",
           lastName: public_user_data.last_name || "",
+          ativo: true, // Reativa o usuário caso estivesse inativo
         },
         create: {
           id: userId,
@@ -106,6 +109,7 @@ export async function POST(req: Request) {
           lastName: public_user_data.last_name || "",
           role: dbRole,
           imobId: imobObj.id,
+          ativo: true,
         },
       });
 
@@ -120,33 +124,50 @@ export async function POST(req: Request) {
       let dbRole: UsersRole = UsersRole.OPERADOR;
       if (role === "org:admin" || role === "admin") {
         dbRole = UsersRole.ADMIN;
+      } else if (role === "org:corretor" || role === "corretor") {
+        dbRole = UsersRole.CORRETOR;
       }
 
       await prisma.users.updateMany({
         where: { id: userId },
         data: {
           role: dbRole,
+          ativo: true, // Garante que esteja ativo ao atualizar papel
         },
       });
 
       console.log(`Papel/role do usuário ${userId} atualizado no banco para ${dbRole}`);
     }
 
-    // 4. Manipular remoção de membro da organização
+    // 4. Manipular remoção de membro da organização (Soft Delete)
     if (type === "organizationMembership.deleted") {
       const { public_user_data } = evt.data;
       const userId = public_user_data.user_id;
 
-      // Dependendo da política de integridade, podemos deletar ou inativar o usuário
-      // Aqui deletamos o registro local se não houver vínculos impeditivos (ou Cascade)
-      try {
-        await prisma.users.delete({
-          where: { id: userId },
-        });
-        console.log(`Usuário ${userId} removido do banco de dados local.`);
-      } catch (err) {
-        console.warn(`Não foi possível excluir o usuário ${userId} devido a relações existentes. Mapeando para inativo ou mantendo.`);
-      }
+      await prisma.users.updateMany({
+        where: { id: userId },
+        data: {
+          ativo: false,
+        },
+      });
+      console.log(`Usuário ${userId} inativado (soft delete) no banco de dados local.`);
+    }
+
+    // 5. Sincronizar atualizações cadastrais do perfil (user.updated)
+    if (type === "user.updated") {
+      const { id, first_name, last_name, email_addresses, primary_email_address_id } = evt.data;
+      const primaryEmailObj = email_addresses?.find((e: any) => e.id === primary_email_address_id);
+      const email = primaryEmailObj?.email_address || email_addresses?.[0]?.email_address || "";
+
+      await prisma.users.updateMany({
+        where: { id: id },
+        data: {
+          firstName: first_name || "",
+          lastName: last_name || "",
+          email: email,
+        },
+      });
+      console.log(`Cadastro do usuário ${id} sincronizado com banco local (user.updated).`);
     }
 
     return new Response("Webhook processado com sucesso", { status: 200 });

@@ -26,10 +26,12 @@ interface InspectionEditorPanelProps {
   onUpdateKeys: (quantidade: number, observacao: string) => void;
   infoGeralItems: InfoGeralItem[];
   onUpdateInfoGeralItem: (id: number, newConteudo: string) => void;
+  onResolveContestacao?: (id: string, input: any) => Promise<void>;
+  userRole?: string;
+  disabled?: boolean;
   activeTab?: 'comments' | 'report' | 'contestations';
   onTabChange?: (tab: 'comments' | 'report' | 'contestations') => void;
   contestations?: any[];
-  onResolveContestacao?: (id: string, input: any) => Promise<void>;
 }
 
 interface InfoGeralItem {
@@ -54,10 +56,12 @@ export function InspectionEditorPanel({
   activeTab: controlledActiveTab,
   onTabChange,
   contestations = [],
-  onResolveContestacao
+  onResolveContestacao,
+  userRole,
+  disabled = false
 }: InspectionEditorPanelProps) {
   const { orgRole } = useAuth();
-  const isAdmin = orgRole === "org:admin";
+  const isBrokerOrAdmin = userRole === "ADMIN" || userRole === "CORRETOR" || orgRole === "org:admin";
   const [internalTab, setInternalTab] = useState<'comments' | 'report' | 'contestations'>('comments');
   const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalTab;
   const setActiveTab = onTabChange !== undefined ? onTabChange : setInternalTab;
@@ -150,7 +154,7 @@ export function InspectionEditorPanel({
             : 'border-transparent text-gray-500 hover:text-[#280003] hover:bg-gray-100/50'
             }`}
         >
-          Contestações ({contestations.filter(c => !c.resolvido).length})
+          Contestações ({contestations.filter((c: any) => !c.resolvido).length})
         </button>
       </div>
 
@@ -158,7 +162,7 @@ export function InspectionEditorPanel({
       {activeTab === 'comments' && (
         <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Formulário Modularizado (Clean Code) */}
-          <CommentForm rooms={rooms} onAddComment={onAddComment} onUpdateRoom={onUpdateRoom} />
+          {!disabled && <CommentForm rooms={rooms} onAddComment={onAddComment} onUpdateRoom={onUpdateRoom} />}
 
           {/* Linha do Tempo Modularizada (Clean Code) */}
           <CommentsTimeline comments={comments} />
@@ -174,12 +178,13 @@ export function InspectionEditorPanel({
             </label>
             <textarea
               value={tempDesc}
+              disabled={disabled}
               onChange={(e) => {
                 setTempDesc(e.target.value);
                 onUpdateReport(e.target.value, tempObs);
               }}
               placeholder="Descreva o estado geral do imóvel..."
-              className="w-full min-h-[140px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm"
+              className="w-full min-h-[140px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
             />
           </div>
 
@@ -190,12 +195,13 @@ export function InspectionEditorPanel({
             </label>
             <textarea
               value={tempObs}
+              disabled={disabled}
               onChange={(e) => {
                 setTempObs(e.target.value);
                 onUpdateReport(tempDesc, e.target.value);
               }}
               placeholder="Informe observações técnicas específicas, se houver..."
-              className="w-full min-h-[90px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm"
+              className="w-full min-h-[90px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
             />
           </div>
 
@@ -215,12 +221,13 @@ export function InspectionEditorPanel({
                   type="number"
                   min="0"
                   value={tempChavesQtd}
+                  disabled={disabled}
                   onChange={(e) => {
                     const val = Number(e.target.value);
                     setTempChavesQtd(val);
                     onUpdateKeys(val, tempChavesObs);
                   }}
-                  className="w-full p-2 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm"
+                  className="w-full p-2 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55"
                 />
               </div>
 
@@ -232,12 +239,13 @@ export function InspectionEditorPanel({
                   type="text"
                   placeholder="Ex: Retiradas na Matriz..."
                   value={tempChavesObs}
+                  disabled={disabled}
                   onChange={(e) => {
                     const val = e.target.value;
                     setTempChavesObs(val);
                     onUpdateKeys(tempChavesQtd, val);
                   }}
-                  className="w-full p-2 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm"
+                  className="w-full p-2 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55"
                 />
               </div>
             </div>
@@ -257,8 +265,9 @@ export function InspectionEditorPanel({
                   <textarea
                     rows={4}
                     value={item.conteudo}
+                    disabled={disabled}
                     onChange={(e) => onUpdateInfoGeralItem(item.id, e.target.value)}
-                    className="w-full p-2.5 bg-white border border-[#EEEEF3] rounded-lg text-xs text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm"
+                    className="w-full p-2.5 bg-white border border-[#EEEEF3] rounded-lg text-xs text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
                   />
                 </div>
               ))}
@@ -275,7 +284,7 @@ export function InspectionEditorPanel({
                 Nenhuma contestação enviada pelo inquilino.
               </div>
             ) : (
-              contestations.map((c) => (
+              contestations.map((c: any) => (
                 <div key={c.id} className="border border-[#EEEEF3] rounded-xl p-4 flex flex-col gap-3.5 shadow-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold uppercase">
@@ -309,7 +318,7 @@ export function InspectionEditorPanel({
 
                   {/* Form de Resolução se pendente */}
                   {!c.resolvido ? (
-                    !isAdmin ? (
+                    !isBrokerOrAdmin ? (
                       <div className="border-t border-red-100 bg-red-50/50 p-3 mt-1 rounded-lg text-[11px] text-red-700 font-semibold">
                         Apenas corretores/administradores têm permissão para resolver contestações.
                       </div>

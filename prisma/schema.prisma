@@ -47,6 +47,7 @@ model Users {
   firstName String
   lastName  String
   role      UsersRole
+  ativo     Boolean   @default(true)
 
   imobId               String
   imob                 Imob                  @relation(fields: [imobId], references: [id], onDelete: Cascade)
@@ -60,7 +61,7 @@ model Users {
 
 enum UsersRole {
   OPERADOR
-  VISTORIADOR
+  CORRETOR
   ADMIN
 }
 
@@ -180,6 +181,7 @@ model PeriodoContratoLocacao {
   diasCarenciaMulta     Int?
   jurosAtrasoPercentual Float?
   diasCarenciaJuros     Int?
+  indiceReajuste        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +222,7 @@ model ContratoImovelLocacao {
   fiadors              Fiador[]
   locatarios           Locatario[]
   transacaoFinanceiras TransacaoFinanceira[]
+  documentoUrl         Json?
 
   @@map("contrato_imovel_locacao")
 }
@@ -248,9 +251,9 @@ model Locatario {
   id            String @id @default(uuid())
   nome          String
   cpfCnpj       String
-  telefone      Json? // {objeto com telefone, qualificacao e observacao}
+  telefone      Json? // [{ tipo: string, numero: string, observacao?: string }]
   email         String
-  endereco      Json? // {objeto com cep, logradouro, numero, complemento, bairro, municipio, estado.}
+  endereco      Json? // { cep, logradouro, numero, complemento, bairro, municipio, estado }
   dataNasc      String
   rg            String
   orgaoEmissor  String
@@ -258,10 +261,26 @@ model Locatario {
   profissao     String
   nacionalidade String
   genero        String
+  rendaMensal   Float?
+  rne           String?
 
-  documentoUrl Json? // objeto com lista de urls (documentos feitos uploads com url e nome do documentos)
+  // Dados do Cônjuge
+  conjugeNome         String?
+  conjugeCpf          String?
+  conjugeRg           String?
+  conjugeOrgaoEmissor String?
+  conjugeEmail        String?
+  conjugeDataNasc     String?
+  conjugeProfissao    String?
+  conjugeRendaMensal  Float?
+  conjugeNacionalidade String?
+  conjugeRne          String?
+  conjugeTelefone     Json? // [{ tipo: string, numero: string, observacao?: string }]
+
+  documentoUrl Json? // Objeto/lista JSON mapeando documentos digitalizados por categoria/nome
   contratoId   String?
   contrato     ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  vistorias    Vistoria[]
 }
 
 //*************************************************************
@@ -412,6 +431,8 @@ model Vistoria {
   fotoItems            FotoItem[]
   contestacaoVistorias ContestacaoVistoria[]
   tokenAcesso          String?               @unique
+  locatarioId          String?
+  locatario            Locatario?            @relation(fields: [locatarioId], references: [id], onDelete: SetNull)
 
   @@map("vistoria")
 }

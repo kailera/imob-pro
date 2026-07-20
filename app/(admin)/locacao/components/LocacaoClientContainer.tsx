@@ -78,11 +78,18 @@ export default function LocacaoClientContainer({
     const fiadoresUnicos = removerDuplicados(allFiadores);
     const locadoresUnicos = removerDuplicados(allLocador);
 
-    // Totais de cobrança (mantive os mocks do seu código original para não quebrar o componente)
-    const cobrancasTotals = {
-        registrado: 13150.50, liquidado: 6600.00, baixado: 0.00,
-        recepcionado: 1850.50, cancelado: 1500.00
-    };
+    // Totais de cobrança reais calculados dinamicamente
+    const cobrancasTotals = initialCobrancas.reduce(
+        (acc, curr) => {
+            const val = curr.valor || 0;
+            acc.registrado += val;
+            if (curr.status === 'LIQUIDADO') acc.liquidado += val;
+            else if (curr.status === 'CANCELADO') acc.cancelado += val;
+            else acc.recepcionado += val;
+            return acc;
+        },
+        { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
+    );
 
     return (
         <div className="space-y-6">

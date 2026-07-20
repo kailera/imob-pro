@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -50,6 +50,7 @@ interface MapComponentProps {
   hoveredPropertyId: string | null;
   onHoverProperty: (id: string | null) => void;
   onClickProperty: (property: MapProperty) => void;
+  onBoundsChange?: (bounds: L.LatLngBounds) => void;
 }
 
 // Subcomponente para reposicionar o mapa de acordo com novos pins
@@ -70,11 +71,33 @@ function FitMapBounds({ properties }: { properties: MapProperty[] }) {
   return null;
 }
 
+// Subcomponente para monitorar movimentação do mapa e atualizar limites geográficos
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bounds: L.LatLngBounds) => void }) {
+  const map = useMap();
+
+  useMapEvents({
+    moveend() {
+      onBoundsChange(map.getBounds());
+    },
+    zoomend() {
+      onBoundsChange(map.getBounds());
+    },
+  });
+
+  // Reporta os limites iniciais no carregamento
+  useEffect(() => {
+    onBoundsChange(map.getBounds());
+  }, [map, onBoundsChange]);
+
+  return null;
+}
+
 export default function MapComponent({
   properties,
   hoveredPropertyId,
   onHoverProperty,
   onClickProperty,
+  onBoundsChange,
 }: MapComponentProps) {
   // Ilha Solteira como centro padrão se não houver coordenadas
   const defaultCenter: [number, number] = [-20.4312, -51.3414];
@@ -132,6 +155,7 @@ export default function MapComponent({
         })}
 
         <FitMapBounds properties={validProperties} />
+        {onBoundsChange && <MapBoundsTracker onBoundsChange={onBoundsChange} />}
       </MapContainer>
     </div>
   );

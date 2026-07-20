@@ -171,10 +171,21 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
       }
     }
 
-    const valorVenda = forVenda && valorVendaStr ? Math.round(parseFloat(valorVendaStr) * 100) : null;
-    const valorAluguel = forLocacao && valorAluguelStr ? Math.round(parseFloat(valorAluguelStr) * 100) : null;
-    const valorCondominio = forLocacao && valorCondominioStr ? Math.round(parseFloat(valorCondominioStr) * 100) : null;
-    const valorIPTU = forLocacao && valorIPTUStr ? Math.round(parseFloat(valorIPTUStr) * 100) : null;
+    const parseFormattedInt = (val: string | null): number | null => {
+      if (!val || val.trim() === "") return null;
+      // Se não contiver vírgula ou ponto, supõe que seja valor cru e multiplica por 100
+      if (!val.includes(",") && !val.includes(".")) {
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? null : Math.round(parsed * 100);
+      }
+      const raw = val.replace(/\D/g, "");
+      return raw ? parseInt(raw) : null;
+    };
+
+    const valorVenda = forVenda ? parseFormattedInt(valorVendaStr) : null;
+    const valorAluguel = forLocacao ? parseFormattedInt(valorAluguelStr) : null;
+    const valorCondominio = forLocacao ? parseFormattedInt(valorCondominioStr) : null;
+    const valorIPTU = forLocacao ? parseFormattedInt(valorIPTUStr) : null;
     const valorTotal = forLocacao ? ((valorAluguel || 0) + (valorCondominio || 0) + (valorIPTU || 0)) : null;
 
     // If CONDOMINIO and isCreatingLoteamento is true, let's create the loteamento first
@@ -220,7 +231,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     }
 
     const aluguelDadosRaw = formData.get("aluguelDados") as string | null;
-    const aluguelDados = forLocacao && aluguelDadosRaw ? JSON.parse(aluguelDadosRaw) : null;
+    const aluguelDados = aluguelDadosRaw ? JSON.parse(aluguelDadosRaw) : null;
 
     let finalCodigo = codigoInput?.trim();
     if (!finalCodigo || finalCodigo === "(Gerado automaticamente)") {
@@ -329,6 +340,60 @@ export async function deleteImovel(id: string) {
   } catch (error: any) {
     console.error("Erro ao excluir imóvel:", error);
     return { success: false, error: error.message || "Erro ao excluir imóvel." };
+  }
+}
+
+export async function getLocadores() {
+  try {
+    const list = await prisma.locador.findMany({
+      orderBy: {
+        nome: "asc",
+      },
+    });
+    return { success: true, data: list };
+  } catch (error: any) {
+    console.error("Erro ao buscar proprietários:", error);
+    return { success: false, error: error.message || "Erro ao buscar proprietários." };
+  }
+}
+
+export async function createLocador(input: {
+  nome: string;
+  cpfCnpj: string;
+  telefone?: any;
+  email: string;
+  endereco?: any;
+  dataNasc: string;
+  rg: string;
+  orgaoEmissor: string;
+  estadoCivil: string;
+  profissao: string;
+  nacionalidade: string;
+  genero: string;
+  documentoUrl?: any;
+}) {
+  try {
+    const locador = await prisma.locador.create({
+      data: {
+        nome: input.nome,
+        cpfCnpj: input.cpfCnpj,
+        telefone: input.telefone || [],
+        email: input.email,
+        endereco: input.endereco || [],
+        dataNasc: input.dataNasc,
+        rg: input.rg,
+        orgaoEmissor: input.orgaoEmissor,
+        estadoCivil: input.estadoCivil,
+        profissao: input.profissao,
+        nacionalidade: input.nacionalidade,
+        genero: input.genero,
+        documentoUrl: input.documentoUrl || [],
+      },
+    });
+    return { success: true, data: locador };
+  } catch (error: any) {
+    console.error("Erro ao cadastrar proprietário:", error);
+    return { success: false, error: error.message || "Erro ao cadastrar proprietário." };
   }
 }
 

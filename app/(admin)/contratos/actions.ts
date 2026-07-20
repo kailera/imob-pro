@@ -7,9 +7,9 @@ import { revalidatePath } from "next/cache";
 export interface LocatarioInput {
   nome: string;
   cpfCnpj: string;
-  telefone: string[]; // Formato: ["{ telefone: '...', qualificacao: '...', observacao: '...' }"]
+  telefone: any; // Múltiplos telefones no formato JSON [{tipo: string, numero: string, observacao?: string}]
   email: string;
-  endereco: string[]; // Formato: ["{ cep: '...', logradouro: '...', ... }"]
+  endereco: any; // Formato JSON ou array de strings com cep, logradouro, etc.
   dataNasc: string;
   rg: string;
   orgaoEmissor: string;
@@ -17,7 +17,23 @@ export interface LocatarioInput {
   profissao: string;
   nacionalidade: string;
   genero: string;
-  documentoUrl?: string[];
+  rendaMensal?: number;
+  rne?: string;
+
+  // Dados do Cônjuge
+  conjugeNome?: string;
+  conjugeCpf?: string;
+  conjugeRg?: string;
+  conjugeOrgaoEmissor?: string;
+  conjugeEmail?: string;
+  conjugeDataNasc?: string;
+  conjugeProfissao?: string;
+  conjugeRendaMensal?: number;
+  conjugeNacionalidade?: string;
+  conjugeRne?: string;
+  conjugeTelefone?: any;
+
+  documentoUrl?: any; // Objeto/JSON com caminhos de documentos
 }
 
 // Interface para entrada do Fiador
@@ -84,6 +100,98 @@ export async function createLocatario(input: LocatarioInput) {
         cpfCnpj: input.cpfCnpj,
         telefone: input.telefone || [],
         email: input.email,
+        endereco: input.endereco || {},
+        dataNasc: input.dataNasc,
+        rg: input.rg,
+        orgaoEmissor: input.orgaoEmissor,
+        estadoCivil: input.estadoCivil,
+        profissao: input.profissao,
+        nacionalidade: input.nacionalidade,
+        genero: input.genero,
+        rendaMensal: input.rendaMensal,
+        rne: input.rne,
+
+        // Cônjuge
+        conjugeNome: input.conjugeNome || null,
+        conjugeCpf: input.conjugeCpf || null,
+        conjugeRg: input.conjugeRg || null,
+        conjugeOrgaoEmissor: input.conjugeOrgaoEmissor || null,
+        conjugeEmail: input.conjugeEmail || null,
+        conjugeDataNasc: input.conjugeDataNasc || null,
+        conjugeProfissao: input.conjugeProfissao || null,
+        conjugeRendaMensal: input.conjugeRendaMensal || null,
+        conjugeNacionalidade: input.conjugeNacionalidade || null,
+        conjugeRne: input.conjugeRne || null,
+        conjugeTelefone: input.conjugeTelefone || null,
+
+        documentoUrl: input.documentoUrl || {},
+      },
+    });
+
+    revalidatePath("/locacao");
+    return { success: true, data: locatario };
+  } catch (error: any) {
+    console.error("Erro ao criar inquilino:", error);
+    return { success: false, error: error.message || "Erro ao criar inquilino." };
+  }
+}
+
+// 3.1 Atualizar Locatário (Inquilino)
+export async function updateLocatario(id: string, input: LocatarioInput) {
+  try {
+    const locatario = await prisma.locatario.update({
+      where: { id },
+      data: {
+        nome: input.nome,
+        cpfCnpj: input.cpfCnpj,
+        telefone: input.telefone || [],
+        email: input.email,
+        endereco: input.endereco || {},
+        dataNasc: input.dataNasc,
+        rg: input.rg,
+        orgaoEmissor: input.orgaoEmissor,
+        estadoCivil: input.estadoCivil,
+        profissao: input.profissao,
+        nacionalidade: input.nacionalidade,
+        genero: input.genero,
+        rendaMensal: input.rendaMensal,
+        rne: input.rne,
+
+        // Cônjuge
+        conjugeNome: input.conjugeNome || null,
+        conjugeCpf: input.conjugeCpf || null,
+        conjugeRg: input.conjugeRg || null,
+        conjugeOrgaoEmissor: input.conjugeOrgaoEmissor || null,
+        conjugeEmail: input.conjugeEmail || null,
+        conjugeDataNasc: input.conjugeDataNasc || null,
+        conjugeProfissao: input.conjugeProfissao || null,
+        conjugeRendaMensal: input.conjugeRendaMensal || null,
+        conjugeNacionalidade: input.conjugeNacionalidade || null,
+        conjugeRne: input.conjugeRne || null,
+        conjugeTelefone: input.conjugeTelefone || null,
+
+        documentoUrl: input.documentoUrl || {},
+      },
+    });
+
+    revalidatePath("/locacao");
+    return { success: true, data: locatario };
+  } catch (error: any) {
+    console.error("Erro ao atualizar inquilino:", error);
+    return { success: false, error: error.message || "Erro ao atualizar inquilino." };
+  }
+}
+
+// 3.2 Atualizar Locador (Proprietário)
+export async function updateLocador(id: string, input: any) {
+  try {
+    const locador = await prisma.locador.update({
+      where: { id },
+      data: {
+        nome: input.nome,
+        cpfCnpj: input.cpfCnpj,
+        telefone: input.telefone || [],
+        email: input.email,
         endereco: input.endereco || [],
         dataNasc: input.dataNasc,
         rg: input.rg,
@@ -97,12 +205,40 @@ export async function createLocatario(input: LocatarioInput) {
     });
 
     revalidatePath("/locacao");
-    return { success: true, data: locatario };
+    return { success: true, data: locador };
   } catch (error: any) {
-    console.error("Erro ao criar inquilino:", error);
-    return { success: false, error: error.message || "Erro ao criar inquilino." };
+    console.error("Erro ao atualizar locador:", error);
+    return { success: false, error: error.message || "Erro ao atualizar locador." };
   }
 }
+
+// 3.3 Atualizar Imóvel (valores e endereço)
+export async function updateImovel(id: string, input: any) {
+  try {
+    const imovel = await prisma.imovel.update({
+      where: { id },
+      data: {
+        tipo: input.tipo,
+        cep: Number(input.cep),
+        cidade: input.cidade,
+        uf: input.uf,
+        bairro: input.bairro,
+        numero: Number(input.numero),
+        valorAluguel: input.valorAluguel ? Math.round(parseFloat(input.valorAluguel) * 100) : null,
+        valorCondominio: input.valorCondominio ? Math.round(parseFloat(input.valorCondominio) * 100) : null,
+        valorIPTU: input.valorIPTU ? Math.round(parseFloat(input.valorIPTU) * 100) : null,
+        area: Number(input.area) || undefined,
+      },
+    });
+
+    revalidatePath("/locacao");
+    return { success: true, data: imovel };
+  } catch (error: any) {
+    console.error("Erro ao atualizar imóvel:", error);
+    return { success: false, error: error.message || "Erro ao atualizar imóvel." };
+  }
+}
+
 
 // 4. Buscar imóveis por endereço/código e obter proprietário + vistoria mais recente
 export async function searchImovelWithResolution(query: string) {
@@ -170,6 +306,8 @@ export async function createContratoLocacao(input: {
   valorAluguel: number;
   valorCondominio: number;
   valorIPTU: number;
+  documentoUrl?: any;
+  tenantUploadedDocs?: any;
 }) {
   try {
     const imobId = await getOrCreateDefaultImobId();
@@ -231,14 +369,24 @@ export async function createContratoLocacao(input: {
           imovelId: input.imovelId,
           imobId: imobId,
           imovelLocacaoId: imovelLocacao.id,
+          documentoUrl: input.documentoUrl || {},
         },
       });
 
-      // 4. Vincular inquilino (Locatario)
+      // 4. Vincular inquilino (Locatario) e salvar novos documentos
+      const locatarioAtual = await tx.locatario.findUnique({ where: { id: input.locatarioId } });
+      let finalDocUrl = locatarioAtual?.documentoUrl || {};
+      if (input.tenantUploadedDocs && Array.isArray(input.tenantUploadedDocs)) {
+        const existingDocs = typeof finalDocUrl === 'object' && finalDocUrl !== null ? (finalDocUrl as any) : {};
+        existingDocs.uploadedFinalDocs = input.tenantUploadedDocs;
+        finalDocUrl = existingDocs;
+      }
+
       await tx.locatario.update({
         where: { id: input.locatarioId },
         data: {
           contratoId: contratoCriado.id,
+          documentoUrl: finalDocUrl,
         },
       });
 

@@ -22,22 +22,22 @@ export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProp
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-semibold">{title}</h2>
-        
+
         <div className="flex flex-col sm:flex-row items-center gap-4">
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
-            <input 
-              type="text" 
-              placeholder="Buscar..." 
+            <input
+              type="text"
+              placeholder="Buscar..."
               className="block w-full pl-10 pr-3 py-2 border border-gray-100 shadow-sm rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#004777] focus:border-[#004777] sm:text-sm transition-colors"
             />
           </div>
-          
+
           {/* Add Button */}
-          <button 
+          <button
             onClick={onAddClick}
             className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#004777] text-white px-4 py-2 rounded-xl hover:bg-[#003355] transition-colors font-medium text-sm"
           >
@@ -54,7 +54,7 @@ export function DataTable<T>({ title, data, columns, onAddClick }: DataTableProp
             <thead>
               <tr className="border-b border-gray-100 bg-white">
                 {columns.map((col, index) => (
-                  <th 
+                  <th
                     key={index}
                     className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >

@@ -50,8 +50,8 @@ RUN npm run build
 FROM node:${NODE_VERSION} AS runner
 WORKDIR /app
 
-# Instala o openssl, necessário para o Prisma rodar no Linux
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Instala o openssl e ffmpeg, necessários para o Prisma e compressão de vídeo no Linux
+RUN apt-get update && apt-get install -y openssl ffmpeg && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

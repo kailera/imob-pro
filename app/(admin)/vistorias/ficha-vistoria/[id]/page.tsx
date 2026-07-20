@@ -9,9 +9,10 @@ import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSect
 import { InspectionEditorPanel } from "@/components/vistorias/ficha-vistoria/InspectionEditorPanel";
 import { CommentData } from "@/components/vistorias/ficha-vistoria/CommentsTimeline";
 import ConnectionStatus from "@/components/shared/ConnectionStatus";
-import { getVistoriaById, updateVistoria, addVistoriaComment, generateTokenAcesso, resolveContestacao } from "@/app/(admin)/vistorias/actions";
+import { getVistoriaById, updateVistoria, addVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria } from "@/app/(admin)/vistorias/actions";
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
+import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 
 interface InfoGeralItem {
   id: number;
@@ -24,21 +25,21 @@ export default function FichaVistoriaPage() {
   const params = useParams();
   const vistoriaId = params?.id as string;
 
-  const defaultReportDesc = `Imóvel vistoriado em perfeitas condições de habitação. As paredes encontram-se com pintura nova (tinta Látex Suvinil branca). O piso laminado da sala e dos quartos não apresenta riscos ou desgastes aparentes. Todas as portas e janelas fecham corretamente.\n\nNo banheiro, o blindex possui marcas leves de uso e o chuveiro elétrico (Lorenzetti 220v) está funcionando. Na cozinha, os armários embutidos possuem dobradiças em bom estado. A pia não apresenta vazamentos no sifão.`;
-  const defaultReportObs = `Foi notada uma leve marcação na parede próxima à janela do segundo quarto, proveniente de um antigo móvel, sem comprometer a estrutura.`;
+  const defaultReportDesc = "";
+  const defaultReportObs = "";
 
   const defaultInfoGeralItems: InfoGeralItem[] = [
-    { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições." },
-    { id: 2, titulo: "1) PINTURA", conteudo: "O imóvel está pintado com tintas de primeira qualidade: Branco Gelo nas paredes e teto, Esmalte Sintético na cor Branca nas ferragens, e Verniz Marítimo Brilhante nas portas, as pinturas em perfeito estado, sem manchas ou sujeiras." },
-    { id: 3, titulo: "2) ELÉTRICA", conteudo: "Toda rede elétrica, incluindo tomadas (todas possuem espelho de tomadas brancos, com ou sem furos), lâmpadas e saídas de energia para chuveiros encontram-se completamente instalados, em perfeito estado e funcionamento." },
-    { id: 4, titulo: "3) PISOS E AZULEJOS", conteudo: "O imóvel possui pisos em toda a sua área interna sem buracos, furos ou quaisquer tipos de defeitos, além disso, a cozinha e o banheiro, possuem revestimentos de azulejos em suas paredes. Lembrando que todos os pisos e azulejos estão em perfeito estado de conservação, sem nenhum azulejo quebrado, trincado ou arranhado." },
-    { id: 5, titulo: "4) VIDRAÇAS E JANELAS", conteudo: "Todas as janelas, basculantes e vidros estão em perfeitas condições, não apresentam nenhum defeito, trincado, arranhões ou dificuldades no manuseio." },
-    { id: 6, titulo: "5) PORTAS", conteudo: "Todas as portas de madeiras e de vidros, estão em perfeitas condições, não apresentam nenhum defeito, trincado, arranhões ou dificuldades no manuseio. Observação: as portas e de madeiras estão envernizadas, bem como, os batentes também estão." },
-    { id: 7, titulo: "6) TRINCOS E FECHADURAS", conteudo: "Todas as portas e janelas possuem trincos e fechaduras, em perfeito estado de conservação. Além disso, todas as portas, possuem como já mencionado fechaduras e também chaves. Lembrando que tais acessórios estão em perfeito funcionamento, sem arranhões, defeitos ou dificuldade no seu manuseio." },
-    { id: 8, titulo: "7) TELHADO", conteudo: "O teto do imóvel se encontra em perfeitas condições, sem infiltrações, vazamentos ou goteiras." },
-    { id: 9, titulo: "8) HIDRÁULICA", conteudo: "Toda rede hidráulica encontra-se em bom estado de conservação e funcionamento, sem entupimentos, vazamentos ou infiltrações aparentes." },
-    { id: 10, titulo: "9) LIMPEZA", conteudo: "O imóvel está sendo entregue em perfeito estado, limpo, sem sujeira na caixa de gordura, com as calhas limpas." },
-    { id: 11, titulo: "10) INFILTRAÇÕES", conteudo: "O imóvel NÃO apresenta nenhum sinal de infiltração e nem houve infiltrações anteriormente, sendo entregue em perfeito estado nesse aspecto" }
+    { id: 1, titulo: "Visão Geral", conteudo: "" },
+    { id: 2, titulo: "1) PINTURA", conteudo: "" },
+    { id: 3, titulo: "2) ELÉTRICA", conteudo: "" },
+    { id: 4, titulo: "3) PISOS E AZULEJOS", conteudo: "" },
+    { id: 5, titulo: "4) VIDRAÇAS E JANELAS", conteudo: "" },
+    { id: 6, titulo: "5) PORTAS", conteudo: "" },
+    { id: 7, titulo: "6) TRINCOS E FECHADURAS", conteudo: "" },
+    { id: 8, titulo: "7) TELHADO", conteudo: "" },
+    { id: 9, titulo: "8) HIDRÁULICA", conteudo: "" },
+    { id: 10, titulo: "9) LIMPEZA", conteudo: "" },
+    { id: 11, titulo: "10) INFILTRAÇÕES", conteudo: "" }
   ];
 
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -74,12 +75,30 @@ export default function FichaVistoriaPage() {
   const [isGeneratingToken, setIsGeneratingToken] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [contestations, setContestations] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Estados para associação de Inquilino
+  const [associatedLocatarioId, setAssociatedLocatarioId] = useState<string | null>(null);
+  const [locatarios, setLocatarios] = useState<any[]>([]);
+  const [selectedLocatarioId, setSelectedLocatarioId] = useState<string>("");
+  const [loadingLocatarios, setLoadingLocatarios] = useState(false);
+  const [isAssociating, setIsAssociating] = useState(false);
 
   // Load from database on mount
   useEffect(() => {
     async function loadVistoria() {
       if (!vistoriaId) return;
       setLoading(true);
+
+      // Carregar usuário logado
+      try {
+        const userRes = await getCurrentUser();
+        if (userRes.success) {
+          setCurrentUser(userRes.data);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar usuário logado:", err);
+      }
 
       let dbData: any = null;
 
@@ -176,6 +195,7 @@ export default function FichaVistoriaPage() {
         setAssinatura(dbData.assinatura || null);
         setTokenAcesso(dbData.tokenAcesso || null);
         setContestations(dbData.contestacaoVistorias || []);
+        setAssociatedLocatarioId(dbData.locatarioId || null);
         
         if (dbData.vistoriador) {
           setVistoriador(`${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}`);
@@ -194,7 +214,24 @@ export default function FichaVistoriaPage() {
 
   const handleOpenShare = async () => {
     setIsShareModalOpen(true);
-    if (!tokenAcesso) {
+
+    // Carregar inquilinos se ainda não carregados
+    if (locatarios.length === 0) {
+      setLoadingLocatarios(true);
+      try {
+        const res = await getLocatarios();
+        if (res.success && res.data) {
+          setLocatarios(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingLocatarios(false);
+      }
+    }
+
+    // Se já tiver inquilino associado, gera token caso não tenha
+    if (associatedLocatarioId && !tokenAcesso) {
       setIsGeneratingToken(true);
       try {
         const res = await generateTokenAcesso(vistoriaId);
@@ -211,13 +248,73 @@ export default function FichaVistoriaPage() {
     }
   };
 
+  const handleAssociateTenant = async () => {
+    if (!selectedLocatarioId) return;
+    setIsAssociating(true);
+    try {
+      const res = await associateTenantToVistoria(vistoriaId, selectedLocatarioId);
+      if (res.success) {
+        setAssociatedLocatarioId(selectedLocatarioId);
+        
+        // Agora gera o token de acesso
+        setIsGeneratingToken(true);
+        const tokenRes = await generateTokenAcesso(vistoriaId);
+        if (tokenRes.success && tokenRes.tokenAcesso) {
+          setTokenAcesso(tokenRes.tokenAcesso);
+        } else {
+          alert("Não foi possível gerar o link de acesso.");
+        }
+      } else {
+        alert(res.error || "Erro ao associar inquilino.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao conectar ao servidor.");
+    } finally {
+      setIsAssociating(false);
+      setIsGeneratingToken(false);
+    }
+  };
+
   const handleCopyLink = () => {
     if (!tokenAcesso) return;
-    const url = `${window.location.origin}/public/vistorias/acesso/${tokenAcesso}`;
+    const url = `${window.location.origin}/vistorias/acesso/${tokenAcesso}`;
     navigator.clipboard.writeText(url);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
+
+  const getWhatsAppLink = () => {
+    if (!tokenAcesso) return "";
+    const url = `${window.location.origin}/vistorias/acesso/${tokenAcesso}`;
+    
+    const tenant = locatarios.find((l) => l.id === associatedLocatarioId);
+    let phoneNum = "";
+    if (tenant && tenant.telefone) {
+      try {
+        const phones = typeof tenant.telefone === "string" ? JSON.parse(tenant.telefone) : tenant.telefone;
+        if (Array.isArray(phones) && phones.length > 0) {
+          const rawNum = phones[0]?.numero || "";
+          phoneNum = rawNum.replace(/\D/g, "");
+          if (phoneNum.length === 11 || phoneNum.length === 10) {
+            phoneNum = "55" + phoneNum;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const message = encodeURIComponent(
+      `Olá! Segue o link para visualizar e assinar a sua Ficha de Vistoria (onde também poderá gerar o PDF Oficial): ${url}`
+    );
+
+    if (phoneNum) {
+      return `https://wa.me/${phoneNum}?text=${message}`;
+    }
+    return `https://wa.me/?text=${message}`;
+  };
+
 
   const handleResolveContestacao = async (contestacaoId: string, input: any) => {
     try {
@@ -350,8 +447,10 @@ export default function FichaVistoriaPage() {
     if (!vistoriaId) return;
     setIsSaving(true);
 
+    const nextStatus = vistoriaStatus === "NAO_INICIADA" ? "EM_ANDAMENTO" : vistoriaStatus;
+
     const payload = {
-      status: "EM_ANDAMENTO" as any, // Muda status para em andamento após edição
+      status: nextStatus as any,
       observacoes: reportDescription,
       reparosNecessarios: reportObservation,
       infoGeral: infoGeralItems,
@@ -370,13 +469,14 @@ export default function FichaVistoriaPage() {
       const res = await updateVistoria(vistoriaId, payload);
       setIsSaving(false);
       if (res.success) {
+        setVistoriaStatus(nextStatus);
         alert("Vistoria salva com sucesso no banco de dados!");
         // Atualiza cache local
         const localCached = await db.vistorias.get(vistoriaId);
         if (localCached) {
           await db.vistorias.put({
             ...localCached,
-            status: "EM_ANDAMENTO",
+            status: nextStatus,
             observacoes: reportDescription,
             reparosNecessarios: reportObservation,
             infoGeral: infoGeralItems,
@@ -397,13 +497,14 @@ export default function FichaVistoriaPage() {
     } else {
       // Offline Flow
       setIsSaving(false);
+      setVistoriaStatus(nextStatus);
       
       // Atualiza cache local no IndexedDB
       const localCached = await db.vistorias.get(vistoriaId);
       if (localCached) {
         await db.vistorias.put({
           ...localCached,
-          status: "EM_ANDAMENTO",
+          status: nextStatus,
           observacoes: reportDescription,
           reparosNecessarios: reportObservation,
           infoGeral: infoGeralItems,
@@ -432,6 +533,54 @@ export default function FichaVistoriaPage() {
     }
   };
 
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!vistoriaId) return;
+    setIsSaving(true);
+
+    const payload = {
+      status: newStatus as any,
+    };
+
+    if (navigator.onLine) {
+      const res = await updateVistoria(vistoriaId, payload);
+      setIsSaving(false);
+      if (res.success) {
+        setVistoriaStatus(newStatus);
+        alert(`Status da vistoria atualizado para: ${newStatus}`);
+        
+        // Atualiza cache local
+        const localCached = await db.vistorias.get(vistoriaId);
+        if (localCached) {
+          await db.vistorias.put({
+            ...localCached,
+            status: newStatus,
+          });
+        }
+      } else {
+        alert(res.error || "Erro ao atualizar status.");
+      }
+    } else {
+      setIsSaving(false);
+      setVistoriaStatus(newStatus);
+      // Offline Flow
+      const localCached = await db.vistorias.get(vistoriaId);
+      if (localCached) {
+        await db.vistorias.put({
+          ...localCached,
+          status: newStatus,
+          pendingSync: true
+        });
+      }
+      await db.syncQueue.put({
+        type: "UPDATE_VISTORIA",
+        vistoriaId,
+        payload,
+        timestamp: Date.now()
+      });
+      alert("Status atualizado offline! Será sincronizado quando reestabelecer conexão.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -440,11 +589,42 @@ export default function FichaVistoriaPage() {
     );
   }
 
+  const isBrokerOrAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "CORRETOR";
+  const canEdit = vistoriaStatus === "NAO_INICIADA" || vistoriaStatus === "EM_ANDAMENTO" || vistoriaStatus === "CONTESTADA" || isBrokerOrAdmin;
+
   return (
-    <div className="flex flex-col w-full max-w-[1600px] bg-white mx-auto gap-6 pb-20 md:pb-16 px-2 sm:px-0 h-[100dvh] md:h-auto overflow-hidden md:overflow-visible">
+    <div className="flex flex-col w-full max-w-[1600px] bg-white mx-auto gap-6 pb-20 md:pb-16 px-2 sm:px-0 h-[100dvh] md:h-auto overflow-hidden md:overflow-visible print:h-auto print:overflow-visible print:max-w-none print:p-0 print:gap-0">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Hide non-report layout elements */
+          nav, header, footer, button, .print\\:hidden, [role="navigation"], .no-print {
+            display: none !important;
+          }
+          
+          /* Reset container margins/paddings */
+          body, html, #__next, main, .min-h-screen, .max-w-7xl, .max-w-\\[1600px\\], .mx-auto, .p-6, .md\\:p-8, .pt-20 {
+            background: white !important;
+            color: black !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            width: 100% !important;
+            position: relative !important;
+          }
+
+          /* Ensure page breaks are handled nicely */
+          section, .break-inside-avoid {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}} />
 
       {/* Top Header / Breadcrumb */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between bg-white p-4 sm:p-6 rounded-2xl border border-[#EEEEF3] shadow-sm gap-4 flex-shrink-0">
+      <header className="flex flex-col md:flex-row md:items-center justify-between bg-white p-4 sm:p-6 rounded-2xl border border-[#EEEEF3] shadow-sm gap-4 flex-shrink-0 print:hidden">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/vistorias')}
@@ -468,6 +648,43 @@ export default function FichaVistoriaPage() {
         </div>
 
         <div className="flex items-center gap-3 print:hidden">
+          {/* Botão Enviar para Aprovação */}
+          {["NAO_INICIADA", "EM_ANDAMENTO", "CONTESTADA"].includes(vistoriaStatus) && (
+            <button
+              onClick={() => handleUpdateStatus("AGUARDANDO_APROVACAO")}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+            >
+              Enviar para Aprovação
+            </button>
+          )}
+
+          {/* Botões de Aprovar e Reprovar para ADMIN e CORRETOR */}
+          {vistoriaStatus === "AGUARDANDO_APROVACAO" && (
+            isBrokerOrAdmin ? (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus("CONCLUIDA")}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+                >
+                  Aprovar Vistoria
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus("EM_ANDAMENTO")}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-rose-605 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+                >
+                  Reprovar Vistoria
+                </button>
+              </>
+            ) : (
+              <span className="text-xs bg-amber-55 text-amber-700 border border-amber-200 px-3 py-2.5 rounded-lg font-semibold">
+                Aguardando Aprovação
+              </span>
+            )
+          )}
+
           <button
             onClick={handleOpenShare}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] transition-all shadow-sm"
@@ -476,18 +693,21 @@ export default function FichaVistoriaPage() {
             <span>Enviar p/ Inquilino</span>
           </button>
 
-          <button
-            onClick={handleSaveDatabase}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#708D81] text-white rounded-lg text-sm font-semibold hover:bg-[#5b756b] transition-all shadow-sm disabled:opacity-60"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>Salvar no Banco</span>
-          </button>
+          {/* Salvar no Banco - Apenas se não concluída e se editável */}
+          {vistoriaStatus !== "CONCLUIDA" && (
+            <button
+              onClick={handleSaveDatabase}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#708D81] text-white rounded-lg text-sm font-semibold hover:bg-[#5b756b] transition-all shadow-sm disabled:opacity-60"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span>Salvar no Banco</span>
+            </button>
+          )}
 
           <button
             onClick={() => window.print()}
@@ -500,14 +720,14 @@ export default function FichaVistoriaPage() {
       </header>
 
       {/* Split Screen Layout */}
-      <div className="flex flex-col lg:flex-row print:flex-col gap-8 items-start w-full flex-1 overflow-y-auto lg:overflow-visible pb-12 lg:pb-0">
+      <div className="flex flex-col lg:flex-row print:flex-col gap-8 items-start w-full flex-1 overflow-y-auto lg:overflow-visible pb-12 lg:pb-0 print:overflow-visible print:h-auto print:p-0 print:gap-0">
 
         {/* Left Side: Visualizer, Composição & Details (Scrollable) */}
-        <div className={`w-full lg:w-[60%] print:w-full flex flex-col gap-10 lg:flex ${
+        <div className={`w-full lg:w-[60%] print:w-full print:block flex flex-col gap-10 lg:flex ${
           activeMobileTab === 'planta' || activeMobileTab === 'relatorio' ? 'block' : 'hidden'
         }`}>
 
-          <div className={`flex flex-col gap-4 ${activeMobileTab === 'planta' ? 'block' : 'hidden lg:block'}`}>
+          <div className={`flex flex-col gap-4 print:hidden ${activeMobileTab === 'planta' ? 'block' : 'hidden lg:block'}`}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-[#280003] flex items-center gap-2">
                 <Grid2X2 className="w-5 h-5 text-[#004777]" />
@@ -515,32 +735,34 @@ export default function FichaVistoriaPage() {
               </h2>
 
               {/* View Mode Toggle */}
-              <div className="flex bg-[#EEEEF3]/80 p-1 rounded-xl w-fit border border-[#EEEEF3] print:hidden">
-                <button
-                  onClick={() => setViewMode('form')}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'form'
-                    ? 'bg-white text-[#004777] shadow-sm border border-gray-100'
-                    : 'text-gray-500 hover:text-[#280003]'
-                    }`}
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Formulário
-                </button>
-                <button
-                  onClick={() => setViewMode('planta')}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'planta'
-                    ? 'bg-white text-[#004777] shadow-sm border border-gray-100'
-                    : 'text-gray-500 hover:text-[#280003]'
-                    }`}
-                >
-                  <Map className="w-4 h-4" />
-                  Planta 2D
-                </button>
-              </div>
+              {canEdit && (
+                <div className="flex bg-[#EEEEF3]/80 p-1 rounded-xl w-fit border border-[#EEEEF3] print:hidden">
+                  <button
+                    onClick={() => setViewMode('form')}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'form'
+                      ? 'bg-white text-[#004777] shadow-sm border border-gray-100'
+                      : 'text-gray-500 hover:text-[#280003]'
+                      }`}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Formulário
+                  </button>
+                  <button
+                    onClick={() => setViewMode('planta')}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${viewMode === 'planta'
+                      ? 'bg-white text-[#004777] shadow-sm border border-gray-100'
+                      : 'text-gray-500 hover:text-[#280003]'
+                      }`}
+                  >
+                    <Map className="w-4 h-4" />
+                    Planta 2D
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="w-full relative transition-all duration-300">
-              <div className={viewMode === 'form' ? 'block print:hidden' : 'hidden'}>
+              <div className={canEdit && viewMode === 'form' ? 'block print:hidden' : 'hidden'}>
                 <RoomBuilderForm
                   rooms={rooms}
                   onAddRoom={handleAddRoom}
@@ -555,7 +777,7 @@ export default function FichaVistoriaPage() {
             </div>
           </div>
 
-          <div className={activeMobileTab === 'relatorio' ? 'block' : 'hidden lg:block'}>
+          <div className={`print:block ${activeMobileTab === 'relatorio' ? 'block' : 'hidden lg:block'}`}>
             <DetailSections
               comments={comments}
               reportDescription={reportDescription}
@@ -601,6 +823,8 @@ export default function FichaVistoriaPage() {
             onTabChange={setActiveEditorTab}
             contestations={contestations}
             onResolveContestacao={handleResolveContestacao}
+            disabled={!canEdit}
+            userRole={currentUser?.role}
           />
         </div>
 
@@ -627,33 +851,95 @@ export default function FichaVistoriaPage() {
             </div>
             
             <div className="p-6 flex flex-col gap-4">
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Copie o link abaixo e envie para o inquilino. Para acessar o laudo de vistoria com segurança, ele precisará informar seu CPF/CNPJ de cadastro.
-              </p>
+              {!associatedLocatarioId ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Esta vistoria ainda não possui um inquilino diretamente associado. Selecione um inquilino cadastrado para prosseguir com o envio:
+                  </p>
+                  
+                  {loadingLocatarios ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#004777]" />
+                      <span>Carregando inquilinos...</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedLocatarioId}
+                      onChange={(e) => setSelectedLocatarioId(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25"
+                    >
+                      <option value="">Selecione o inquilino...</option>
+                      {locatarios.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.nome} - {loc.cpfCnpj}
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
-              {isGeneratingToken ? (
-                <div className="flex items-center justify-center py-6 gap-2 text-[#004777] text-sm font-semibold">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Gerando link seguro...</span>
+                  <button
+                    onClick={handleAssociateTenant}
+                    disabled={!selectedLocatarioId || isAssociating}
+                    className="w-full mt-2 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isAssociating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Associando inquilino...</span>
+                      </>
+                    ) : (
+                      <span>Vincular Inquilino e Gerar Link</span>
+                    )}
+                  </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2 mt-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={typeof window !== "undefined" ? `${window.location.origin}/public/vistorias/acesso/${tokenAcesso || ""}` : ""}
-                      className="flex-1 bg-gray-50 border border-[#EEEEF3] px-3 py-2.5 rounded-lg text-xs font-mono select-all focus:outline-none"
-                    />
-                    <button
-                      onClick={handleCopyLink}
-                      className="px-4 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
-                    >
-                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{isCopied ? "Copiado" : "Copiar"}</span>
-                    </button>
-                  </div>
-                </div>
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Copie o link abaixo e envie para o inquilino. Para acessar o laudo de vistoria com segurança, ele precisará informar seu CPF/CNPJ de cadastro.
+                  </p>
+
+                  {isGeneratingToken ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-[#004777] text-sm font-semibold">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Gerando link seguro...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={typeof window !== "undefined" ? `${window.location.origin}/vistorias/acesso/${tokenAcesso || ""}` : ""}
+                          className="flex-1 bg-gray-50 border border-[#EEEEF3] px-3 py-2.5 rounded-lg text-xs font-mono select-all focus:outline-none"
+                        />
+                        <button
+                          onClick={handleCopyLink}
+                          className="px-4 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
+                        >
+                          {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{isCopied ? "Copiado" : "Copiar"}</span>
+                        </button>
+                      </div>
+
+                      <a
+                        href={getWhatsAppLink()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full mt-2 py-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.5-5.729-1.448L0 24zm6.59-4.846c1.6.95 3.182 1.449 4.825 1.451 5.436 0 9.86-4.42 9.863-9.864.001-2.637-1.03-5.114-2.905-6.989-1.874-1.875-4.354-2.907-6.994-2.908-5.441 0-9.87 4.423-9.873 9.866-.001 1.777.462 3.508 1.34 5.04L1.758 21.8l5.221-1.369zm11.36-5.467c-.29-.145-1.716-.847-1.978-.942-.262-.096-.453-.145-.642.145-.19.29-.738.942-.905 1.134-.167.19-.334.212-.624.067-2.94-1.464-4.834-3.15-5.83-4.872-.26-.45-.03-.693.195-.918.202-.203.447-.522.67-.783.223-.261.298-.448.447-.753.149-.304.075-.57-.038-.76-.112-.19-.942-2.272-1.292-3.113-.34-.82-.686-.71-1.018-.727-.262-.013-.562-.016-.861-.016-.3 0-.787.113-1.198.563-.411.45-1.57 1.533-1.57 3.737 0 2.203 1.603 4.331 1.826 4.632.223.3 3.157 4.82 7.647 6.756 1.07.463 1.905.74 2.556.947 1.075.34 2.053.292 2.826.177.86-.128 2.624-1.072 2.993-2.108.37-1.035.37-1.922.26-2.107-.11-.188-.4-.29-.69-.435z" />
+                        </svg>
+                        <span>Enviar por WhatsApp</span>
+                      </a>
+
+                      <div className="mt-2 text-[10px] text-gray-500 bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                        <strong>Inquilino Vinculado:</strong>{" "}
+                        {locatarios.find((l) => l.id === associatedLocatarioId)?.nome || "Inquilino selecionado"}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-[#EEEEF3]">
@@ -669,6 +955,7 @@ export default function FichaVistoriaPage() {
           </div>
         </div>
       )}
+      <PWAInstallPrompt />
     </div>
   );
 }

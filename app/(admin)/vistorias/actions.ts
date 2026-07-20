@@ -26,6 +26,20 @@ async function generateVistoriaCode(): Promise<string> {
     return `VIS-${year}-${sequential}`;
 }
 
+export async function getCurrentUser() {
+    try {
+        const { userId } = await auth();
+        if (!userId) return { success: false, error: "Não autenticado." };
+        const user = await prisma.users.findUnique({
+            where: { id: userId },
+        });
+        return { success: true, data: user };
+    } catch (error: any) {
+        console.error("Erro ao carregar usuário atual:", error);
+        return { success: false, error: error.message || "Erro ao buscar usuário atual." };
+    }
+}
+
 export async function getVistorias() {
     try {
         const list = await prisma.vistoria.findMany({
@@ -82,6 +96,46 @@ export async function createVistoria(input: {
     ambientesPadrao?: string[];
 }) {
     try {
+        const { userId, sessionClaims } = await auth();
+        const finalOperadorId = userId || input.operadorId;
+
+        // Garantir que o operador esteja cadastrado no banco de dados local para evitar violação de FK
+        if (finalOperadorId) {
+            const userExists = await prisma.users.findUnique({
+                where: { id: finalOperadorId },
+            });
+
+            if (!userExists) {
+                // Caso não exista, cria-o no banco local de forma dinâmica/JIT
+                // Buscar organização padrão ou associada
+                let imob = await prisma.imob.findFirst();
+                if (!imob) {
+                    imob = await prisma.imob.create({
+                        data: {
+                            orgId: "org_default",
+                        },
+                    });
+                }
+
+                // Extrair metadados úteis do token se disponíveis
+                const email = (sessionClaims as any)?.email || "operador@imobpro.com.br";
+                const firstName = (sessionClaims as any)?.firstName || "Membro";
+                const lastName = (sessionClaims as any)?.lastName || "Equipe";
+
+                await prisma.users.create({
+                    data: {
+                        id: finalOperadorId,
+                        email: email,
+                        firstName: firstName,
+                        lastName: lastName,
+                        role: "ADMIN", // Papel padrão inicial
+                        imobId: imob.id,
+                        ativo: true,
+                    },
+                });
+            }
+        }
+
         const codigo = await generateVistoriaCode();
 
         const novaVistoria = await prisma.$transaction(async (tx: any) => {
@@ -93,7 +147,7 @@ export async function createVistoria(input: {
                     status: VistoriaStatus.NAO_INICIADA,
                     observacoes: "",
                     imovelId: input.imovelId,
-                    operadorId: input.operadorId,
+                    operadorId: finalOperadorId,
                     vistoriadorId: input.vistoriadorId,
                     tipoImovelVistoriado: input.tipoImovelVistoriado,
                     proprietario: input.proprietario || null,
@@ -170,12 +224,34 @@ export async function updateVistoria(
     }
 ) {
     try {
-        if (input.status === VistoriaStatus.CONCLUIDA) {
-            const { orgRole } = await auth();
-            if (orgRole !== "org:admin") {
-                return { success: false, error: "Apenas corretores/administradores podem concluir vistorias." };
-            }
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
         }
+        const dbUser = await prisma.users.findUnique({
+            where: { id: userId }
+        });
+        if (!dbUser) {
+            return { success: false, error: "Usuário não cadastrado." };
+        }
+
+        const currentVistoria = await prisma.vistoria.findUnique({
+            where: { id }
+        });
+        if (!currentVistoria) {
+            return { success: false, error: "Vistoria não encontrada." };
+        }
+
+        const isBrokerOrAdmin = dbUser.role === "ADMIN" || dbUser.role === "CORRETOR";
+
+        if (input.status === VistoriaStatus.CONCLUIDA && !isBrokerOrAdmin) {
+            return { success: false, error: "Apenas corretores ou administradores podem aprovar vistorias." };
+        }
+
+        if (currentVistoria.status === VistoriaStatus.AGUARDANDO_APROVACAO && input.status && input.status !== VistoriaStatus.AGUARDANDO_APROVACAO && input.status !== VistoriaStatus.CONCLUIDA && !isBrokerOrAdmin) {
+            return { success: false, error: "Apenas corretores ou administradores podem reprovar ou alterar o status de vistorias pendentes de aprovação." };
+        }
+
 
         const vistoria = await prisma.$transaction(async (tx: any) => {
             // 1. Atualizar campos principais da vistoria
@@ -286,7 +362,9 @@ export async function addVistoriaComment(
 export async function getVistoriadores() {
     try {
         const users = await prisma.users.findMany({
-
+            where: {
+                ativo: true,
+            },
         });
         return { success: true, data: users };
     } catch (error: any) {
@@ -351,11 +429,45 @@ export async function generateTokenAcesso(vistoriaId: string) {
     }
 }
 
+export async function getLocatarios() {
+    try {
+        const list = await prisma.locatario.findMany({
+            orderBy: {
+                nome: "asc",
+            },
+        });
+        return { success: true, data: list };
+    } catch (error: any) {
+        console.error("Erro ao buscar inquilinos:", error);
+        return { success: false, error: error.message || "Erro ao buscar inquilinos." };
+    }
+}
+
+export async function associateTenantToVistoria(vistoriaId: string, locatarioId: string) {
+    try {
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
+        }
+        await prisma.vistoria.update({
+            where: { id: vistoriaId },
+            data: { locatarioId },
+        });
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erro ao associar inquilino:", error);
+        return { success: false, error: error.message || "Erro ao associar inquilino." };
+    }
+}
+
 export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string) {
     try {
         const vistoria = await prisma.vistoria.findUnique({
             where: { tokenAcesso },
             include: {
+                locatario: true,
                 imovel: {
                     include: {
                         contratoImovelLocacaos: {
@@ -379,13 +491,21 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
 
         const cleanInput = cpfCnpj.replace(/\D/g, "");
 
-        // Procurar por locatário com esse CPF/CNPJ
-        const contratos = vistoria.imovel.contratoImovelLocacaos;
-        const matchesLocatario = contratos.some(contrato =>
-            contrato.locatarios.some(locatario =>
-                locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
-            )
-        );
+        // 1. Procurar por locatário vinculado diretamente
+        let matchesLocatario = false;
+        if (vistoria.locatario && vistoria.locatario.cpfCnpj.replace(/\D/g, "") === cleanInput) {
+            matchesLocatario = true;
+        }
+
+        // 2. Fallback: Procurar por locatário nos contratos
+        if (!matchesLocatario) {
+            const contratos = vistoria.imovel.contratoImovelLocacaos;
+            matchesLocatario = contratos.some(contrato =>
+                contrato.locatarios.some(locatario =>
+                    locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
+                )
+            );
+        }
 
         // Procurar por proprietário (locador) com esse CPF/CNPJ
         const locacoes = vistoria.imovel.imovelLocacaos;
@@ -484,8 +604,14 @@ export async function resolveContestacao(
     }
 ) {
     try {
-        const { orgRole } = await auth();
-        if (orgRole !== "org:admin") {
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
+        }
+        const dbUser = await prisma.users.findUnique({
+            where: { id: userId }
+        });
+        if (!dbUser || (dbUser.role !== "ADMIN" && dbUser.role !== "CORRETOR")) {
             return { success: false, error: "Apenas corretores/administradores podem resolver contestações." };
         }
 

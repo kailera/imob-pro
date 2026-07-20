@@ -47,7 +47,7 @@ async function main() {
         email: "vistoriador@imobpro.com.br",
         firstName: "Carlos",
         lastName: "Vistoriador",
-        role: "VISTORIADOR",
+        role: "OPERADOR",
         imobId: imob.id,
       },
     });

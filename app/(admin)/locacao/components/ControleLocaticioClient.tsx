@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Plus, Trash2 } from "lucide-react";
+import { TrendingUp, Plus, Trash2, X, Edit, Loader2 } from "lucide-react";
+import {
+  addPeriodoContratoLocacao,
+  updatePeriodoContratoLocacao,
+  deletePeriodoContratoLocacao,
+} from "../actions";
 
 interface Periodo {
   id: string;
@@ -20,11 +25,13 @@ interface Periodo {
   diasCarenciaMulta: number | null;
   jurosAtrasoPercentual: number | null;
   diasCarenciaJuros: number | null;
+  indiceReajuste?: string | null;
 }
 
 interface ControleLocaticioClientProps {
   periodos: Periodo[];
   imovelLocacaoId: string;
+  isEditMode?: boolean;
   onAddPeriodo?: () => void;
   onEditPeriodo?: (periodo: Periodo) => void;
 }
@@ -32,6 +39,7 @@ interface ControleLocaticioClientProps {
 export default function ControleLocaticioClient({
   periodos,
   imovelLocacaoId,
+  isEditMode = false,
   onAddPeriodo,
   onEditPeriodo,
 }: ControleLocaticioClientProps) {
@@ -40,6 +48,30 @@ export default function ControleLocaticioClient({
   );
 
   const activePeriodo = periodos.find((p) => p.id === selectedPeriodoId) || periodos[0];
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"ADD" | "EDIT">("ADD");
+  const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
+
+  // Form Fields State
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+  const [valorAluguel, setValorAluguel] = useState("");
+  const [hasCondominioState, setHasCondominioState] = useState(false);
+  const [valorCondominio, setValorCondominio] = useState("");
+  const [hasIPTUState, setHasIPTUState] = useState(false);
+  const [valorIPTU, setValorIPTU] = useState("");
+  const [descontoPontualidade, setDescontoPontualidade] = useState("");
+  const [tipoDesconto, setTipoDesconto] = useState("VALOR");
+  const [diasAntecedenciaDesc, setDiasAntecedenciaDesc] = useState("");
+  const [multaAtrasoPercentual, setMultaAtrasoPercentual] = useState("");
+  const [diasCarenciaMulta, setDiasCarenciaMulta] = useState("");
+  const [jurosAtrasoPercentual, setJurosAtrasoPercentual] = useState("");
+  const [diasCarenciaJuros, setDiasCarenciaJuros] = useState("");
+  const [indiceReajuste, setIndiceReajuste] = useState("IGPM");
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatCurrency = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "R$ 0,00";
@@ -51,17 +83,134 @@ export default function ControleLocaticioClient({
     return new Date(date).toLocaleDateString("pt-BR");
   };
 
+  const formatDateForInput = (date: any) => {
+    if (!date) return "";
+    const d = new Date(date);
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const openAddModal = () => {
+    setModalType("ADD");
+    setEditingPeriodId(null);
+    setDataInicio("");
+    setDataFim("");
+    setValorAluguel("");
+    setHasCondominioState(false);
+    setValorCondominio("");
+    setHasIPTUState(false);
+    setValorIPTU("");
+    setDescontoPontualidade("");
+    setTipoDesconto("VALOR");
+    setDiasAntecedenciaDesc("");
+    setMultaAtrasoPercentual("");
+    setDiasCarenciaMulta("");
+    setJurosAtrasoPercentual("");
+    setDiasCarenciaJuros("");
+    setIndiceReajuste("IGPM");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (p: Periodo) => {
+    setModalType("EDIT");
+    setEditingPeriodId(p.id);
+    setDataInicio(formatDateForInput(p.dataInicio));
+    setDataFim(formatDateForInput(p.dataFim));
+    setValorAluguel(p.valorAluguel.toString());
+    setHasCondominioState(p.hasCondominio);
+    setValorCondominio(p.valorCondominio?.toString() || "");
+    setHasIPTUState(p.hasIPTU);
+    setValorIPTU(p.valorIPTU?.toString() || "");
+    setDescontoPontualidade(p.descontoPontualidade?.toString() || "");
+    setTipoDesconto(p.tipoDesconto || "VALOR");
+    setDiasAntecedenciaDesc(p.diasAntecedenciaDesc?.toString() || "");
+    setMultaAtrasoPercentual(p.multaAtrasoPercentual?.toString() || "");
+    setDiasCarenciaMulta(p.diasCarenciaMulta?.toString() || "");
+    setJurosAtrasoPercentual(p.jurosAtrasoPercentual?.toString() || "");
+    setDiasCarenciaJuros(p.diasCarenciaJuros?.toString() || "");
+    setIndiceReajuste(p.indiceReajuste || "IGPM");
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dataInicio || !dataFim || !valorAluguel) {
+      alert("Por favor, preencha as datas de vigência e o valor do aluguel.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        imovelLocacaoId,
+        dataInicio,
+        dataFim,
+        valorAluguel: parseFloat(valorAluguel),
+        hasCondominio: hasCondominioState,
+        valorCondominio: hasCondominioState ? parseFloat(valorCondominio) || 0 : 0,
+        hasIPTU: hasIPTUState,
+        valorIPTU: hasIPTUState ? parseFloat(valorIPTU) || 0 : 0,
+        descontoPontualidade: parseFloat(descontoPontualidade) || null,
+        tipoDesconto: descontoPontualidade ? tipoDesconto : null,
+        diasAntecedenciaDesc: parseInt(diasAntecedenciaDesc) || null,
+        multaAtrasoPercentual: parseFloat(multaAtrasoPercentual) || null,
+        diasCarenciaMulta: parseInt(diasCarenciaMulta) || null,
+        jurosAtrasoPercentual: parseFloat(jurosAtrasoPercentual) || null,
+        diasCarenciaJuros: parseInt(diasCarenciaJuros) || null,
+        indiceReajuste: indiceReajuste || null,
+      };
+
+      let res;
+      if (modalType === "ADD") {
+        res = await addPeriodoContratoLocacao(payload);
+      } else {
+        if (!editingPeriodId) return;
+        res = await updatePeriodoContratoLocacao(editingPeriodId, payload);
+      }
+
+      if (res.success && res.data) {
+        setIsModalOpen(false);
+        window.location.reload();
+      } else {
+        alert(res.error || "Erro ao salvar período.");
+      }
+    } catch (err: any) {
+      alert("Erro ao realizar operação: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este período contratual?")) return;
+    setIsSubmitting(true);
+    try {
+      const res = await deletePeriodoContratoLocacao(id);
+      if (res.success) {
+        window.location.reload();
+      } else {
+        alert("Erro ao excluir período.");
+      }
+    } catch (err: any) {
+      alert("Erro ao excluir: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-blue-600" />
+          <TrendingUp className="w-4 h-4 text-[#004777]" />
           Controle Locatício
         </h2>
-        {onAddPeriodo && (
+        {(isEditMode || onAddPeriodo) && (
           <button
-            onClick={onAddPeriodo}
-            className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+            onClick={onAddPeriodo || openAddModal}
+            className="flex items-center gap-1 text-[10px] font-bold text-[#004777] hover:underline cursor-pointer bg-transparent border-0 font-sans"
           >
             <Plus className="w-3.5 h-3.5" /> Adicionar Período
           </button>
@@ -78,10 +227,11 @@ export default function ControleLocaticioClient({
                 <button
                   key={p.id}
                   onClick={() => setSelectedPeriodoId(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${isSelected
-                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#004777]/10 text-[#004777] border-[#004777]/20"
                       : "bg-gray-50 text-gray-500 border-gray-150 hover:bg-gray-100"
-                    }`}
+                  }`}
                 >
                   {formatDate(p.dataInicio)}
                 </button>
@@ -93,17 +243,28 @@ export default function ControleLocaticioClient({
             <div className="space-y-4 text-xs font-semibold text-gray-700">
               <div className="flex justify-between items-center pb-2 border-b border-gray-55/10">
                 <span className="text-gray-400 text-[10px] uppercase font-bold">Aluguel Vigente</span>
-                <span className="font-black text-brand-dark text-sm">{formatCurrency(activePeriodo.valorAluguel)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-brand-dark text-sm">{formatCurrency(activePeriodo.valorAluguel)}</span>
+                  {isEditMode && periodos.length > 1 && (
+                    <button
+                      onClick={() => handleDelete(activePeriodo.id)}
+                      className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                      title="Excluir Período"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Bloco: Pontualidade */}
               <div className="space-y-1.5 pb-3 border-b border-gray-50">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 text-[10px] uppercase font-bold">Desconto Pontualidade</span>
-                  {onEditPeriodo && (
+                  {(isEditMode || onEditPeriodo) && (
                     <button
-                      onClick={() => onEditPeriodo(activePeriodo)}
-                      className="text-[9px] font-bold text-[#004777] hover:underline"
+                      onClick={() => onEditPeriodo ? onEditPeriodo(activePeriodo) : openEditModal(activePeriodo)}
+                      className="text-[9px] font-bold text-[#004777] hover:underline bg-transparent border-0 font-sans"
                     >
                       Editar Período
                     </button>
@@ -112,7 +273,7 @@ export default function ControleLocaticioClient({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Valor/Percentual</span>
                   <span className="font-bold text-emerald-600">
-                    {activePeriodo.tipoDesconto === "PERCENTUAL" || activePeriodo.tipoDesconto === "PERCENTUAL"
+                    {activePeriodo.tipoDesconto === "PERCENTUAL"
                       ? `${activePeriodo.descontoPontualidade}%`
                       : formatCurrency(activePeriodo.descontoPontualidade)}
                   </span>
@@ -157,12 +318,261 @@ export default function ControleLocaticioClient({
                     {activePeriodo.hasIPTU ? formatCurrency(activePeriodo.valorIPTU) : "Não incluso"}
                   </span>
                 </div>
+                <div className="flex justify-between items-center border-t border-zinc-100 pt-1.5 mt-1.5">
+                  <span className="text-gray-500">Índice de Reajuste</span>
+                  <span className="font-bold text-[#004777]">
+                    {activePeriodo.indiceReajuste || "Não definido"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
         </div>
       ) : (
         <p className="text-xs text-gray-400 italic">Nenhum período cadastrado.</p>
+      )}
+
+      {/* Modal / Dialog para Adicionar ou Editar Período */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-[#280003]/40 z-50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-zinc-200 animate-scale-up">
+            <div className="flex items-center justify-between px-6 py-4 bg-[#EEEEF3]/50 border-b border-zinc-100">
+              <h3 className="text-sm font-bold text-[#280003]">
+                {modalType === "ADD" ? "Adicionar Novo Período Contratual" : "Editar Período Contratual"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Vigência Início *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Vigência Fim *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Valor do Aluguel (Base) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={valorAluguel}
+                  onChange={(e) => setValorAluguel(e.target.value)}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Índice de Reajuste *
+                </label>
+                <select
+                  value={indiceReajuste}
+                  onChange={(e) => setIndiceReajuste(e.target.value)}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold bg-white cursor-pointer"
+                >
+                  <option value="IGP">IGP</option>
+                  <option value="IGPM">IGPM</option>
+                  <option value="INPC">INPC</option>
+                  <option value="IPC">IPC</option>
+                  <option value="IPC-DI">IPC-DI</option>
+                  <option value="IPCA">IPCA</option>
+                </select>
+              </div>
+
+              {/* Condomínio */}
+              <div className="space-y-2 border-t border-dashed border-zinc-100 pt-3">
+                <label className="flex items-center gap-2 font-semibold text-zinc-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasCondominioState}
+                    onChange={(e) => setHasCondominioState(e.target.checked)}
+                    className="rounded text-[#004777] focus:ring-[#004777]"
+                  />
+                  <span>Possui taxas adicionais de Condomínio?</span>
+                </label>
+                {hasCondominioState && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Valor do Condomínio"
+                    value={valorCondominio}
+                    onChange={(e) => setValorCondominio(e.target.value)}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  />
+                )}
+              </div>
+
+              {/* IPTU */}
+              <div className="space-y-2 border-t border-dashed border-zinc-100 pt-3">
+                <label className="flex items-center gap-2 font-semibold text-zinc-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasIPTUState}
+                    onChange={(e) => setHasIPTUState(e.target.checked)}
+                    className="rounded text-[#004777] focus:ring-[#004777]"
+                  />
+                  <span>Possui taxas adicionais de IPTU?</span>
+                </label>
+                {hasIPTUState && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Valor do IPTU"
+                    value={valorIPTU}
+                    onChange={(e) => setValorIPTU(e.target.value)}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  />
+                )}
+              </div>
+
+              {/* Pontualidade e Desconto */}
+              <div className="border-t border-dashed border-zinc-100 pt-3 space-y-3">
+                <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Configuração de Desconto Pontualidade
+                </span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Valor do Desconto</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={descontoPontualidade}
+                      onChange={(e) => setDescontoPontualidade(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Tipo do Desconto</label>
+                    <select
+                      value={tipoDesconto}
+                      onChange={(e) => setTipoDesconto(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    >
+                      <option value="VALOR">Fixo (BRL)</option>
+                      <option value="PERCENTUAL">Percentual (%)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-zinc-500 mb-1 font-semibold">
+                    Dias de antecedência máxima para aplicar
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 5"
+                    value={diasAntecedenciaDesc}
+                    onChange={(e) => setDiasAntecedenciaDesc(e.target.value)}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Encargos e Atrasos */}
+              <div className="border-t border-dashed border-zinc-100 pt-3 space-y-3">
+                <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Multas e Juros (Encargos de Atraso)
+                </span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Multa (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Ex: 10"
+                      value={multaAtrasoPercentual}
+                      onChange={(e) => setMultaAtrasoPercentual(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Carença Multa (Dias)</label>
+                    <input
+                      type="number"
+                      placeholder="Ex: 0"
+                      value={diasCarenciaMulta}
+                      onChange={(e) => setDiasCarenciaMulta(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Juros Mensal (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Ex: 1"
+                      value={jurosAtrasoPercentual}
+                      onChange={(e) => setJurosAtrasoPercentual(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-500 mb-1 font-semibold">Carença Juros (Dias)</label>
+                    <input
+                      type="number"
+                      placeholder="Ex: 0"
+                      value={diasCarenciaJuros}
+                      onChange={(e) => setDiasCarenciaJuros(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botões do Modal */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 rounded-xl font-bold transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 bg-[#004777] text-white rounded-xl font-bold hover:bg-[#003355] transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {modalType === "ADD" ? "Criar Período" : "Salvar Alterações"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

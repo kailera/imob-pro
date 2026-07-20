@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useActionState, useRef } from "react";
 import { X, DollarSign, Key, Loader2, AlertTriangle, Image as ImageIcon, Trash2, Plus, Eye } from "lucide-react";
 import { TipoImovel } from "@/generated/prisma";
-import { saveOrUpdateImovelAction } from "@/app/actions/imoveisActions";
+import { saveOrUpdateImovelAction, getLocadores, createLocador } from "@/app/actions/imoveisActions";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
+import { formatBRL, formatCEP, formatCpfCnpj } from "@/app/(admin)/locacao/utils/formatters";
 import { PropertyCard, Property } from "@/components/public/PropertyCard";
 
 interface Imovel {
@@ -112,6 +113,36 @@ export default function ImovelFormModal({
   const [novaParcelaData, setNovaParcelaData] = useState("");
   const [novaParcelaValor, setNovaParcelaValor] = useState("");
 
+  // Locadores / Proprietários
+  const [allLocadores, setAllLocadores] = useState<any[]>([]);
+  const [proprietarioId, setProprietarioId] = useState("");
+  const [showNewLocadorModal, setShowNewLocadorModal] = useState(false);
+  const [newLocadorNome, setNewLocadorNome] = useState("");
+  const [newLocadorCpf, setNewLocadorCpf] = useState("");
+  const [newLocadorEmail, setNewLocadorEmail] = useState("");
+  const [newLocadorTelefone, setNewLocadorTelefone] = useState("");
+  const [newLocadorCep, setNewLocadorCep] = useState("");
+  const [newLocadorLogradouro, setNewLocadorLogradouro] = useState("");
+  const [newLocadorNumero, setNewLocadorNumero] = useState("");
+  const [newLocadorComplemento, setNewLocadorComplemento] = useState("");
+  const [newLocadorBairro, setNewLocadorBairro] = useState("");
+  const [newLocadorCidade, setNewLocadorCidade] = useState("");
+  const [newLocadorEstado, setNewLocadorEstado] = useState("");
+
+  // Garantias
+  const [periodoCarencia, setPeriodoCarencia] = useState("NAO_GARANTIR");
+  const [abrangenciaGarantia, setAbrangenciaGarantia] = useState("SOMENTE_ALUGUEL");
+
+  useEffect(() => {
+    if (isOpen) {
+      getLocadores().then((res) => {
+        if (res.success && res.data) {
+          setAllLocadores(res.data);
+        }
+      });
+    }
+  }, [isOpen]);
+
   // Vitrine / Institutional states
   const [publicado, setPublicado] = useState(false);
   const [titulo, setTitulo] = useState("");
@@ -123,6 +154,7 @@ export default function ImovelFormModal({
   const [imagens, setImagens] = useState<string[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [precisaAtualizar, setPrecisaAtualizar] = useState(false);
 
   // Populate local states when editingImovel changes or modal opens
   useEffect(() => {
@@ -130,17 +162,17 @@ export default function ImovelFormModal({
 
     if (editingImovel) {
       setTipo(editingImovel.tipo);
-      setCep(String(editingImovel.cep));
+      setCep(editingImovel.cep ? formatCEP(String(editingImovel.cep)) : "");
       setCidade(editingImovel.cidade);
       setUf(editingImovel.uf);
       setBairro(editingImovel.bairro);
       setNumero(String(editingImovel.numero));
       setForVenda(editingImovel.forVenda);
       setForLocacao(editingImovel.forLocacao);
-      setValorVenda(editingImovel.valorVenda ? String(editingImovel.valorVenda / 100) : "");
-      setValorAluguel(editingImovel.valorAluguel ? String(editingImovel.valorAluguel / 100) : "");
-      setValorCondominio(editingImovel.valorCondominio ? String(editingImovel.valorCondominio / 100) : "");
-      setValorIPTU(editingImovel.valorIPTU ? String(editingImovel.valorIPTU / 100) : "");
+      setValorVenda(editingImovel.valorVenda ? formatBRL(String(editingImovel.valorVenda)) : "");
+      setValorAluguel(editingImovel.valorAluguel ? formatBRL(String(editingImovel.valorAluguel)) : "");
+      setValorCondominio(editingImovel.valorCondominio ? formatBRL(String(editingImovel.valorCondominio)) : "");
+      setValorIPTU(editingImovel.valorIPTU ? formatBRL(String(editingImovel.valorIPTU)) : "");
       setLoteamentoId(editingImovel.loteamentoId || "");
       setIsCreatingLoteamento(false);
       setNewLoteamentoNome("");
@@ -159,8 +191,8 @@ export default function ImovelFormModal({
 
       // Load aluguelDados
       const d = editingImovel.aluguelDados as any || {};
-      setIndiceReajuste(d.indiceReajuste || "8,33");
-      setMultaRescisao(d.multaRescisao || "");
+      setIndiceReajuste(d.indiceReajuste || "IGPM");
+      setMultaRescisao(d.multaRescisao ? formatBRL(d.multaRescisao.replace(/\D/g, "")) : "");
       setDataVenceQuebra(d.dataVenceQuebra || "2027-11-19");
       setDescontoPontualidade(d.descontoPontualidade || "9,44");
       setDiasDescontoPontualidade(d.diasDescontoPontualidade || "5");
@@ -175,6 +207,10 @@ export default function ImovelFormModal({
       setTaxaMultasEncargos(d.taxaMultasEncargos || "50,00");
       setIrrfResponsabilidade(d.irrfResponsabilidade || "LOCADOR");
       setParcelasIntermediacao(d.parcelasIntermediacao || [{ data: "2024-12-19", valor: "1050,00" }]);
+      setPrecisaAtualizar(d.precisaAtualizar === true);
+      setProprietarioId(d.proprietarioId || "");
+      setPeriodoCarencia(d.periodoCarencia || "NAO_GARANTIR");
+      setAbrangenciaGarantia(d.abrangenciaGarantia || "SOMENTE_ALUGUEL");
 
       setPublicado(editingImovel.publicado || false);
       setTitulo(editingImovel.titulo || "");
@@ -210,7 +246,7 @@ export default function ImovelFormModal({
       setCondResponsavelPag("");
       setCondDataChecagem("");
       setCondDocDescricao("");
-      setIndiceReajuste("8,33");
+      setIndiceReajuste("IGPM");
       setMultaRescisao("");
       setDataVenceQuebra("2027-11-19");
       setDescontoPontualidade("9,44");
@@ -226,6 +262,9 @@ export default function ImovelFormModal({
       setTaxaMultasEncargos("50,00");
       setIrrfResponsabilidade("LOCADOR");
       setParcelasIntermediacao([{ data: "2024-12-19", valor: "1050,00" }]);
+      setProprietarioId("");
+      setPeriodoCarencia("NAO_GARANTIR");
+      setAbrangenciaGarantia("SOMENTE_ALUGUEL");
 
       setPublicado(false);
       setTitulo("");
@@ -235,6 +274,7 @@ export default function ImovelFormModal({
       setVagas("0");
       setArea("0");
       setImagens([]);
+      setPrecisaAtualizar(false);
     }
     setNovaParcelaData("");
     setNovaParcelaValor("");
@@ -242,13 +282,14 @@ export default function ImovelFormModal({
 
   // Fetch CEP address details automatically
   useEffect(() => {
-    if (cep.length !== 8) return;
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) return;
 
     let active = true;
     const fetchCep = async () => {
       setIsFetchingCep(true);
       try {
-        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await res.json();
         if (active && data && !data.erro) {
           setCidade(data.localidade || "");
@@ -337,6 +378,67 @@ export default function ImovelFormModal({
     setImagens((prev) => prev.filter((url) => url !== urlToRemove));
   };
 
+  const handleCurrencyChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setter(formatBRL(e.target.value));
+  };
+
+  const handleCepChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setter(formatCEP(e.target.value));
+  };
+
+  const handleCreateLocador = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLocadorNome || !newLocadorCpf || !newLocadorEmail) {
+      alert("Por favor, preencha nome, CPF/CNPJ e e-mail.");
+      return;
+    }
+    try {
+      const res = await createLocador({
+        nome: newLocadorNome,
+        cpfCnpj: newLocadorCpf.replace(/\D/g, ""),
+        email: newLocadorEmail,
+        telefone: [{ tipo: "Principal", numero: newLocadorTelefone, observacao: "" }],
+        endereco: [{
+          cep: newLocadorCep.replace(/\D/g, ""),
+          logradouro: newLocadorLogradouro,
+          numero: newLocadorNumero,
+          complemento: newLocadorComplemento,
+          bairro: newLocadorBairro,
+          municipio: newLocadorCidade,
+          estado: newLocadorEstado
+        }],
+        dataNasc: "01/01/1980",
+        rg: "",
+        orgaoEmissor: "",
+        estadoCivil: "Solteiro(a)",
+        profissao: "",
+        nacionalidade: "Brasileira",
+        genero: "Masculino"
+      });
+      if (res.success && res.data) {
+        setAllLocadores(prev => [...prev, res.data].sort((a,b) => a.nome.localeCompare(b.nome)));
+        setProprietarioId(res.data.id);
+        setShowNewLocadorModal(false);
+        // Clear fields
+        setNewLocadorNome("");
+        setNewLocadorCpf("");
+        setNewLocadorEmail("");
+        setNewLocadorTelefone("");
+        setNewLocadorCep("");
+        setNewLocadorLogradouro("");
+        setNewLocadorNumero("");
+        setNewLocadorComplemento("");
+        setNewLocadorBairro("");
+        setNewLocadorCidade("");
+        setNewLocadorEstado("");
+      } else {
+        alert(res.error || "Erro ao cadastrar proprietário.");
+      }
+    } catch (err: any) {
+      alert("Erro ao cadastrar: " + err.message);
+    }
+  };
+
   if (!isOpen) return null;
 
   // Prepare aluguelDados JSON payload for form submission
@@ -357,6 +459,11 @@ export default function ImovelFormModal({
     taxaMultasEncargos,
     irrfResponsabilidade,
     parcelasIntermediacao,
+    precisaAtualizar,
+    proprietarioId,
+    proprietario: allLocadores.find(l => l.id === proprietarioId) || (editingImovel?.aluguelDados as any)?.proprietario || null,
+    periodoCarencia,
+    abrangenciaGarantia,
   });
 
   return (
@@ -387,6 +494,17 @@ export default function ImovelFormModal({
 
           {/* Form bound to action */}
           <form action={formAction} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+            {precisaAtualizar && (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs space-y-1 animate-fade-in flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">⚠️ Pendência Administrativa</p>
+                  <p className="text-amber-700/90 leading-relaxed">
+                    {editingImovel?.aluguelDados?.motivo || "Este imóvel foi importado sem proprietário ou dados contratuais definidos. Atualize as informações necessárias e desmarque o aviso de pendência abaixo."}
+                  </p>
+                </div>
+              </div>
+            )}
             {/* Hidden inputs to feed Server Action */}
             <input type="hidden" name="id" value={editingImovel?.id || ""} />
             <input type="hidden" name="aluguelDados" value={aluguelDadosJsonString} />
@@ -427,6 +545,32 @@ export default function ImovelFormModal({
                     <option value="COMERCIAL">Comercial</option>
                     <option value="RURAL">Rural</option>
                     <option value="KITNET">Kitnet</option>
+                  </select>
+                </div>
+
+                {/* Proprietário (Locador) */}
+                <div className="col-span-1 sm:col-span-2 p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs font-bold text-emerald-950">Proprietário (Locador)</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewLocadorModal(true)}
+                      className="text-[10px] font-bold text-[#004777] hover:underline cursor-pointer bg-transparent border-0"
+                    >
+                      + Cadastrar Novo Proprietário
+                    </button>
+                  </div>
+                  <select
+                    value={proprietarioId}
+                    onChange={(e) => setProprietarioId(e.target.value)}
+                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white cursor-pointer"
+                  >
+                    <option value="">Selecione um proprietário existente...</option>
+                    {allLocadores.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.nome} ({formatCpfCnpj(loc.cpfCnpj)})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -610,11 +754,11 @@ export default function ImovelFormModal({
                     <input
                       type="text"
                       name="cep"
-                      placeholder="Somente números"
+                      placeholder="00000-000"
                       required
-                      maxLength={8}
+                      maxLength={9}
                       value={cep}
-                      onChange={(e) => setCep(e.target.value.replace(/\D/g, ""))}
+                      onChange={handleCepChange(setCep)}
                       className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white pr-9"
                     />
                     {isFetchingCep && (
@@ -770,13 +914,12 @@ export default function ImovelFormModal({
                     <div>
                       <label className="block text-xs font-bold text-[#280003] mb-1">Preço de Venda (R$) *</label>
                       <input
-                        type="number"
+                        type="text"
                         name="valorVenda"
-                        step="0.01"
                         placeholder="0,00"
                         required={forVenda}
                         value={valorVenda}
-                        onChange={(e) => setValorVenda(e.target.value)}
+                        onChange={handleCurrencyChange(setValorVenda)}
                         className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
                       />
                     </div>
@@ -799,13 +942,12 @@ export default function ImovelFormModal({
                         <div>
                           <label className="block text-xs font-bold text-[#280003] mb-1">Valor do Aluguel (R$/mês) *</label>
                           <input
-                            type="number"
+                            type="text"
                             name="valorAluguel"
-                            step="0.01"
                             placeholder="0,00"
                             required={forLocacao}
                             value={valorAluguel}
-                            onChange={(e) => setValorAluguel(e.target.value)}
+                            onChange={handleCurrencyChange(setValorAluguel)}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           />
                         </div>
@@ -814,12 +956,11 @@ export default function ImovelFormModal({
                         <div>
                           <label className="block text-xs font-bold text-[#280003] mb-1">Valor Condomínio (R$)</label>
                           <input
-                            type="number"
+                            type="text"
                             name="valorCondominio"
-                            step="0.01"
                             placeholder="0,00"
                             value={valorCondominio}
-                            onChange={(e) => setValorCondominio(e.target.value)}
+                            onChange={handleCurrencyChange(setValorCondominio)}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           />
                         </div>
@@ -828,12 +969,11 @@ export default function ImovelFormModal({
                         <div>
                           <label className="block text-xs font-bold text-[#280003] mb-1">Valor IPTU (R$)</label>
                           <input
-                            type="number"
+                            type="text"
                             name="valorIPTU"
-                            step="0.01"
                             placeholder="0,00"
                             value={valorIPTU}
-                            onChange={(e) => setValorIPTU(e.target.value)}
+                            onChange={handleCurrencyChange(setValorIPTU)}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           />
                         </div>
@@ -845,14 +985,19 @@ export default function ImovelFormModal({
                       <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Reajuste e Rescisão</h5>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Índice de Reajuste (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 8,33"
+                          <label className="block text-xs font-bold text-[#280003] mb-1">Índice de Reajuste</label>
+                          <select
                             value={indiceReajuste}
                             onChange={(e) => setIndiceReajuste(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
+                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                          >
+                            <option value="IGP">IGP</option>
+                            <option value="IGPM">IGPM</option>
+                            <option value="INPC">INPC</option>
+                            <option value="IPC">IPC</option>
+                            <option value="IPC-DI">IPC-DI</option>
+                            <option value="IPCA">IPCA</option>
+                          </select>
                         </div>
 
                         <div>
@@ -862,7 +1007,7 @@ export default function ImovelFormModal({
                             placeholder="Ex: 3.000,00"
                             required={forLocacao}
                             value={multaRescisao}
-                            onChange={(e) => setMultaRescisao(e.target.value)}
+                            onChange={handleCurrencyChange(setMultaRescisao)}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           />
                         </div>
@@ -985,12 +1130,49 @@ export default function ImovelFormModal({
                         <div>
                           <label className="block text-xs font-bold text-[#280003] mb-1">Carência Repasse (dias úteis/corridos) *</label>
                           <input
-                            type="number"
+                            type="text"
                             required={forLocacao}
                             value={carenciaRepasse}
-                            onChange={(e) => setCarenciaRepasse(e.target.value)}
+                            onChange={(e) => setCarenciaRepasse(e.target.value.replace(/\D/g, ""))}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#280003] mb-1">Período Garantido *</label>
+                          <select
+                            value={periodoCarencia}
+                            onChange={(e) => setPeriodoCarencia(e.target.value)}
+                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                          >
+                            <option value="NAO_GARANTIR">Não Garantir</option>
+                            <option value="GARANTIR_VIGENCIA_CONTRATOS">Garantir pela vigência do contrato</option>
+                            <option value="GARANTIR_DEVOLUCAO_CHAVES">Garantir até a devolução das chaves</option>
+                            <option value="GARANTIR_PAGAMENTO_1">Garantir 1 pagamento</option>
+                            <option value="GARANTIR_PAGAMENTO_2">Garantir 2 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_3">Garantir 3 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_4">Garantir 4 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_5">Garantir 5 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_6">Garantir 6 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_7">Garantir 7 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_8">Garantir 8 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_9">Garantir 9 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_10">Garantir 10 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_11">Garantir 11 pagamentos</option>
+                            <option value="GARANTIR_PAGAMENTO_12">Garantir 12 pagamentos</option>
+                          </select>
+                        </div>
+
+                        <div className="col-span-1 sm:col-span-2">
+                          <label className="block text-xs font-bold text-[#280003] mb-1">Abrangência da garantia do aluguel *</label>
+                          <select
+                            value={abrangenciaGarantia}
+                            onChange={(e) => setAbrangenciaGarantia(e.target.value)}
+                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                          >
+                            <option value="SOMENTE_ALUGUEL">Somente o Aluguel</option>
+                            <option value="ALUGUEL_LANCAMENTOS">Aluguel e demais lançamentos</option>
+                          </select>
                         </div>
                       </div>
                     </div>
@@ -1141,8 +1323,28 @@ export default function ImovelFormModal({
                     className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
                   />
                   <div>
-                    <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
-                    <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
+                     <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
+                     <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3 p-4 bg-amber-500/5 rounded-xl border border-amber-200/50">
+                <label className="flex items-start gap-3 cursor-pointer select-none w-full">
+                  <input
+                    type="checkbox"
+                    checked={precisaAtualizar}
+                    onChange={(e) => setPrecisaAtualizar(e.target.checked)}
+                    className="mt-0.5 h-4.5 w-4.5 text-amber-600 focus:ring-amber-500/20 rounded border-zinc-300 accent-amber-600"
+                  />
+                  <div>
+                    <span className="block text-sm font-semibold text-amber-900 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      Imóvel com pendência administrativa / sem proprietário
+                    </span>
+                    <span className="text-xs text-amber-700/85">
+                      Mantém a sinalização de aviso no painel até que o proprietário e dados financeiros da locação sejam preenchidos.
+                    </span>
                   </div>
                 </label>
               </div>
@@ -1349,6 +1551,147 @@ export default function ImovelFormModal({
                 city: `${cidade || "Cidade"}/${uf || "UF"}`
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Sub-modal para Cadastrar Novo Proprietário */}
+      {showNewLocadorModal && (
+        <div className="fixed inset-0 bg-[#280003]/40 z-[100] backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-zinc-200 transform transition-all duration-300 scale-100 animate-scale-up space-y-4 p-6">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-200">
+              <h4 className="font-bold text-sm text-[#280003]">Cadastrar Novo Proprietário</h4>
+              <button 
+                type="button" 
+                onClick={() => setShowNewLocadorModal(false)}
+                className="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateLocador} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-[#280003] mb-1">Nome Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={newLocadorNome}
+                  onChange={(e) => setNewLocadorNome(e.target.value)}
+                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                  placeholder="Nome do Proprietário"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-[#280003] mb-1">CPF / CNPJ *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newLocadorCpf}
+                    onChange={(e) => setNewLocadorCpf(formatCpfCnpj(e.target.value))}
+                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                    placeholder="Somente números"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#280003] mb-1">Telefone</label>
+                  <input
+                    type="text"
+                    value={newLocadorTelefone}
+                    onChange={(e) => setNewLocadorTelefone(e.target.value)}
+                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#280003] mb-1">E-mail *</label>
+                <input
+                  type="email"
+                  required
+                  value={newLocadorEmail}
+                  onChange={(e) => setNewLocadorEmail(e.target.value)}
+                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+
+              <div className="border-t border-zinc-150 pt-2 space-y-2">
+                <span className="block font-bold text-[10px] text-gray-400 uppercase">Endereço</span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#280003] mb-1">CEP</label>
+                    <input
+                      type="text"
+                      value={newLocadorCep}
+                      onChange={(e) => setNewLocadorCep(formatCEP(e.target.value))}
+                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                      placeholder="00000-000"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block font-bold text-[#280003] mb-1">Logradouro / Rua</label>
+                    <input
+                      type="text"
+                      value={newLocadorLogradouro}
+                      onChange={(e) => setNewLocadorLogradouro(e.target.value)}
+                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                      placeholder="Av / Rua..."
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#280003] mb-1">Número</label>
+                    <input
+                      type="text"
+                      value={newLocadorNumero}
+                      onChange={(e) => setNewLocadorNumero(e.target.value)}
+                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                      placeholder="Nº"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#280003] mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={newLocadorBairro}
+                      onChange={(e) => setNewLocadorBairro(e.target.value)}
+                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                      placeholder="Bairro"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#280003] mb-1">Cidade</label>
+                    <input
+                      type="text"
+                      value={newLocadorCidade}
+                      onChange={(e) => setNewLocadorCidade(e.target.value)}
+                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white"
+                      placeholder="Cidade"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setShowNewLocadorModal(false)}
+                  className="px-3.5 py-1.5 text-zinc-550 hover:bg-zinc-50 rounded-lg transition-all font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#004777] text-white rounded-lg transition-all font-bold hover:bg-[#003355] cursor-pointer"
+                >
+                  Cadastrar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

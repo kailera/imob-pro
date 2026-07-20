@@ -5,7 +5,7 @@ import { Save, CheckCircle2, AlertTriangle, Image as ImageIcon, Mic, Square, Loa
 import { Room } from "./FloorPlanVisualizer";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { processAudioComment } from "@/app/actions/processAudio";
-import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
+import { getPresignedUploadUrl, triggerVideoCompression } from "@/app/actions/uploadMedia";
 import { db } from "@/lib/db";
 
 interface CommentFormProps {
@@ -26,6 +26,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
   const [status, setStatus] = useState<'Aprovado' | 'Atenção'>('Aprovado');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<{ url: string; type: 'image' | 'video' }[]>([]);
 
@@ -112,16 +113,51 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
     if (!commentText.trim()) return;
 
     setIsUploading(true);
+    setUploadProgress("Iniciando uploads...");
     const uploadedMedia: { url: string; type: 'image' | 'video'; offlineId?: string }[] = [];
 
     try {
       if (navigator.onLine) {
-        // Fazer o upload de cada arquivo selecionado usando a Server Action
+        let idx = 0;
         for (const file of selectedFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await uploadMediaToRustFS(formData);
-          uploadedMedia.push(res);
+          setUploadProgress(`Obtendo permissão de upload para o arquivo ${idx + 1}...`);
+          const { uploadUrl, fileKey, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
+          
+          const isVideo = file.type.startsWith("video/");
+          
+          setUploadProgress(`Enviando arquivo ${idx + 1} de ${selectedFiles.length}: 0%`);
+          
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", uploadUrl);
+            xhr.setRequestHeader("Content-Type", file.type);
+            
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(`Enviando arquivo ${idx + 1} de ${selectedFiles.length}: ${percent}%`);
+              }
+            };
+            
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) resolve();
+              else reject(new Error(`Upload falhou com status ${xhr.status}`));
+            };
+            xhr.onerror = () => reject(new Error("Erro de rede no upload."));
+            xhr.send(file);
+          });
+
+          uploadedMedia.push({
+            url: publicUrl,
+            type: isVideo ? "video" : "image"
+          });
+
+          if (isVideo) {
+            setUploadProgress(`Enfileirando vídeo ${idx + 1} para compressão...`);
+            await triggerVideoCompression(fileKey);
+          }
+
+          idx++;
         }
       } else {
         // Fluxo Offline: Salva as mídias fisicamente no IndexedDB e gera URLs locais temporárias
@@ -163,6 +199,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
       alert("Ocorreu um erro ao enviar os arquivos para o storage. Tente novamente.");
     } finally {
       setIsUploading(false);
+      setUploadProgress("");
     }
   };
 
@@ -307,8 +344,8 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
                 </span>
               )}
               {isUploading && (
-                <span className="text-[#004777] flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Enviando arquivos...
+                <span className="text-[#004777] flex items-center gap-1.5 text-xs font-semibold animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress || "Enviando..."}
                 </span>
               )}
             </label>

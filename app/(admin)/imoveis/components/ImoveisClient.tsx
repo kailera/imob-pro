@@ -67,6 +67,9 @@ export default function ImoveisClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTipoFilter, setSelectedTipoFilter] = useState<string>("TODOS");
   const [selectedModFilter, setSelectedModFilter] = useState<string>("TODOS");
+  const [selectedAdminFilter, setSelectedAdminFilter] = useState<string>("TODOS");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // State for Create/Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,6 +85,13 @@ export default function ImoveisClient({
 
 
   const searchParams = useSearchParams();
+
+  // Reset pagination when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTipoFilter, selectedModFilter, selectedAdminFilter]);
+
+
 
   // Success message auto-dismiss
   useEffect(() => {
@@ -163,8 +173,18 @@ export default function ImoveisClient({
       (selectedModFilter === "VENDA" && imovel.forVenda) ||
       (selectedModFilter === "LOCACAO" && imovel.forLocacao);
 
-    return matchesSearch && matchesTipo && matchesMod;
+    const isPending = imovel.aluguelDados?.precisaAtualizar === true;
+    const matchesAdmin =
+      selectedAdminFilter === "TODOS" ||
+      (selectedAdminFilter === "PENDENTES" && isPending) ||
+      (selectedAdminFilter === "REGULARES" && !isPending);
+
+    return matchesSearch && matchesTipo && matchesMod && matchesAdmin;
   });
+
+  const totalPages = Math.ceil(filteredImoveis.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedImoveis = filteredImoveis.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="space-y-8 text-[#280003]">
@@ -250,6 +270,20 @@ export default function ImoveisClient({
               <option value="LOCACAO">Apenas Locação</option>
             </select>
           </div>
+
+          {/* Pendência Admin Filter */}
+          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+            <span className="text-xs font-semibold text-[#280003]/60">Pendências:</span>
+            <select
+              value={selectedAdminFilter}
+              onChange={(e) => setSelectedAdminFilter(e.target.value)}
+              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+            >
+              <option value="TODOS">Todos</option>
+              <option value="PENDENTES">Com Pendências</option>
+              <option value="REGULARES">Sem Pendências</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -283,11 +317,22 @@ export default function ImoveisClient({
                   </td>
                 </tr>
               ) : (
-                filteredImoveis.map((imovel) => (
+                paginatedImoveis.map((imovel) => (
                   <tr key={imovel.id} className="hover:bg-zinc-50/60 transition-colors group">
                     {/* Código */}
                     <td className="px-6 py-4 text-sm font-bold text-[#004777]">
-                      {imovel.codigo}
+                      <div className="flex items-center gap-2">
+                        <span>{imovel.codigo}</span>
+                        {imovel.aluguelDados?.precisaAtualizar === true && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 animate-pulse"
+                            title={imovel.aluguelDados.motivo || "Dados cadastrais/administrativos pendentes"}
+                          >
+                            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                            Pendência
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Tipo */}
@@ -378,6 +423,67 @@ export default function ImoveisClient({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-t border-zinc-100 text-sm">
+            <div className="text-zinc-500 font-medium">
+              Mostrando <span className="font-semibold text-[#280003]">{startIndex + 1}</span> a{" "}
+              <span className="font-semibold text-[#280003]">{Math.min(startIndex + itemsPerPage, filteredImoveis.length)}</span> de{" "}
+              <span className="font-semibold text-[#280003]">{filteredImoveis.length}</span> imóveis
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="px-3.5 py-2 border border-zinc-200 rounded-xl hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-transparent text-sm font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer text-[#280003]"
+              >
+                Anterior
+              </button>
+              
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }).map((_, idx) => {
+                const pageNum = idx + 1;
+                if (
+                  pageNum === 1 ||
+                  pageNum === totalPages ||
+                  (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-9.5 h-9.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center justify-center ${
+                        currentPage === pageNum
+                          ? "bg-[#004777] text-white"
+                          : "border border-zinc-200 hover:bg-zinc-50 text-[#280003]"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                } else if (
+                  pageNum === currentPage - 2 ||
+                  pageNum === currentPage + 2
+                ) {
+                  return <span key={pageNum} className="px-1.5 text-zinc-400">...</span>;
+                }
+                return null;
+              })}
+
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                className="px-3.5 py-2 border border-zinc-200 rounded-xl hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-transparent text-sm font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer text-[#280003]"
+              >
+                Próximo
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CRUD Form Modal */}

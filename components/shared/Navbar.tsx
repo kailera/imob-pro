@@ -1,10 +1,11 @@
 "use client";
 
-import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, LayoutDashboard, Scale, Coins, Settings } from "lucide-react";
+import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, LayoutDashboard, Scale, Coins, Settings, Download } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { UserButton, OrganizationSwitcher, SignInButton, SignUpButton, Show } from "@clerk/nextjs";
+import { usePWA } from "@/components/shared/PWAProvider";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: Home },
@@ -21,6 +22,7 @@ const navItems = [
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { isStandalone, isMobile, isSecureConnection, promptInstall, deferredPrompt, isIOS } = usePWA();
 
   return (
     <nav className="fixed top-0 left-0 right-0 h-20 bg-[#FFFFFF] shadow-sm z-50 transition-all duration-300">
@@ -53,19 +55,8 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Right Side: Search, Notifications, Profile, Mobile Menu Toggle */}
+        {/* Right Side: Notifications, Profile, Mobile Menu Toggle */}
         <div className="flex items-center gap-4 sm:gap-6">
-          {/* Search Bar - Visual Only (Desktop) */}
-          <div className="relative w-48 lg:w-64 hidden sm:block">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-[#280003]/40" />
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="w-full pl-9 pr-3 py-1.5 bg-[#EEEEF3] border-none rounded-lg text-sm text-[#280003] placeholder-[#280003]/50 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 transition-all"
-            />
-          </div>
 
           {/* Notification Bell */}
           <button className="p-2 text-[#280003]/60 hover:text-[#004777] hover:bg-[#EEEEF3] rounded-lg transition-colors relative">
@@ -77,7 +68,7 @@ export function Navbar() {
           <div className="flex items-center gap-4 pl-4 border-l border-[#EEEEF3]">
             <Show when="signed-in">
               <div className="hidden sm:block">
-                <OrganizationSwitcher 
+                <OrganizationSwitcher
                   afterCreateOrganizationUrl="/admin"
                   appearance={{
                     elements: {
@@ -141,17 +132,23 @@ export function Navbar() {
               );
             })}
 
-            {/* Visual Search input for Mobile */}
-            <div className="pt-4 border-t border-[#EEEEF3] relative mt-2 sm:hidden">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none pt-4">
-                <Search className="w-4 h-4 text-[#280003]/40" />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar..."
-                className="w-full pl-9 pr-3 py-2 bg-[#EEEEF3] border-none rounded-lg text-sm text-[#280003] placeholder-[#280003]/50 focus:outline-none"
-              />
-            </div>
+            {isMobile && isSecureConnection && !isStandalone && (isIOS || deferredPrompt) && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  if (isIOS) {
+                    alert("Para instalar o aplicativo no seu iPhone:\n\n1. Toque no botão de compartilhar (ícone com um quadrado e uma seta para cima na barra inferior do Safari).\n2. Selecione a opção 'Adicionar à Tela de Início'.");
+                  } else {
+                    promptInstall();
+                  }
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base font-semibold text-[#004777] bg-[#004777]/5 border-l-4 border-[#004777] hover:bg-[#004777]/10 transition-all cursor-pointer mt-2"
+              >
+                <Download className="w-5 h-5" />
+                <span>Instalar Aplicativo</span>
+              </button>
+            )}
+
           </div>
         </>
       )}

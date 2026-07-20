@@ -8,8 +8,8 @@ export function PublicNavbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
-    { name: "Comprar", href: "/#comprar" },
-    { name: "Alugar", href: "/#alugar" },
+    { name: "Comprar", href: "/busca?operation=venda" },
+    { name: "Alugar", href: "/busca?operation=locacao" },
     { name: "Loteamentos", href: "/loteamentos" },
     { name: "Sobre Nós", href: "/#sobre" },
   ];
@@ -40,15 +40,7 @@ export function PublicNavbar() {
           ))}
         </div>
 
-        {/* Right CTA (Desktop) */}
-        <div className="hidden md:flex items-center">
-          <Link
-            href="/admin"
-            className="px-5 py-2.5 rounded-lg bg-brand-primary text-white font-semibold text-sm transition-all hover:bg-brand-primary/95 shadow-md shadow-brand-primary/10 hover:shadow-lg hover:shadow-brand-primary/20 hover:-translate-y-0.5 active:translate-y-0"
-          >
-            Área do Cliente
-          </Link>
-        </div>
+
 
         {/* Hamburger (Mobile) */}
         <button
@@ -78,13 +70,7 @@ export function PublicNavbar() {
                 {item.name}
               </Link>
             ))}
-            <Link
-              href="/admin"
-              onClick={() => setIsOpen(false)}
-              className="mt-2 w-full py-3 rounded-lg bg-brand-primary text-white text-center font-bold shadow-md shadow-brand-primary/15"
-            >
-              Área do Cliente
-            </Link>
+
           </div>
         </>
       )}
