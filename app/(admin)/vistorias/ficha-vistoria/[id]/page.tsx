@@ -9,7 +9,7 @@ import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSect
 import { InspectionEditorPanel } from "@/components/vistorias/ficha-vistoria/InspectionEditorPanel";
 import { CommentData } from "@/components/vistorias/ficha-vistoria/CommentsTimeline";
 import ConnectionStatus from "@/components/shared/ConnectionStatus";
-import { getVistoriaById, updateVistoria, addVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria } from "@/app/(admin)/vistorias/actions";
+import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria } from "@/app/(admin)/vistorias/actions";
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
@@ -433,11 +433,86 @@ export default function FichaVistoriaPage() {
         type: "ADD_COMMENT",
         vistoriaId,
         payload: {
+          tempCommentId: tempId,
           roomId,
           roomName,
           text,
           status,
           media
+        },
+        timestamp: Date.now()
+      });
+    }
+  };
+
+  const handleUpdateComment = async (
+    commentId: string,
+    text: string,
+    status: 'Aprovado' | 'Atenção',
+    media?: { url: string; type: 'image' | 'video' }[]
+  ) => {
+    if (!vistoriaId) return;
+
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, text, status, media: media || [] } : c));
+
+    const localCached = await db.vistorias.get(vistoriaId);
+    if (localCached) {
+      const updatedComments = localCached.comentariosVistoria.map((c: any) => {
+        if (c.id === commentId) {
+          return {
+            ...c,
+            texto: text,
+            status,
+            midias: media || []
+          };
+        }
+        return c;
+      });
+      await db.vistorias.put({ ...localCached, comentariosVistoria: updatedComments });
+    }
+
+    if (navigator.onLine && !commentId.startsWith("temp-")) {
+      const res = await updateVistoriaComment(commentId, { text, status, media });
+      if (!res.success) {
+        alert("Ocorreu um erro ao atualizar o comentário no servidor. A alteração foi salva localmente.");
+      }
+    } else {
+      await db.syncQueue.put({
+        type: "UPDATE_COMMENT",
+        vistoriaId,
+        payload: {
+          commentId,
+          text,
+          status,
+          media
+        },
+        timestamp: Date.now()
+      });
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!vistoriaId) return;
+
+    setComments(prev => prev.filter(c => c.id !== commentId));
+
+    const localCached = await db.vistorias.get(vistoriaId);
+    if (localCached) {
+      const updatedComments = localCached.comentariosVistoria.filter((c: any) => c.id !== commentId);
+      await db.vistorias.put({ ...localCached, comentariosVistoria: updatedComments });
+    }
+
+    if (navigator.onLine && !commentId.startsWith("temp-")) {
+      const res = await deleteVistoriaComment(commentId);
+      if (!res.success) {
+        alert("Ocorreu um erro ao excluir o comentário no servidor. A alteração foi salva localmente.");
+      }
+    } else {
+      await db.syncQueue.put({
+        type: "DELETE_COMMENT",
+        vistoriaId,
+        payload: {
+          commentId
         },
         timestamp: Date.now()
       });
@@ -805,6 +880,8 @@ export default function FichaVistoriaPage() {
             rooms={rooms}
             comments={comments}
             onAddComment={handleAddComment}
+            onUpdateComment={handleUpdateComment}
+            onDeleteComment={handleDeleteComment}
             reportDescription={reportDescription}
             reportObservation={reportObservation}
             onUpdateReport={(desc, obs) => {

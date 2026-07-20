@@ -651,3 +651,65 @@ export async function resolveContestacao(
         return { success: false, error: error.message || "Erro ao resolver contestação." };
     }
 }
+
+export async function updateVistoriaComment(
+    commentId: string,
+    input: {
+        text: string;
+        status: string;
+        media?: any[];
+    }
+) {
+    try {
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
+        }
+        const comment = await prisma.comentarioVistoria.findUnique({
+            where: { id: commentId }
+        });
+        if (!comment) {
+            return { success: false, error: "Comentário não encontrado." };
+        }
+
+        const updated = await prisma.comentarioVistoria.update({
+            where: { id: commentId },
+            data: {
+                texto: input.text,
+                status: input.status,
+                midias: input.media ? (input.media as any) : undefined,
+            }
+        });
+
+        revalidatePath(`/vistorias/ficha-vistoria/${comment.vistoriaId}`);
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Erro ao atualizar comentário:", error);
+        return { success: false, error: error.message || "Erro ao atualizar comentário." };
+    }
+}
+
+export async function deleteVistoriaComment(commentId: string) {
+    try {
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
+        }
+        const comment = await prisma.comentarioVistoria.findUnique({
+            where: { id: commentId }
+        });
+        if (!comment) {
+            return { success: false, error: "Comentário não encontrado." };
+        }
+
+        await prisma.comentarioVistoria.delete({
+            where: { id: commentId }
+        });
+
+        revalidatePath(`/vistorias/ficha-vistoria/${comment.vistoriaId}`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erro ao excluir comentário:", error);
+        return { success: false, error: error.message || "Erro ao excluir comentário." };
+    }
+}

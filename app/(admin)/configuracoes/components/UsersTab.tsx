@@ -1,8 +1,10 @@
 import React from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 
 interface UsersTabProps {
   isAdmin: boolean;
+  currentUserId: string;
+  handleDeleteUser: (userId: string, userName: string) => Promise<void>;
   userEmail: string;
   setUserEmail: (value: string) => void;
   userFirstName: string;
@@ -23,6 +25,8 @@ interface UsersTabProps {
 
 export function UsersTab({
   isAdmin,
+  currentUserId,
+  handleDeleteUser,
   userEmail,
   setUserEmail,
   userFirstName,
@@ -176,6 +180,7 @@ export function UsersTab({
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">CRECI</th>
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Função / Perfil</th>
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -225,10 +230,28 @@ export function UsersTab({
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/50 border border-emerald-100/80 px-2 py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Ativo
-                              </span>
+                              {user.ativo ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/50 border border-emerald-100/80 px-2 py-0.5 rounded-full">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Ativo
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                  Inativo
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              {user.ativo && user.id !== currentUserId && (
+                                <button
+                                  onClick={() => handleDeleteUser(user.id, `${user.firstName} ${user.lastName}`)}
+                                  className="text-red-600 hover:text-red-950 p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                                  title="Excluir Usuário"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );

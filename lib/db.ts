@@ -28,7 +28,7 @@ export interface OfflineMedia {
 
 export interface SyncAction {
   id?: number;
-  type: "CREATE_VISTORIA" | "UPDATE_VISTORIA" | "ADD_COMMENT";
+  type: "CREATE_VISTORIA" | "UPDATE_VISTORIA" | "ADD_COMMENT" | "UPDATE_COMMENT" | "DELETE_COMMENT";
   vistoriaId: string;
   payload: any;
   timestamp: number;

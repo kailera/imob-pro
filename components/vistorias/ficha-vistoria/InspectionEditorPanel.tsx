@@ -18,6 +18,13 @@ interface InspectionEditorPanelProps {
     status: 'Aprovado' | 'Atenção',
     media?: { url: string; type: 'image' | 'video' }[]
   ) => void;
+  onUpdateComment?: (
+    commentId: string,
+    text: string,
+    status: 'Aprovado' | 'Atenção',
+    media?: { url: string; type: 'image' | 'video' }[]
+  ) => void;
+  onDeleteComment?: (commentId: string) => void;
   reportDescription: string;
   reportObservation: string;
   onUpdateReport: (description: string, observation: string) => void;
@@ -45,6 +52,8 @@ export function InspectionEditorPanel({
   rooms,
   comments,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
   reportDescription,
   reportObservation,
   onUpdateReport,
@@ -187,7 +196,12 @@ export function InspectionEditorPanel({
           {!disabled && <CommentForm rooms={rooms} onAddComment={onAddComment} onUpdateRoom={onUpdateRoom} />}
 
           {/* Linha do Tempo Modularizada (Clean Code) */}
-          <CommentsTimeline comments={comments} />
+          <CommentsTimeline 
+            comments={comments} 
+            onUpdateComment={onUpdateComment} 
+            onDeleteComment={onDeleteComment}
+            disabled={disabled}
+          />
         </div>
       )}
 

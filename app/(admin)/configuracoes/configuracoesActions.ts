@@ -251,3 +251,78 @@ export async function getCurrentUserRole() {
     return { success: false, error: error.message || "Erro de conexão." };
   }
 }
+
+export async function deleteUser(targetUserId: string) {
+  try {
+    const { userId: currentUserId, orgRole, orgId } = await auth();
+    if (!currentUserId) {
+      return { success: false, error: "Usuário não autenticado." };
+    }
+
+    // Apenas ADMIN ou CORRETOR no banco de dados local ou org:admin no Clerk
+    const currentUserDb = await prisma.users.findUnique({
+      where: { id: currentUserId },
+      select: { role: true },
+    });
+
+    const isAuthorized = 
+      orgRole === "org:admin" || 
+      currentUserDb?.role === "ADMIN" || 
+      currentUserDb?.role === "CORRETOR" ||
+      !orgId; // Em ambiente de dev sem orgId
+
+    if (!isAuthorized) {
+      return { success: false, error: "Apenas administradores e corretores podem excluir usuários." };
+    }
+
+    if (targetUserId === currentUserId) {
+      return { success: false, error: "Você não pode excluir a si mesmo." };
+    }
+
+    // 1. Excluir no Clerk
+    try {
+      await clerkClient.users.deleteUser(targetUserId);
+    } catch (clerkErr: any) {
+      console.warn("Aviso ao deletar usuário no Clerk (pode não existir mais):", clerkErr);
+    }
+
+    // 2. Verificar dependências no Banco Local (Vistorias, Comissões e Transações)
+    const hasHistory = await prisma.users.findUnique({
+      where: { id: targetUserId },
+      include: {
+        _count: {
+          select: {
+            operadorVistorias: true,
+            vistoriadorVistorias: true,
+            transacoes: true,
+            comissoes: true,
+          }
+        }
+      }
+    });
+
+    const totalHistory = 
+      (hasHistory?._count.operadorVistorias || 0) +
+      (hasHistory?._count.vistoriadorVistorias || 0) +
+      (hasHistory?._count.transacoes || 0) +
+      (hasHistory?._count.comissoes || 0);
+
+    if (totalHistory > 0) {
+      // Soft delete para não violar integridade referencial
+      await prisma.users.update({
+        where: { id: targetUserId },
+        data: { ativo: false },
+      });
+      return { success: true, message: "Usuário inativado com sucesso (histórico preservado)." };
+    } else {
+      // Hard delete
+      await prisma.users.delete({
+        where: { id: targetUserId },
+      });
+      return { success: true, message: "Usuário excluído com sucesso do Clerk e do banco local!" };
+    }
+  } catch (error: any) {
+    console.error("Erro ao excluir usuário:", error);
+    return { success: false, error: error.message || "Erro interno do servidor." };
+  }
+}

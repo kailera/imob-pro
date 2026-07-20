@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db, SyncAction } from "@/lib/db";
-import { createVistoria, updateVistoria, addVistoriaComment } from "@/app/(admin)/vistorias/actions";
+import { createVistoria, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment } from "@/app/(admin)/vistorias/actions";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
 
 export function useOfflineSync() {
@@ -153,8 +153,15 @@ export function useOfflineSync() {
       // Substitui as mídias temporárias pelas URLs definitivas do storage
       payload.media = uploadedMedia;
 
-      const res = await addVistoriaComment(currentVistoriaId, payload);
+      // Remove propriedades auxiliares antes de enviar ao servidor
+      const { tempCommentId, ...serverPayload } = payload;
+
+      const res = await addVistoriaComment(currentVistoriaId, serverPayload);
       if (res.success && res.data) {
+        if (tempCommentId) {
+          idMap[tempCommentId] = res.data.id;
+        }
+
         // Atualiza a lista local de comentários na vistoria cacheada
         const localData = await db.vistorias.get(action.vistoriaId);
         if (localData) {
@@ -176,6 +183,61 @@ export function useOfflineSync() {
       } else {
         throw new Error(res.error || "Falha ao enviar comentário para o servidor.");
       }
+    }
+
+    else if (action.type === "UPDATE_COMMENT") {
+      const payload = { ...action.payload };
+      const finalCommentId = idMap[payload.commentId] || payload.commentId;
+
+      if (!finalCommentId.startsWith("temp-")) {
+        const res = await updateVistoriaComment(finalCommentId, {
+          text: payload.text,
+          status: payload.status,
+          media: payload.media
+        });
+        if (!res.success) {
+          throw new Error(res.error || "Falha ao atualizar comentário no servidor.");
+        }
+      }
+
+      const localData = await db.vistorias.get(action.vistoriaId);
+      if (localData) {
+        const updatedComments = localData.comentariosVistoria.map((c: any) => {
+          if (c.id === payload.commentId) {
+            return {
+              ...c,
+              id: finalCommentId,
+              texto: payload.text,
+              status: payload.status,
+              midias: payload.media || []
+            };
+          }
+          return c;
+        });
+        await db.vistorias.update(action.vistoriaId, { comentariosVistoria: updatedComments });
+      }
+      await db.syncQueue.delete(action.id!);
+    }
+
+    else if (action.type === "DELETE_COMMENT") {
+      const payload = { ...action.payload };
+      const finalCommentId = idMap[payload.commentId] || payload.commentId;
+
+      if (!finalCommentId.startsWith("temp-")) {
+        const res = await deleteVistoriaComment(finalCommentId);
+        if (!res.success) {
+          throw new Error(res.error || "Falha ao excluir comentário no servidor.");
+        }
+      }
+
+      const localData = await db.vistorias.get(action.vistoriaId);
+      if (localData) {
+        const updatedComments = localData.comentariosVistoria.filter(
+          (c: any) => c.id !== payload.commentId && c.id !== finalCommentId
+        );
+        await db.vistorias.update(action.vistoriaId, { comentariosVistoria: updatedComments });
+      }
+      await db.syncQueue.delete(action.id!);
     }
   };
 

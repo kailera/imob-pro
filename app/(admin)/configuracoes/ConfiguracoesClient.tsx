@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { saveInterConfigAction, getInterConfigAction } from "@/app/actions/interActions";
-import { getImobConfigAction, saveImobConfigAction, createNewUser, getUsers, getCurrentUserRole } from "@/app/(admin)/configuracoes/configuracoesActions";
+import { getImobConfigAction, saveImobConfigAction, createNewUser, getUsers, getCurrentUserRole, deleteUser } from "@/app/(admin)/configuracoes/configuracoesActions";
 import {
   Building,
   Key,
@@ -20,7 +20,7 @@ import { UsersTab } from "./components/UsersTab";
 import { ModelosTab } from "./components/ModelosTab";
 
 export default function ConfiguracoesClient() {
-  const { orgId, orgRole } = useAuth();
+  const { orgId, orgRole, userId: currentUserId } = useAuth();
 
 
   const [isPending, startTransition] = useTransition();
@@ -98,6 +98,26 @@ export default function ConfiguracoesClient() {
       setMessage({ type: "error", text: err?.message || "Erro de conexão ao cadastrar usuário." });
     } finally {
       setIsCreatingUser(false);
+    }
+  }
+
+  async function handleDeleteUser(targetUserId: string, userName: string) {
+    if (!confirm(`Tem certeza que deseja excluir o usuário ${userName}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    setMessage(null);
+    try {
+      const res = await deleteUser(targetUserId);
+      if (res.success) {
+        setMessage({ type: "success", text: res.message || "Usuário excluído com sucesso!" });
+        loadUsers();
+      } else {
+        setMessage({ type: "error", text: res.error || "Erro ao excluir usuário." });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ type: "error", text: err?.message || "Erro de conexão ao excluir usuário." });
     }
   }
 
@@ -426,6 +446,8 @@ export default function ConfiguracoesClient() {
         {activeTab === "users" && (
           <UsersTab
             isAdmin={isAdmin}
+            currentUserId={currentUserId || ""}
+            handleDeleteUser={handleDeleteUser}
             userEmail={userEmail}
             setUserEmail={setUserEmail}
             userFirstName={userFirstName}
