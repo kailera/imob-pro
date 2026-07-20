@@ -50,8 +50,7 @@ Instruções fundamentais:
 4. Mantenha a descrição concisa, profissional e direta ao ponto. Se o usuário apontar múltiplos problemas, organize-os em tópicos claros ou frases bem pontuadas.
 5. Retorne APENAS o texto limpo e final da descrição do cômodo. Não adicione saudações, introduções ou explicações (ex: não comece com "Transcrição:", "Aqui está o texto:", etc.).`;
 
-    // O usuário solicitou "gemini-3.1-flash". Como a API do Google SDK atualmente mapeia para a família 1.5,
-    // usamos o alias gemini-1.5-flash (que é a versão mais recente e rápida equivalente ao pedido).
+    // O usuário solicitou "gemini-3.1-flash-lite".
     const { text } = await generateText({
       model: googleProvider('gemini-3.1-flash-lite'),
       messages: [
