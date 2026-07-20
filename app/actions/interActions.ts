@@ -147,7 +147,7 @@ export async function getInterPdfUrlAction(pdfKey: string): Promise<string> {
     return await getSignedUrl(s3Client, command, { expiresIn: 3600 });
   } catch (error) {
     console.error("Erro ao gerar URL assinada para o PDF:", error);
-    const endpoint = process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";
+    const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";
     return `${endpoint}/${s3Bucket}/${pdfKey}`;
   }
 }

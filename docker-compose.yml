@@ -74,6 +74,7 @@ services:
       # Next.js configurations
       - NODE_ENV=production
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - RUSTFS_PUBLIC_URL=${RUSTFS_PUBLIC_URL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.imob-pro.rule=Host(`imobpro.euatendo.online`)"

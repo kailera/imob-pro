@@ -18,7 +18,7 @@ export async function getPresignedUploadUrl(
     : `comments/${uniqueId}.${extension}`;
 
   const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === "true";
-  const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+  const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
   const publicUrl = `${endpoint}/${bucketName}/${fileKey}`;
 
   if (isDevMock) {
@@ -83,7 +83,7 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     // Tenta fazer o upload do objeto
     await s3Client.send(new PutObjectCommand(uploadParams));
 
-    const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+    const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
     const url = `${endpoint}/${bucketName}/${key}`;
 
     return { url, type };
@@ -96,7 +96,7 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
         // Tenta enviar o objeto novamente
         await s3Client.send(new PutObjectCommand(uploadParams));
         
-        const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+        const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
         const url = `${endpoint}/${bucketName}/${key}`;
         
         return { url, type };

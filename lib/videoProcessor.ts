@@ -42,7 +42,7 @@ class VideoQueue {
 
   private async compressVideo(fileKey: string) {
     const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === "true";
-    const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+    const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
     
     const filename = path.basename(fileKey);
     const filenameWithoutExt = filename.substring(0, filename.lastIndexOf("."));

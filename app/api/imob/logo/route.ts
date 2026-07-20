@@ -57,14 +57,14 @@ export async function POST(req: NextRequest) {
 
       try {
         await s3Client.send(new PutObjectCommand(uploadParams));
-        const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
-        finalUrl = `${endpoint}/${bucketName}/${key}`;
+        const publicUrl = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+        finalUrl = `${publicUrl}/${bucketName}/${key}`;
       } catch (uploadError: any) {
         if (uploadError.name === "NoSuchBucket") {
           await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
           await s3Client.send(new PutObjectCommand(uploadParams));
-          const endpoint = process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
-          finalUrl = `${endpoint}/${bucketName}/${key}`;
+          const publicUrl = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
+          finalUrl = `${publicUrl}/${bucketName}/${key}`;
         } else {
           throw uploadError;
         }
