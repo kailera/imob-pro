@@ -9,6 +9,8 @@ interface UsersTabProps {
   setUserFirstName: (value: string) => void;
   userLastName: string;
   setUserLastName: (value: string) => void;
+  userCreci: string;
+  setUserCreci: (value: string) => void;
   userPassword: string;
   setUserPassword: (value: string) => void;
   userRole: "ADMIN" | "OPERADOR" | "CORRETOR";
@@ -27,6 +29,8 @@ export function UsersTab({
   setUserFirstName,
   userLastName,
   setUserLastName,
+  userCreci,
+  setUserCreci,
   userPassword,
   setUserPassword,
   userRole,
@@ -94,6 +98,16 @@ export function UsersTab({
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CRECI (Corretor)</label>
+                  <input
+                    type="text"
+                    value={userCreci}
+                    onChange={(e) => setUserCreci(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#280003]/10"
+                    placeholder="Ex: 12345-F SP"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Senha Temporária</label>
                   <input
                     type="password"
@@ -115,7 +129,7 @@ export function UsersTab({
                     <option value="ADMIN">Administrador</option>
                   </select>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end md:col-span-2 lg:col-span-3">
                   <button
                     type="submit"
                     disabled={isCreatingUser}
@@ -159,6 +173,7 @@ export function UsersTab({
                       <tr className="bg-gray-50/80 border-b border-gray-100">
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nome</th>
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">E-mail</th>
+                        <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">CRECI</th>
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Função / Perfil</th>
                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                       </tr>
@@ -194,6 +209,15 @@ export function UsersTab({
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                               {user.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                              {user.creci ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                                  CRECI {user.creci}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${roleBadge}`}>

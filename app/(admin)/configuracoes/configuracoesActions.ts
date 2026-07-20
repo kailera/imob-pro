@@ -107,6 +107,7 @@ export async function createNewUser(input: {
   email: string;
   firstName: string;
   lastName: string;
+  creci?: string;
   password?: string; // Senha temporária
   role: "ADMIN" | "OPERADOR" | "CORRETOR";
   orgId: string; // ID da organização Clerk ativa
@@ -133,6 +134,7 @@ export async function createNewUser(input: {
         email: input.email,
         firstName: input.firstName,
         lastName: input.lastName,
+        creci: input.creci || null,
         role: input.role,
         imobId: imob.id,
       }

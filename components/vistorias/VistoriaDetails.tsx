@@ -49,6 +49,9 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       }
 
       const dbData = res.data;
+      const vistoriadorFormatted = dbData.vistoriador 
+        ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ''}` 
+        : vistoria.vistoriador;
       const html2pdf = (await import("html2pdf.js")).default;
 
       // 2. Mapear ambientes
@@ -131,7 +134,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
                   </tr>
                   <tr>
                     <td style="padding: 2px 0; color: #666; font-weight: 600;">VISTORIADOR:</td>
-                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.vistoriador}</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoriadorFormatted}</td>
                   </tr>
                 </table>
               </div>
@@ -317,8 +320,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
                 </div>
                 <div style="flex: 1; max-width: 250px; text-align: center;">
                   <div style="border-top: 1px solid #999; margin-top: 40px; padding-top: 4px;">
-                    <strong style="color: #280003; display: block;">${vistoria.vistoriador}</strong>
-                    <span style="color: #666; font-size: 8px; text-transform: uppercase;">Vistoriador Responsável</span>
+                    <strong style="color: #280003; display: block;">${vistoriadorFormatted}</strong>
+                    <span style="color: #666; font-size: 8px; text-transform: uppercase;">Vistoriador / Corretor Responsável</span>
                   </div>
                 </div>
               </div>

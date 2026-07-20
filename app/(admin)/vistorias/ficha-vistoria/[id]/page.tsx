@@ -198,7 +198,8 @@ export default function FichaVistoriaPage() {
         setAssociatedLocatarioId(dbData.locatarioId || null);
         
         if (dbData.vistoriador) {
-          setVistoriador(`${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}`);
+          const creciText = dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : "";
+          setVistoriador(`${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${creciText}`);
         } else {
           setVistoriador("Vistoriador Responsável");
         }

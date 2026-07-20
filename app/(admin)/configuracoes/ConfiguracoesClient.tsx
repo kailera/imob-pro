@@ -51,6 +51,7 @@ export default function ConfiguracoesClient() {
   const [userEmail, setUserEmail] = useState("");
   const [userFirstName, setUserFirstName] = useState("");
   const [userLastName, setUserLastName] = useState("");
+  const [userCreci, setUserCreci] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<"ADMIN" | "OPERADOR" | "CORRETOR">("CORRETOR");
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -69,6 +70,7 @@ export default function ConfiguracoesClient() {
         email: userEmail,
         firstName: userFirstName,
         lastName: userLastName,
+        creci: userCreci || undefined,
         password: userPassword || undefined,
         role: userRole,
         orgId: activeOrgId,
@@ -79,6 +81,7 @@ export default function ConfiguracoesClient() {
         setUserEmail("");
         setUserFirstName("");
         setUserLastName("");
+        setUserCreci("");
         setUserPassword("");
         setUserRole("CORRETOR");
         loadUsers();
@@ -413,6 +416,8 @@ export default function ConfiguracoesClient() {
             setUserFirstName={setUserFirstName}
             userLastName={userLastName}
             setUserLastName={setUserLastName}
+            userCreci={userCreci}
+            setUserCreci={setUserCreci}
             userPassword={userPassword}
             setUserPassword={setUserPassword}
             userRole={userRole}

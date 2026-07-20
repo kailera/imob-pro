@@ -52,7 +52,7 @@ function mapDbVistoriaToUi(v: any): Vistoria {
     solicitadaPor: v.operador ? `${v.operador.firstName} ${v.operador.lastName}` : "Sistema",
     dataSolicitacao: new Date(v.data).toLocaleDateString("pt-BR"),
     dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
-    vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}` : "Não designado",
+    vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}${v.vistoriador.creci ? ` (CRECI: ${v.vistoriador.creci})` : ''}` : "Não designado",
     imovelCodigo: v.imovel ? v.imovel.codigo : "",
     endereco: v.imovel ? `${v.imovel.bairro}, ${v.imovel.cidade}/${v.imovel.uf}` : "",
     proprietario: v.proprietario || "Não informado",

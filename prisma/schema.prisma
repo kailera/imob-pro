@@ -46,6 +46,7 @@ model Users {
   email     String
   firstName String
   lastName  String
+  creci     String?
   role      UsersRole
   ativo     Boolean   @default(true)
 
