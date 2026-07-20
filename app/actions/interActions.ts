@@ -144,7 +144,20 @@ export async function getInterPdfUrlAction(pdfKey: string): Promise<string> {
       Key: pdfKey,
     });
     // URL assinada válida por 1 hora (3600 segundos)
-    return await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const rawUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    
+    if (process.env.RUSTFS_PUBLIC_URL) {
+      try {
+        const rawUrlObj = new URL(raw);
+        const publicUrlObj = new URL(process.env.RUSTFS_PUBLIC_URL);
+        rawUrlObj.protocol = publicUrlObj.protocol;
+        rawUrlObj.host = publicUrlObj.host;
+        return rawUrlObj.toString();
+      } catch (err) {
+        console.error("Erro ao mapear RUSTFS_PUBLIC_URL no PDF:", err);
+      }
+    }
+    return rawUrl;
   } catch (error) {
     console.error("Erro ao gerar URL assinada para o PDF:", error);
     const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageSquarePlus, FileText, AlertTriangle, Key, Loader2 } from "lucide-react";
+import { MessageSquarePlus, FileText, AlertTriangle, Key, Loader2, Upload } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
 import { useAuth } from "@clerk/nextjs";
 import { CommentForm } from "./CommentForm";
 import { CommentsTimeline, CommentData } from "./CommentsTimeline";
+import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
 
 interface InspectionEditorPanelProps {
   rooms: Room[];
@@ -77,6 +78,27 @@ export function InspectionEditorPanel({
   const [contatos, setContatos] = useState<Record<string, string>>({});
   const [comprovantes, setComprovantes] = useState<Record<string, string>>({});
   const [loadingResolution, setLoadingResolution] = useState<Record<string, boolean>>({});
+  const [uploadingReceipt, setUploadingReceipt] = useState<Record<string, boolean>>({});
+
+  const handleReceiptUpload = async (contestacaoId: string, file: File) => {
+    if (!file) return;
+    setUploadingReceipt(prev => ({ ...prev, [contestacaoId]: true }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await uploadMediaToRustFS(formData);
+      if (res && res.url) {
+        setComprovantes(prev => ({ ...prev, [contestacaoId]: res.url }));
+      } else {
+        alert("Erro no upload do comprovante.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha no upload do arquivo.");
+    } finally {
+      setUploadingReceipt(prev => ({ ...prev, [contestacaoId]: false }));
+    }
+  };
 
   // Sincronizar com mudanças externas
   useEffect(() => {
@@ -352,13 +374,44 @@ export function InspectionEditorPanel({
                               className="p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
                             />
                           </div>
-                          <input
-                            type="url"
-                            placeholder="URL do Comprovante (PDF/Imagem)..."
-                            value={comprovantes[c.id] || ""}
-                            onChange={(e) => setComprovantes(prev => ({ ...prev, [c.id]: e.target.value }))}
-                            className="p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
-                          />
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              placeholder="URL do Comprovante (PDF/Imagem)..."
+                              value={comprovantes[c.id] || ""}
+                              onChange={(e) => setComprovantes(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              className="flex-1 p-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none"
+                            />
+                            <input
+                              type="file"
+                              id={`receipt-upload-${c.id}`}
+                              accept="image/*,application/pdf"
+                              disabled={uploadingReceipt[c.id]}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleReceiptUpload(c.id, file);
+                              }}
+                              className="hidden"
+                            />
+                            <label
+                              htmlFor={`receipt-upload-${c.id}`}
+                              className={`px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-colors flex-shrink-0 ${
+                                uploadingReceipt[c.id] ? "opacity-50 pointer-events-none" : ""
+                              }`}
+                            >
+                              {uploadingReceipt[c.id] ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Enviando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-3.5 h-3.5" />
+                                  <span>Upload</span>
+                                </>
+                              )}
+                            </label>
+                          </div>
                         </div>
 
                         <button

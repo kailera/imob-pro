@@ -37,7 +37,20 @@ export async function getPresignedUploadUrl(
       ContentType: contentType,
     });
 
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+    const uploadUrlRaw = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+    
+    let uploadUrl = uploadUrlRaw;
+    if (process.env.RUSTFS_PUBLIC_URL) {
+      try {
+        const rawUrlObj = new URL(uploadUrlRaw);
+        const publicUrlObj = new URL(process.env.RUSTFS_PUBLIC_URL);
+        rawUrlObj.protocol = publicUrlObj.protocol;
+        rawUrlObj.host = publicUrlObj.host;
+        uploadUrl = rawUrlObj.toString();
+      } catch (err) {
+        console.error("Erro ao formatar URL pré-assinada com RUSTFS_PUBLIC_URL:", err);
+      }
+    }
 
     return { uploadUrl, fileKey, publicUrl };
   } catch (error: any) {
