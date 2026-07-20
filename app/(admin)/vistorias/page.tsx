@@ -78,6 +78,8 @@ export default function VistoriasPage() {
   const [imoveis, setImoveis] = useState<any[]>([]);
   const [vistoriadores, setVistoriadores] = useState<any[]>([]);
   const [selectedImovelId, setSelectedImovelId] = useState("");
+  const [imovelSearchTerm, setImovelSearchTerm] = useState("");
+  const [isImovelDropdownOpen, setIsImovelDropdownOpen] = useState(false);
   const [selectedVistoriadorId, setSelectedVistoriadorId] = useState("");
   const [newTipo, setNewTipo] = useState<"ENTRADA" | "SAIDA" | "PERIODICA">("ENTRADA");
   const [newTipoImovel, setNewTipoImovel] = useState<"CASA" | "APARTAMENTO">("APARTAMENTO");
@@ -161,45 +163,65 @@ export default function VistoriasPage() {
   const openCreateModal = async () => {
     setCreationError("");
     setIsCreateModalOpen(true);
+    setImovelSearchTerm("");
+    setIsImovelDropdownOpen(false);
     
+    console.log("Modal de criação aberto. Buscando dados...");
+
+    // Tenta buscar Imóveis
     try {
-      if (navigator.onLine) {
-        // Buscar Imóveis e Vistoriadores para o formulário
-        const resImoveis = await getImoveisForVistoria();
-        if (resImoveis.success && resImoveis.data) {
-          setImoveis(resImoveis.data);
-          const firstImovel = resImoveis.data[0];
-          if (firstImovel) {
-            setSelectedImovelId(firstImovel.id);
-            const ownerName = firstImovel.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
-            setNewProprietario(ownerName);
-          }
+      const resImoveis = await getImoveisForVistoria();
+      console.log("Imóveis retornados:", resImoveis);
+      if (resImoveis.success && resImoveis.data) {
+        setImoveis(resImoveis.data);
+        const firstImovel = resImoveis.data[0];
+        if (firstImovel) {
+          setSelectedImovelId(firstImovel.id);
+          const fullAddress = `${firstImovel.codigo} - ${firstImovel.bairro || ""}, ${firstImovel.cidade || ""} (Nº ${firstImovel.numero || ""})`;
+          setImovelSearchTerm(fullAddress);
+          const ownerName = firstImovel.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
+          setNewProprietario(ownerName);
         }
-        const resVistoriadores = await getVistoriadores();
-        if (resVistoriadores.success && resVistoriadores.data) {
-          setVistoriadores(resVistoriadores.data);
-          if (resVistoriadores.data.length > 0) {
-            setSelectedVistoriadorId(resVistoriadores.data[0].id);
-          }
-        }
-        // Fallback to cached unique vistoriadores from IndexedDB vistorias to allow offline selection
+      }
+    } catch (e) {
+      console.warn("Erro ao carregar imóveis online, tentando carregar do cache local:", e);
+    }
+
+    // Tenta buscar Vistoriadores
+    try {
+      const resVistoriadores = await getVistoriadores();
+      console.log("Vistoriadores retornados:", resVistoriadores);
+      if (resVistoriadores.success && resVistoriadores.data && resVistoriadores.data.length > 0) {
+        setVistoriadores(resVistoriadores.data);
+        setSelectedVistoriadorId(resVistoriadores.data[0].id);
+      } else {
+        throw new Error(resVistoriadores.error || "Nenhum vistoriador encontrado.");
+      }
+    } catch (e) {
+      console.warn("Erro ao buscar vistoriadores online, usando fallback do cache local:", e);
+      try {
         const cached = await db.vistorias.toArray();
         const uniqueVistoriadoresMap = new Map();
         
         cached.forEach(v => {
-          if (v.ambienteVistorias) {
-            // Se houver dados de vistoriadores salvos
+          if ((v as any).vistoriadorId && (v as any).vistoriadorName) {
+            uniqueVistoriadoresMap.set((v as any).vistoriadorId, {
+              id: (v as any).vistoriadorId,
+              firstName: (v as any).vistoriadorName.split(' ')[0] || "Vistoriador",
+              lastName: (v as any).vistoriadorName.split(' ').slice(1).join(' ') || ""
+            });
           }
         });
         
         const offlineVistoriadores = Array.from(uniqueVistoriadoresMap.values());
-        setVistoriadores(offlineVistoriadores);
+        console.log("Vistoriadores offline encontrados:", offlineVistoriadores);
         if (offlineVistoriadores.length > 0) {
+          setVistoriadores(offlineVistoriadores);
           setSelectedVistoriadorId(offlineVistoriadores[0].id);
         }
+      } catch (err) {
+        console.error("Erro no fallback de vistoriadores offline:", err);
       }
-    } catch (e) {
-      console.error("Erro ao preparar dados do modal offline:", e);
     }
     
     // Set default date to today
@@ -302,6 +324,12 @@ export default function VistoriasPage() {
     return matchesSearch && matchesStatus;
   });
 
+  // Filter imoveis based on search input (by code or address)
+  const filteredImoveis = imoveis.filter((im) => {
+    const searchString = `${im.codigo} ${im.bairro || ""} ${im.cidade || ""} ${im.uf || ""} ${im.numero || ""}`.toLowerCase();
+    return searchString.includes(imovelSearchTerm.toLowerCase());
+  });
+
   const getStatusRowClass = (status: string) => {
     switch (status) {
       case "nao_iniciada":
@@ -344,6 +372,44 @@ export default function VistoriasPage() {
     concluida: vistorias.filter(v => v.status === "concluida").length,
     contestada: vistorias.filter(v => v.status === "contestada").length,
   };
+
+  const naoConcluidasData = {
+    naoIniciada: kpis.nao_iniciada,
+    emAndamento: kpis.em_andamento,
+    aguardandoAprovacao: kpis.aguardando_aprovacao,
+  };
+
+  // Agrupar concluídas por vistoriador
+  const completedBySurveyorMap: Record<string, number> = {};
+  vistorias.forEach((v) => {
+    if (v.status === "concluida" && v.vistoriador) {
+      // Limpa nome removendo CRECI
+      const name = v.vistoriador.split(" (CRECI:")[0];
+      completedBySurveyorMap[name] = (completedBySurveyorMap[name] || 0) + 1;
+    }
+  });
+
+  const porVistoriadorData = Object.entries(completedBySurveyorMap)
+    .map(([nome, concluidas]) => ({ nome, concluidas }))
+    .sort((a, b) => b.concluidas - a.concluidas);
+
+  // Calcular vistorias por semana do mês atual
+  const getVistoriasByWeek = () => {
+    const weeks = [0, 0, 0, 0];
+    vistorias.forEach((v) => {
+      if (!v.dataVistoria) return;
+      const parts = v.dataVistoria.split("/");
+      if (parts.length !== 3) return;
+      const day = parseInt(parts[0], 10);
+      if (day <= 7) weeks[0]++;
+      else if (day <= 14) weeks[1]++;
+      else if (day <= 21) weeks[2]++;
+      else weeks[3]++;
+    });
+    return weeks;
+  };
+
+  const porPeriodoData = getVistoriasByWeek();
 
   if (loading) {
     return (
@@ -429,9 +495,21 @@ export default function VistoriasPage() {
       {/* Charts Grid */}
       <section className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-6" aria-labelledby="charts-heading">
         <h2 id="charts-heading" className="sr-only">Gráficos de Acompanhamento</h2>
-        <ChartPlaceholder type="nao_concluidas" title="Vistorias Não Concluídas" />
-        <ChartPlaceholder type="por_vistoriador" title="Vistorias Concluídas por Vistoriador" />
-        <ChartPlaceholder type="por_periodo" title="Desempenho Geral / Histórico" />
+        <ChartPlaceholder
+          type="nao_concluidas"
+          title="Vistorias Não Concluídas"
+          naoConcluidasData={naoConcluidasData}
+        />
+        <ChartPlaceholder
+          type="por_vistoriador"
+          title="Vistorias Concluídas por Vistoriador"
+          porVistoriadorData={porVistoriadorData}
+        />
+        <ChartPlaceholder
+          type="por_periodo"
+          title="Desempenho Geral / Histórico"
+          porPeriodoData={porPeriodoData}
+        />
       </section>
 
       {/* Master-Detail Interactive System */}
@@ -574,29 +652,57 @@ export default function VistoriasPage() {
               )}
 
               {/* Imovel */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 relative">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Imóvel *
                 </label>
-                <select
-                  value={selectedImovelId}
-                  onChange={(e) => {
-                    const imId = e.target.value;
-                    setSelectedImovelId(imId);
-                    const selectedIm = imoveis.find(im => im.id === imId);
-                    const ownerName = selectedIm?.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
-                    setNewProprietario(ownerName);
-                  }}
-                  className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  required
-                >
-                  <option value="" disabled>Selecione um imóvel...</option>
-                  {imoveis.map(im => (
-                    <option key={im.id} value={im.id}>
-                      {im.codigo} - {im.bairro}, {im.cidade} (Nº {im.numero})
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Pesquise por código ou endereço..."
+                    value={imovelSearchTerm}
+                    onChange={(e) => {
+                      setImovelSearchTerm(e.target.value);
+                      setIsImovelDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsImovelDropdownOpen(true)}
+                    className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                    required
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+                
+                {isImovelDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsImovelDropdownOpen(false)} 
+                    />
+                    <ul className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-[#EEEEF3] rounded-lg shadow-lg z-20 py-1">
+                      {filteredImoveis.length === 0 ? (
+                        <li className="px-3 py-2 text-xs text-gray-400">Nenhum imóvel encontrado</li>
+                      ) : (
+                        filteredImoveis.map((im) => (
+                          <li
+                            key={im.id}
+                            onClick={() => {
+                              setSelectedImovelId(im.id);
+                              setImovelSearchTerm(`${im.codigo} - ${im.bairro || ""}, ${im.cidade || ""} (Nº ${im.numero || ""})`);
+                              setIsImovelDropdownOpen(false);
+                              const ownerName = im.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
+                              setNewProprietario(ownerName);
+                            }}
+                            className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 transition-colors ${
+                              selectedImovelId === im.id ? "bg-[#004777]/5 font-semibold text-[#004777]" : "text-gray-700"
+                            }`}
+                          >
+                            <span className="font-bold">{im.codigo}</span> - {im.bairro}, {im.cidade} (Nº {im.numero})
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </>
+                )}
               </div>
 
               {/* Vistoriador */}

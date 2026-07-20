@@ -3,12 +3,66 @@
 import React from "react";
 import { TrendingUp, Users, Calendar, AlertCircle } from "lucide-react";
 
+interface NaoConcluidasData {
+  naoIniciada: number;
+  emAndamento: number;
+  aguardandoAprovacao: number;
+}
+
+interface VistoriadorData {
+  nome: string;
+  concluidas: number;
+}
+
 interface ChartPlaceholderProps {
   type: "nao_concluidas" | "por_vistoriador" | "por_periodo";
   title: string;
+  naoConcluidasData?: NaoConcluidasData;
+  porVistoriadorData?: VistoriadorData[];
+  porPeriodoData?: number[];
 }
 
-export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
+export function ChartPlaceholder({
+  type,
+  title,
+  naoConcluidasData = { naoIniciada: 12, emAndamento: 5, aguardandoAprovacao: 2 },
+  porVistoriadorData = [
+    { nome: "Rodrigo Silva", concluidas: 14 },
+    { nome: "Mariana Costa", concluidas: 9 },
+    { nome: "Gabriel Santos", concluidas: 5 },
+  ],
+  porPeriodoData = [5, 12, 8, 15],
+}: ChartPlaceholderProps) {
+  // Calculations for nao_concluidas
+  const { naoIniciada, emAndamento, aguardandoAprovacao } = naoConcluidasData;
+  const totalPendentes = naoIniciada + emAndamento + aguardandoAprovacao;
+
+  const pctNaoIniciada = totalPendentes > 0 ? naoIniciada / totalPendentes : 0;
+  const pctEmAndamento = totalPendentes > 0 ? emAndamento / totalPendentes : 0;
+  const pctAguardando = totalPendentes > 0 ? aguardandoAprovacao / totalPendentes : 0;
+
+  // SVG rings dash offsets
+  // Outer Ring (r=40, circumference=251.2)
+  const outerOffset = 251.2 * (1 - pctNaoIniciada);
+  // Middle Ring (r=28, circumference=175.8)
+  const middleOffset = 175.8 * (1 - pctEmAndamento);
+  // Inner Ring (r=16, circumference=100.5)
+  const innerOffset = 100.5 * (1 - pctAguardando);
+
+  // Calculations for por_vistoriador
+  const maxConcluidas = Math.max(...porVistoriadorData.map((v) => v.concluidas), 1);
+
+  // Calculations for por_periodo (4 weeks line chart)
+  const maxPeriodValue = Math.max(...porPeriodoData, 1);
+  const getY = (val: number) => 65 - (val / maxPeriodValue) * 50;
+  const y0 = getY(porPeriodoData[0] || 0);
+  const y1 = getY(porPeriodoData[1] || 0);
+  const y2 = getY(porPeriodoData[2] || 0);
+  const y3 = getY(porPeriodoData[3] || 0);
+
+  const linePath = `M 0 ${y0} L 100 ${y1} L 200 ${y2} L 300 ${y3}`;
+  const fillPath = `M 0 ${y0} L 100 ${y1} L 200 ${y2} L 300 ${y3} L 300 80 L 0 80 Z`;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-[#EEEEF3] p-5 flex flex-col justify-between h-[280px] transition-all duration-300 hover:shadow-md">
       {/* Chart Header */}
@@ -31,7 +85,7 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
             {/* SVG Donut/Nested Rings */}
             <div className="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                {/* Outer Ring - Não Iniciada (60%) */}
+                {/* Outer Ring - Não Iniciada */}
                 <circle
                   cx="50"
                   cy="50"
@@ -48,11 +102,11 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
                   strokeWidth="8"
                   fill="transparent"
                   strokeDasharray="251.2"
-                  strokeDashoffset="100.48" // 60% remaining
+                  strokeDashoffset={outerOffset}
                   strokeLinecap="round"
                 />
 
-                {/* Middle Ring - Em Andamento (25%) */}
+                {/* Middle Ring - Em Andamento */}
                 <circle
                   cx="50"
                   cy="50"
@@ -69,11 +123,11 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
                   strokeWidth="8"
                   fill="transparent"
                   strokeDasharray="175.8"
-                  strokeDashoffset="131.85" // 25% remaining
+                  strokeDashoffset={middleOffset}
                   strokeLinecap="round"
                 />
 
-                {/* Inner Ring - Aguardando Aprovação (15%) */}
+                {/* Inner Ring - Aguardando Aprovação */}
                 <circle
                   cx="50"
                   cy="50"
@@ -90,12 +144,12 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
                   strokeWidth="8"
                   fill="transparent"
                   strokeDasharray="100.5"
-                  strokeDashoffset="85.4" // 15% remaining
+                  strokeDashoffset={innerOffset}
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold text-[#280003]">19</span>
+                <span className="text-lg font-bold text-[#280003]">{totalPendentes}</span>
                 <span className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold">Pendentes</span>
               </div>
             </div>
@@ -107,21 +161,21 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
                   <span className="w-2.5 h-2.5 rounded-full bg-slate-400 block"></span>
                   <span className="text-gray-600">Não Iniciada</span>
                 </div>
-                <span className="font-semibold text-[#280003]">12</span>
+                <span className="font-semibold text-[#280003]">{naoIniciada}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#F0D18A] block"></span>
                   <span className="text-gray-600">Em Andamento</span>
                 </div>
-                <span className="font-semibold text-[#280003]">5</span>
+                <span className="font-semibold text-[#280003]">{emAndamento}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#004777] block"></span>
                   <span className="text-gray-600">Aguard. Aprov.</span>
                 </div>
-                <span className="font-semibold text-[#280003]">2</span>
+                <span className="font-semibold text-[#280003]">{aguardandoAprovacao}</span>
               </div>
             </div>
           </div>
@@ -129,38 +183,23 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
 
         {type === "por_vistoriador" && (
           <div className="w-full flex flex-col gap-3.5">
-            {/* Inspector 1 */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-[#280003]">Rodrigo Silva</span>
-                <span className="font-semibold text-[#708D81]">14 Concluídas</span>
-              </div>
-              <div className="w-full bg-[#EEEEF3] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#708D81] h-full rounded-full transition-all duration-500" style={{ width: "85%" }}></div>
-              </div>
-            </div>
-
-            {/* Inspector 2 */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-[#280003]">Mariana Costa</span>
-                <span className="font-semibold text-[#708D81]">9 Concluídas</span>
-              </div>
-              <div className="w-full bg-[#EEEEF3] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#708D81] h-full rounded-full transition-all duration-500" style={{ width: "55%" }}></div>
-              </div>
-            </div>
-
-            {/* Inspector 3 */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-[#280003]">Gabriel Santos</span>
-                <span className="font-semibold text-[#708D81]">5 Concluídas</span>
-              </div>
-              <div className="w-full bg-[#EEEEF3] h-2 rounded-full overflow-hidden">
-                <div className="bg-[#708D81] h-full rounded-full transition-all duration-500" style={{ width: "30%" }}></div>
-              </div>
-            </div>
+            {porVistoriadorData.slice(0, 3).map((item, index) => {
+              const widthPct = `${Math.min(100, (item.concluidas / maxConcluidas) * 100)}%`;
+              return (
+                <div key={index} className="flex flex-col gap-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-[#280003]">{item.nome}</span>
+                    <span className="font-semibold text-[#708D81]">{item.concluidas} Concluídas</span>
+                  </div>
+                  <div className="w-full bg-[#EEEEF3] h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[#708D81] h-full rounded-full transition-all duration-500"
+                      style={{ width: widthPct }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -178,21 +217,21 @@ export function ChartPlaceholder({ type, title }: ChartPlaceholderProps) {
                 {/* Horizontal Gridlines */}
                 <line x1="0" y1="20" x2="300" y2="20" stroke="#EEEEF3" strokeWidth="1" strokeDasharray="3 3" />
                 <line x1="0" y1="50" x2="300" y2="50" stroke="#EEEEF3" strokeWidth="1" strokeDasharray="3 3" />
-                
+
                 {/* Gradient area */}
-                <path d="M 0 65 Q 40 40, 80 50 T 160 25 T 240 45 T 300 15 L 300 80 L 0 80 Z" fill="url(#line-grad)" />
-                
+                <path d={fillPath} fill="url(#line-grad)" />
+
                 {/* Line path */}
-                <path d="M 0 65 Q 40 40, 80 50 T 160 25 T 240 45 T 300 15" fill="none" stroke="#004777" strokeWidth="2.5" strokeLinecap="round" />
-                
+                <path d={linePath} fill="none" stroke="#004777" strokeWidth="2.5" strokeLinecap="round" />
+
                 {/* Data Points */}
-                <circle cx="80" cy="50" r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
-                <circle cx="160" cy="25" r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
-                <circle cx="240" cy="45" r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
-                <circle cx="300" cy="15" r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
+                <circle cx="0" cy={y0} r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
+                <circle cx="100" cy={y1} r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
+                <circle cx="200" cy={y2} r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
+                <circle cx="300" cy={y3} r="3" fill="#004777" stroke="#FFFFFF" strokeWidth="1.5" />
               </svg>
             </div>
-            
+
             {/* X-Axis labels */}
             <div className="flex justify-between text-[9px] font-semibold text-gray-400 mt-2 px-1">
               <span>Semana 1</span>

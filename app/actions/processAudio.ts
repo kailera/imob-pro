@@ -3,11 +3,17 @@
 import { generateText } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
-const googleProvider = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY,
-});
-
 export async function processAudioComment(formData: FormData): Promise<string> {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    console.error("[Gemini Action] Erro: A variável GOOGLE_GENERATIVE_AI_API_KEY não foi encontrada no process.env em tempo de execução.");
+  }
+
+  const googleProvider = createGoogleGenerativeAI({
+    apiKey,
+  });
+
   const audioFile = formData.get("audio") as File;
   const roomName = formData.get("roomName") as string | null;
   const roomType = formData.get("roomType") as string | null;

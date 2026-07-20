@@ -56,6 +56,14 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
     // 6. Registro do Service Worker
     if ("serviceWorker" in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+
       const handleLoad = () => {
         navigator.serviceWorker
           .register("/sw.js")

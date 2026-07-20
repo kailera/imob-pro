@@ -18,6 +18,7 @@ self.addEventListener("install", (event) => {
   );
 });
 
+
 // Ativação do Service Worker (Limpeza de caches antigos)
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -95,8 +96,8 @@ self.addEventListener("fetch", (event) => {
             if (networkResponse.status === 200) {
               caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
             }
-          }).catch(() => {/* silencia erros de rede em background */});
-          
+          }).catch(() => {/* silencia erros de rede em background */ });
+
           return cachedResponse;
         }
 
