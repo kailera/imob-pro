@@ -713,3 +713,41 @@ export async function deleteVistoriaComment(commentId: string) {
         return { success: false, error: error.message || "Erro ao excluir comentário." };
     }
 }
+
+export async function createInquilino(input: {
+    nome: string;
+    cpfCnpj: string;
+    email: string;
+    telefone: string;
+}) {
+    try {
+        const { userId } = await auth();
+        if (!userId) {
+            return { success: false, error: "Não autorizado." };
+        }
+
+        const telefoneJson = [{ tipo: "Celular", numero: input.telefone }];
+
+        const newLocatario = await prisma.locatario.create({
+            data: {
+                nome: input.nome,
+                cpfCnpj: input.cpfCnpj,
+                email: input.email,
+                telefone: telefoneJson,
+                endereco: {},
+                dataNasc: "Não informada",
+                rg: "Não informado",
+                orgaoEmissor: "Não informado",
+                estadoCivil: "Não informado",
+                profissao: "Não informada",
+                nacionalidade: "Não informada",
+                genero: "Não informado",
+            }
+        });
+
+        return { success: true, data: newLocatario };
+    } catch (error: any) {
+        console.error("Erro ao criar inquilino rápido:", error);
+        return { success: false, error: error.message || "Erro ao criar inquilino." };
+    }
+}

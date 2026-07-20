@@ -9,7 +9,7 @@ import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSect
 import { InspectionEditorPanel } from "@/components/vistorias/ficha-vistoria/InspectionEditorPanel";
 import { CommentData } from "@/components/vistorias/ficha-vistoria/CommentsTimeline";
 import ConnectionStatus from "@/components/shared/ConnectionStatus";
-import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria } from "@/app/(admin)/vistorias/actions";
+import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria, createInquilino } from "@/app/(admin)/vistorias/actions";
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
@@ -83,6 +83,13 @@ export default function FichaVistoriaPage() {
   const [selectedLocatarioId, setSelectedLocatarioId] = useState<string>("");
   const [loadingLocatarios, setLoadingLocatarios] = useState(false);
   const [isAssociating, setIsAssociating] = useState(false);
+
+  const [shareModalTab, setShareModalTab] = useState<'select' | 'create'>('select');
+  const [newInquilinoNome, setNewInquilinoNome] = useState("");
+  const [newInquilinoCpf, setNewInquilinoCpf] = useState("");
+  const [newInquilinoEmail, setNewInquilinoEmail] = useState("");
+  const [newInquilinoTelefone, setNewInquilinoTelefone] = useState("");
+  const [isCreatingInquilino, setIsCreatingInquilino] = useState(false);
 
   // Load from database on mount
   useEffect(() => {
@@ -274,6 +281,53 @@ export default function FichaVistoriaPage() {
     } finally {
       setIsAssociating(false);
       setIsGeneratingToken(false);
+    }
+  };
+
+  const handleCreateAndAssociateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInquilinoNome || !newInquilinoCpf || !newInquilinoEmail || !newInquilinoTelefone) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    setIsCreatingInquilino(true);
+    try {
+      const res = await createInquilino({
+        nome: newInquilinoNome,
+        cpfCnpj: newInquilinoCpf,
+        email: newInquilinoEmail,
+        telefone: newInquilinoTelefone
+      });
+      if (res.success && res.data) {
+        setLocatarios(prev => [...prev, res.data]);
+        
+        const assocRes = await associateTenantToVistoria(vistoriaId, res.data.id);
+        if (assocRes.success) {
+          setAssociatedLocatarioId(res.data.id);
+          
+          setIsGeneratingToken(true);
+          const tokenRes = await generateTokenAcesso(vistoriaId);
+          if (tokenRes.success && tokenRes.tokenAcesso) {
+            setTokenAcesso(tokenRes.tokenAcesso);
+            // Limpa form
+            setNewInquilinoNome("");
+            setNewInquilinoCpf("");
+            setNewInquilinoEmail("");
+            setNewInquilinoTelefone("");
+          } else {
+            alert("Inquilino criado e vinculado, mas não foi possível gerar o link de acesso.");
+          }
+        } else {
+          alert("Inquilino criado, mas houve um erro ao vinculá-lo à vistoria.");
+        }
+      } else {
+        alert(res.error || "Erro ao criar inquilino.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro de conexão ao criar inquilino.");
+    } finally {
+      setIsCreatingInquilino(false);
     }
   };
 
@@ -931,44 +985,138 @@ export default function FichaVistoriaPage() {
             <div className="p-6 flex flex-col gap-4">
               {!associatedLocatarioId ? (
                 <div className="flex flex-col gap-3">
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Esta vistoria ainda não possui um inquilino diretamente associado. Selecione um inquilino cadastrado para prosseguir com o envio:
-                  </p>
-                  
-                  {loadingLocatarios ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-[#004777]" />
-                      <span>Carregando inquilinos...</span>
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedLocatarioId}
-                      onChange={(e) => setSelectedLocatarioId(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25"
+                  <div className="flex border-b border-[#EEEEF3] bg-gray-50/50 rounded-lg p-0.5 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setShareModalTab('select')}
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                        shareModalTab === 'select'
+                          ? 'bg-white text-[#004777] shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
                     >
-                      <option value="">Selecione o inquilino...</option>
-                      {locatarios.map((loc) => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.nome} - {loc.cpfCnpj}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                      Selecionar Cadastrado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareModalTab('create')}
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                        shareModalTab === 'create'
+                          ? 'bg-white text-[#004777] shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Criar Novo Inquilino
+                    </button>
+                  </div>
 
-                  <button
-                    onClick={handleAssociateTenant}
-                    disabled={!selectedLocatarioId || isAssociating}
-                    className="w-full mt-2 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isAssociating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Associando inquilino...</span>
-                      </>
-                    ) : (
-                      <span>Vincular Inquilino e Gerar Link</span>
-                    )}
-                  </button>
+                  {shareModalTab === 'select' ? (
+                    <>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        Esta vistoria ainda não possui um inquilino diretamente associado. Selecione um inquilino cadastrado para prosseguir com o envio:
+                      </p>
+                      
+                      {loadingLocatarios ? (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-[#004777]" />
+                          <span>Carregando inquilinos...</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedLocatarioId}
+                          onChange={(e) => setSelectedLocatarioId(e.target.value)}
+                          className="w-full px-3 py-2.5 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25 text-gray-800"
+                        >
+                          <option value="">Selecione o inquilino...</option>
+                          {locatarios.map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.nome} - {loc.cpfCnpj}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      <button
+                        onClick={handleAssociateTenant}
+                        disabled={!selectedLocatarioId || isAssociating}
+                        className="w-full mt-2 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isAssociating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Associando inquilino...</span>
+                          </>
+                        ) : (
+                          <span>Vincular Inquilino e Gerar Link</span>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <form onSubmit={handleCreateAndAssociateTenant} className="flex flex-col gap-3">
+                      <p className="text-[11px] text-gray-500 leading-relaxed mb-1">
+                        Preencha as informações básicas para cadastrar e vincular o novo inquilino:
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-gray-450 uppercase">Nome Completo</label>
+                        <input
+                          type="text"
+                          required
+                          value={newInquilinoNome}
+                          onChange={(e) => setNewInquilinoNome(e.target.value)}
+                          placeholder="Ex: João da Silva"
+                          className="w-full px-3 py-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25 text-[#280003]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-gray-450 uppercase">CPF / CNPJ</label>
+                        <input
+                          type="text"
+                          required
+                          value={newInquilinoCpf}
+                          onChange={(e) => setNewInquilinoCpf(e.target.value)}
+                          placeholder="Ex: 000.000.000-00"
+                          className="w-full px-3 py-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25 text-[#280003]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-gray-450 uppercase">E-mail</label>
+                        <input
+                          type="email"
+                          required
+                          value={newInquilinoEmail}
+                          onChange={(e) => setNewInquilinoEmail(e.target.value)}
+                          placeholder="Ex: joao@email.com"
+                          className="w-full px-3 py-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25 text-[#280003]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-gray-450 uppercase">Telefone (WhatsApp)</label>
+                        <input
+                          type="tel"
+                          required
+                          value={newInquilinoTelefone}
+                          onChange={(e) => setNewInquilinoTelefone(e.target.value)}
+                          placeholder="Ex: (11) 99999-9999"
+                          className="w-full px-3 py-2 border border-[#EEEEF3] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/25 text-[#280003]"
+                        />
+                      </div>
+                      
+                      <button
+                        type="submit"
+                        disabled={isCreatingInquilino}
+                        className="w-full mt-2 py-2.5 bg-[#004777] hover:bg-[#00365a] text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isCreatingInquilino ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Cadastrando e Vinculando...</span>
+                          </>
+                        ) : (
+                          <span>Cadastrar, Vincular e Gerar Link</span>
+                        )}
+                      </button>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <>
