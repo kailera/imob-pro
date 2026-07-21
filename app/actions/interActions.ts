@@ -270,6 +270,16 @@ export async function criarAcordoManualAction(input: {
       return { success: false, error: interRes.error || "Falha ao emitir boleto no Banco Inter." };
     }
 
+    // Obter URL assinada para o PDF se nossoNumero estiver disponível
+    let signedPdfUrl = "";
+    if (interRes.nossoNumero) {
+      try {
+        signedPdfUrl = await getInterPdfUrlAction(`cobrancas/${interRes.nossoNumero}.pdf`);
+      } catch (pdfErr) {
+        console.error("Erro ao obter URL assinada para o PDF do acordo manual:", pdfErr);
+      }
+    }
+
     revalidatePath("/cobrancas");
     revalidatePath("/financeiro");
     revalidatePath("/juridico");
@@ -280,13 +290,46 @@ export async function criarAcordoManualAction(input: {
       nossoNumero: interRes.nossoNumero,
       pixCopiaECola: interRes.pixCopiaECola,
       codigoBarras: interRes.codigoBarras,
-      pdfUrl: interRes.pdfUrl
+      pdfUrl: signedPdfUrl || interRes.pdfUrl || ""
     };
   } catch (error: any) {
     console.error("Erro ao criar acordo manual:", error);
     return { success: false, error: error.message || "Erro inesperado ao criar acordo manual." };
   }
 }
+
+export async function getAgreementTransactionsAction() {
+  try {
+    const transactions = await prisma.transacaoFinanceira.findMany({
+      where: {
+        interNossoNumero: {
+          not: null
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      include: {
+        contrato: {
+          select: {
+            id: true,
+            locatarios: {
+              select: {
+                nome: true,
+                cpfCnpj: true
+              }
+            }
+          }
+        }
+      }
+    });
+    return { success: true, transactions };
+  } catch (error: any) {
+    console.error("Erro ao obter transações de acordos:", error);
+    return { success: false, error: error.message || "Erro ao obter acordos." };
+  }
+}
+
 
 
 

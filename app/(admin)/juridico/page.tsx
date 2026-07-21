@@ -23,7 +23,7 @@ import {
   Printer,
   X
 } from 'lucide-react';
-import { getLocatariosListAction, criarAcordoManualAction } from '@/app/actions/interActions';
+import { getLocatariosListAction, criarAcordoManualAction, getAgreementTransactionsAction, getInterPdfUrlAction } from '@/app/actions/interActions';
 
 
 interface Contrato {
@@ -108,6 +108,10 @@ export default function JuridicoPage() {
   const [generatedAgreementBoleto, setGeneratedAgreementBoleto] = useState<any | null>(null);
   const [isGeneratingAgreement, setIsGeneratingAgreement] = useState(false);
   const [agreementError, setAgreementError] = useState<string | null>(null);
+  const [agreementTransactions, setAgreementTransactions] = useState<any[]>([]);
+  const [loadingAgreements, setLoadingAgreements] = useState(false);
+  const [tenantSearchTerm, setTenantSearchTerm] = useState('');
+
 
 
   // Template Editing & Fill State
@@ -167,7 +171,36 @@ export default function JuridicoPage() {
       }
     }
     loadLocatarios();
+    loadAgreements();
   }, []);
+
+  const loadAgreements = async () => {
+    setLoadingAgreements(true);
+    try {
+      const res = await getAgreementTransactionsAction();
+      if (res.success && res.transactions) {
+        setAgreementTransactions(res.transactions);
+      } else {
+        console.error("Erro ao carregar acordos:", res.error);
+      }
+    } catch (err) {
+      console.error("Erro no loadAgreements:", err);
+    } finally {
+      setLoadingAgreements(false);
+    }
+  };
+
+  const handleDownloadBoleto = async (pdfKey: string) => {
+    try {
+      const url = await getInterPdfUrlAction(pdfKey);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Erro ao obter URL do PDF:", err);
+      setToastMessage("Erro ao carregar o PDF do boleto.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
 
   const handleLocatarioChange = (locatarioId: string) => {
     setSelectedLocatarioId(locatarioId);
@@ -250,6 +283,7 @@ export default function JuridicoPage() {
         setToastMessage("Boleto de acordo gerado com sucesso!");
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
+        loadAgreements();
       } else {
         setAgreementError(res.error || "Erro ao emitir boleto no Banco Inter.");
       }
@@ -1598,58 +1632,200 @@ CONTRATADA`
             </div>
 
 
+            {/* Filter and Inquilinos Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EEEEF3] pb-4 pt-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#004777]">Inquilinos e Contratos Ativos</h3>
+              <div className="relative max-w-xs w-full">
+                <input
+                  type="text"
+                  placeholder="Buscar inquilino ou contrato..."
+                  value={tenantSearchTerm}
+                  onChange={e => setTenantSearchTerm(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-[#280003]/10 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004777]/20 bg-white"
+                />
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-[#EEEEF3] text-xs font-bold text-gray-400 uppercase">
-                    <th className="py-3 px-4">Contrato</th>
                     <th className="py-3 px-4">Inquilino</th>
-                    <th className="py-3 px-4">Valor Original (Mensal)</th>
-                    <th className="py-3 px-4">Meses em Atraso</th>
-                    <th className="py-3 px-4">Dívida Estimada</th>
+                    <th className="py-3 px-4">CPF/CNPJ</th>
+                    <th className="py-3 px-4">Contrato</th>
+                    <th className="py-3 px-4">Imóvel</th>
+                    <th className="py-3 px-4">Aluguel Base</th>
                     <th className="py-3 px-4 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEEEF3] text-sm text-[#280003]">
-                  {contracts.filter(c => c.status === 'Atrasado').length === 0 ? (
+                  {loadingLocatarios ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-400 italic">
-                        Nenhum contrato em atraso no momento. Todos em dia!
+                        Carregando inquilinos cadastrados...
                       </td>
                     </tr>
-                  ) : (
-                    contracts.filter(c => c.status === 'Atrasado').map(c => {
-                      const totalEstimado = (c.valorOriginal || 2500) * (c.parcelasAtrasadas || 1);
+                  ) : (() => {
+                    const filtered = locatarios.filter(loc => {
+                      if (!tenantSearchTerm) return true;
+                      const term = tenantSearchTerm.toLowerCase();
                       return (
-                        <tr key={c.contrato} className="hover:bg-[#EEEEF3]/20 transition-colors">
-                          <td className="py-4 px-4 font-semibold text-rose-700">{c.contrato}</td>
-                          <td className="py-4 px-4 font-medium">{c.inquilino}</td>
+                        loc.nome.toLowerCase().includes(term) ||
+                        (loc.cpfCnpj && loc.cpfCnpj.toLowerCase().includes(term)) ||
+                        (loc.contratoId && loc.contratoId.toLowerCase().includes(term)) ||
+                        (loc.contrato?.imovel?.codigo && loc.contrato.imovel.codigo.toLowerCase().includes(term))
+                      );
+                    });
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-gray-400 italic">
+                            Nenhum inquilino correspondente encontrado.
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return filtered.map(loc => {
+                      const rentVal = loc.contrato?.imovelLocacao?.valorTotal || loc.contrato?.imovel?.valorAluguel || 0;
+                      return (
+                        <tr key={loc.id} className="hover:bg-[#EEEEF3]/20 transition-colors">
+                          <td className="py-4 px-4 font-semibold">{loc.nome}</td>
+                          <td className="py-4 px-4 font-mono text-xs">{loc.cpfCnpj || 'Não cadastrado'}</td>
+                          <td className="py-4 px-4 font-semibold text-[#004777]">{loc.contratoId || 'Sem contrato'}</td>
+                          <td className="py-4 px-4 font-medium text-gray-500">{loc.contrato?.imovel?.codigo || 'N/D'}</td>
                           <td className="py-4 px-4 font-semibold">
-                            R$ {(c.valorOriginal || 2500).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="inline-flex items-center gap-1 font-bold text-rose-600">
-                              {c.parcelasAtrasadas}x
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 font-bold text-[#280003]">
-                            R$ {totalEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {rentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="py-4 px-4 text-right">
                             <button
-                              onClick={() => handleOpenRenegModal(c)}
-                              className="px-3.5 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold shadow-sm transition-all active:scale-95 flex items-center gap-1.5 ml-auto"
+                              onClick={() => {
+                                handleLocatarioChange(loc.id);
+                                setAgreementValue(0);
+                                setAgreementDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+                                setGeneratedAgreementBoleto(null);
+                                setAgreementError(null);
+                                setShowManualAgreementModal(true);
+                              }}
+                              className="px-3 py-1.5 text-xs bg-[#004777] hover:bg-[#004777]/90 text-white rounded-lg font-semibold shadow-sm transition-all active:scale-95 flex items-center gap-1 ml-auto"
                             >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              Renegociar
+                              <Plus className="w-3.5 h-3.5" />
+                              Novo Acordo
                             </button>
                           </td>
                         </tr>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                 </tbody>
               </table>
+            </div>
+
+            {/* Real Generated Agreements Section */}
+            <div className="pt-6 border-t border-[#EEEEF3] space-y-4">
+              <div className="border-b border-[#EEEEF3] pb-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#004777]">Histórico de Acordos Gerados (Banco Inter)</h3>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#EEEEF3] text-xs font-bold text-gray-400 uppercase">
+                      <th className="py-3 px-4">Nosso Número</th>
+                      <th className="py-3 px-4">Inquilino</th>
+                      <th className="py-3 px-4">Descrição</th>
+                      <th className="py-3 px-4">Valor</th>
+                      <th className="py-3 px-4">Vencimento</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EEEEF3] text-sm text-[#280003]">
+                    {loadingAgreements ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-gray-400 italic">
+                          Carregando histórico do Banco Inter...
+                        </td>
+                      </tr>
+                    ) : agreementTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-gray-400 italic">
+                          Nenhum acordo manual emitido pelo sistema até o momento.
+                        </td>
+                      </tr>
+                    ) : (
+                      agreementTransactions.map(tx => {
+                        const locName = tx.contrato?.locatarios?.[0]?.nome || "Inquilino Avulso";
+                        return (
+                          <tr key={tx.id} className="hover:bg-[#EEEEF3]/20 transition-colors">
+                            <td className="py-4 px-4 font-semibold text-[#004777]">{tx.interNossoNumero || 'N/D'}</td>
+                            <td className="py-4 px-4 font-medium">{locName}</td>
+                            <td className="py-4 px-4 text-gray-500 font-medium">{tx.descricao}</td>
+                            <td className="py-4 px-4 font-bold text-[#280003]">
+                              R$ {tx.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-4 px-4">
+                              {new Date(tx.dataVencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                tx.status === 'LIQUIDADO' 
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                  : tx.status === 'CANCELADO'
+                                  ? 'bg-gray-50 text-gray-600 border border-gray-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {tx.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {tx.interPixCode && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(tx.interPixCode);
+                                      setToastMessage("Pix copiado!");
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 2000);
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-semibold text-xs transition-all active:scale-95"
+                                    title="Copiar Código Pix Copia e Cola"
+                                  >
+                                    Pix
+                                  </button>
+                                )}
+                                {tx.interBarcode && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(tx.interBarcode);
+                                      setToastMessage("Código de barras copiado!");
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 2000);
+                                    }}
+                                    className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-semibold text-xs transition-all active:scale-95"
+                                    title="Copiar Código de Barras"
+                                  >
+                                    Código
+                                  </button>
+                                )}
+                                {tx.interPdfKey && (
+                                  <button
+                                    onClick={() => handleDownloadBoleto(tx.interPdfKey)}
+                                    className="px-2 py-1 bg-[#004777]/5 hover:bg-[#004777]/10 text-[#004777] border border-[#004777]/10 rounded font-bold text-xs transition-all active:scale-95 flex items-center gap-1"
+                                    title="Visualizar PDF oficial do boleto"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    PDF
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
