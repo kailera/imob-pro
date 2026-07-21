@@ -2048,16 +2048,17 @@ CONTRATADA`
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-gray-500 uppercase">Descrição da Cobrança / Identificação do Acordo</label>
-                      <input
-                        type="text"
+                      <label className="text-xs font-bold text-gray-500 uppercase">Descrição da Cobrança / Instruções do Boleto</label>
+                      <textarea
                         required
+                        rows={3}
                         value={agreementDesc}
                         onChange={(e) => setAgreementDesc(e.target.value)}
-                        placeholder="Ex: Acordo de Débitos - Parcela 1/3"
-                        className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        placeholder="Escreva a descrição do acordo. Ela será impressa diretamente no campo de instruções/mensagem do boleto PDF (suporta múltiplas linhas)."
+                        className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20 resize-none"
                       />
                     </div>
+
 
                     {/* Result Card when generated */}
                     {generatedAgreementBoleto && (

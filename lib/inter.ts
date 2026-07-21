@@ -258,6 +258,22 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       },
     };
 
+    if (transacao.descricao) {
+      const desc = transacao.descricao.trim();
+      const lines = desc.split("\n").map(l => l.substring(0, 78));
+      const msg: any = {};
+      if (lines[0]) msg.linha1 = lines[0];
+      if (lines[1]) msg.linha2 = lines[1];
+      if (lines[2]) msg.linha3 = lines[2];
+      if (lines[3]) msg.linha4 = lines[3];
+      if (lines[4]) msg.linha5 = lines[4];
+      
+      if (Object.keys(msg).length > 0) {
+        payload.mensagem = msg;
+      }
+    }
+
+
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
     const imovelLocacao = transacao.contrato?.imovelLocacao;
     if (imovelLocacao) {

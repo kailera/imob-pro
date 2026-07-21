@@ -7,7 +7,8 @@ import {
     TipoVistoria,
     VistoriaStatus,
     LimpezaStatus,
-    TipoImovelVistoriado
+    TipoImovelVistoriado,
+    UsersRole
 } from "@/generated/prisma";
 import { auth } from "@clerk/nextjs/server";
 
@@ -26,13 +27,53 @@ async function generateVistoriaCode(): Promise<string> {
     return `VIS-${year}-${sequential}`;
 }
 
+async function getOrCreateDbUser(userId: string, sessionClaims: any) {
+    let dbUser = await prisma.users.findUnique({
+        where: { id: userId }
+    });
+
+    if (!dbUser) {
+        let imob = await prisma.imob.findFirst();
+        if (!imob) {
+            imob = await prisma.imob.create({
+                data: {
+                    orgId: "org_default",
+                },
+            });
+        }
+
+        const email = (sessionClaims as any)?.email || "operador@imobpro.com.br";
+        const firstName = (sessionClaims as any)?.firstName || "Membro";
+        const lastName = (sessionClaims as any)?.lastName || "Equipe";
+
+        const orgRole = (sessionClaims as any)?.orgRole;
+        let dbRole: UsersRole = UsersRole.ADMIN;
+        if (orgRole === "org:corretor" || orgRole === "corretor") {
+            dbRole = UsersRole.CORRETOR;
+        } else if (orgRole === "org:operador" || orgRole === "operador") {
+            dbRole = UsersRole.OPERADOR;
+        }
+
+        dbUser = await prisma.users.create({
+            data: {
+                id: userId,
+                email: email,
+                firstName: firstName,
+                lastName: lastName,
+                role: dbRole,
+                imobId: imob.id,
+                ativo: true,
+            },
+        });
+    }
+    return dbUser;
+}
+
 export async function getCurrentUser() {
     try {
-        const { userId } = await auth();
+        const { userId, sessionClaims } = await auth();
         if (!userId) return { success: false, error: "Não autenticado." };
-        const user = await prisma.users.findUnique({
-            where: { id: userId },
-        });
+        const user = await getOrCreateDbUser(userId, sessionClaims);
         return { success: true, data: user };
     } catch (error: any) {
         console.error("Erro ao carregar usuário atual:", error);
@@ -224,16 +265,11 @@ export async function updateVistoria(
     }
 ) {
     try {
-        const { userId } = await auth();
+        const { userId, sessionClaims } = await auth();
         if (!userId) {
             return { success: false, error: "Não autorizado." };
         }
-        const dbUser = await prisma.users.findUnique({
-            where: { id: userId }
-        });
-        if (!dbUser) {
-            return { success: false, error: "Usuário não cadastrado." };
-        }
+        const dbUser = await getOrCreateDbUser(userId, sessionClaims);
 
         const currentVistoria = await prisma.vistoria.findUnique({
             where: { id }
@@ -604,14 +640,12 @@ export async function resolveContestacao(
     }
 ) {
     try {
-        const { userId } = await auth();
+        const { userId, sessionClaims } = await auth();
         if (!userId) {
             return { success: false, error: "Não autorizado." };
         }
-        const dbUser = await prisma.users.findUnique({
-            where: { id: userId }
-        });
-        if (!dbUser || (dbUser.role !== "ADMIN" && dbUser.role !== "CORRETOR")) {
+        const dbUser = await getOrCreateDbUser(userId, sessionClaims);
+        if (dbUser.role !== "ADMIN" && dbUser.role !== "CORRETOR") {
             return { success: false, error: "Apenas corretores/administradores podem resolver contestações." };
         }
 

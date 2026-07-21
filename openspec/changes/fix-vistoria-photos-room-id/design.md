@@ -29,7 +29,13 @@ Como o ID temporário gerado no front-end é descartado e o banco cria um ID UUI
   ```
 - **Justificativa**: Como o ID enviado pelo front-end passará a ser um UUID v4 legítimo, `isUuid` será verdadeiro, fazendo com que o Prisma utilize o mesmo ID durante a operação de criação (`create: { id: r.id }`).
 
+### 3. Autocadastro Resiliente de Usuários (JIT) nas Actions
+- **Decisão**: Criar a função auxiliar `getOrCreateDbUser` e utilizá-la em `updateVistoria` e `resolveContestacao` para cadastrar automaticamente usuários válidos do Clerk na tabela `users` do banco local caso o webhook de sincronização do Clerk falhe ou atrase.
+- **Justificativa**: Garante resiliência de produção, evitando o erro "Usuário não cadastrado" quando os vistoriadores tentam salvar vistorias.
+
 ## Risks / Trade-offs
 
 - **[Risco]** Indponibilidade de APIs de criptografia no navegador (ex: contextos HTTP inseguros).
   - **Mitigação**: O gerador de fallback usa `crypto.getRandomValues` e, em último caso (embora quase impossível hoje em dia), substituições determinísticas de caracteres com randomização matemática padrão.
+- **[Risco]** Falha de webhooks do Clerk que deixa o banco local dessincronizado.
+  - **Mitigação**: A criação JIT do usuário no banco local age como um fallback resiliente no momento do salvamento e resolução de contestações.

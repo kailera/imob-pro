@@ -14,3 +14,11 @@ O sistema SHALL receber e persistir no banco de dados o ID enviado pelo front-en
 - **WHEN** o vistoriador salva a vistoria contendo ambientes novos que possuem UUIDs v4 como ID
 - **THEN** o servidor persiste o ambiente no banco de dados com esse exato ID UUID v4
 - **AND** qualquer comentário ou foto previamente cadastrado no ambiente com este UUID continuará associado com sucesso
+
+### Requirement: Autocadastro Resiliente JIT de Usuário
+O sistema SHALL cadastrar o usuário logado de forma dinâmica e automática (JIT) na tabela `users` do banco local durante o fluxo de salvar vistoria ou resolver contestação, caso ele ainda não esteja cadastrado.
+
+#### Scenario: Salvamento de Vistoria por Usuário Não Sincronizado
+- **WHEN** um usuário devidamente autenticado no Clerk que não existe na tabela `users` tenta salvar uma vistoria ou resolver uma contestação
+- **THEN** o sistema SHALL criar o registro do usuário dinamicamente no banco local
+- **AND** proceder com o salvamento ou a resolução sem falhar com erro de usuário não cadastrado
