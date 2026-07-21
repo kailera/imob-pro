@@ -407,3 +407,38 @@ export const deletePeriodoContratoLocacao = async (id: string) => {
         return { success: false, error: error.message || "Erro ao excluir período." };
     }
 };
+
+export const updateImovelLocacao = async (id: string, input: {
+    dataInicio: string;
+    dataFim: string;
+    hasCondominio: boolean;
+    hasIPTU: boolean;
+    taxaAdministracao?: number | null;
+    taxaMultasEncargos?: number | null;
+    taxaIntermediacao?: number | null;
+    irrfResponsabilidade?: string | null;
+    carenciaRepasse?: number | null;
+}) => {
+    try {
+        const updated = await prisma.imovelLocacao.update({
+            where: { id },
+            data: {
+                dataInicio: new Date(input.dataInicio),
+                dataFim: new Date(input.dataFim),
+                hasCondominio: input.hasCondominio,
+                hasIPTU: input.hasIPTU,
+                taxaAdministracao: input.taxaAdministracao,
+                taxaMultasEncargos: input.taxaMultasEncargos,
+                taxaIntermediacao: input.taxaIntermediacao,
+                irrfResponsabilidade: input.irrfResponsabilidade,
+                carenciaRepasse: input.carenciaRepasse,
+            },
+        });
+        revalidatePath("/locacao");
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Erro ao atualizar dados de locação:", error);
+        return { success: false, error: error.message || "Erro ao atualizar dados de locação." };
+    }
+};
+

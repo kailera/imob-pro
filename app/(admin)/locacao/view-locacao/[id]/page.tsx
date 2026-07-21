@@ -2,6 +2,7 @@ import { Fiador, Locador, Locatario, TransacaoFinanceira } from "@/generated/pri
 import { getCompleteContratoLocacao } from "../../actions"
 import Link from "next/link"
 import ControleLocaticioClient from "../../components/ControleLocaticioClient"
+import DadosVigenciaFormClient from "../../components/DadosVigenciaFormClient"
 import {
     Home,
     User,
@@ -481,35 +482,11 @@ export default async function ViewLocacao({
                     {/* Right Column (1/3 of space) */}
                     <div className="space-y-6">
 
-                        {/* Detalhes do Contrato */}
-                        <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
-                            <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
-                                <FileText className="w-4 h-4 text-gray-600" />
-                                Dados de Vigência
-                            </h2>
-                            <div className="space-y-3 text-xs font-semibold text-gray-700">
-                                <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
-                                    <span className="text-gray-400 text-[10px] uppercase font-bold">Data de Início</span>
-                                    <span>{formatDate(imovelLocacao?.dataInicio)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
-                                    <span className="text-gray-400 text-[10px] uppercase font-bold">Data de Término</span>
-                                    <span>{formatDate(imovelLocacao?.dataFim)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
-                                    <span className="text-gray-400 text-[10px] uppercase font-bold">Has Condomínio</span>
-                                    <span className={imovelLocacao?.hasCondominio ? "text-emerald-600" : "text-gray-400"}>
-                                        {imovelLocacao?.hasCondominio ? "Sim" : "Não"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center py-1.5">
-                                    <span className="text-gray-400 text-[10px] uppercase font-bold">Has IPTU</span>
-                                    <span className={imovelLocacao?.hasIPTU ? "text-emerald-600" : "text-gray-400"}>
-                                        {imovelLocacao?.hasIPTU ? "Sim" : "Não"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        {/* Detalhes do Contrato (Vigência, Taxas e Encargos) */}
+                        <DadosVigenciaFormClient
+                            imovelLocacao={imovelLocacao}
+                            isEditMode={isEditMode}
+                        />
 
                         {/* Documentos do Contrato */}
                         {contratoDocumentos.length > 0 && (
