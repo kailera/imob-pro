@@ -165,3 +165,128 @@ export async function getInterPdfUrlAction(pdfKey: string): Promise<string> {
   }
 }
 
+export async function getLocatariosListAction() {
+  try {
+    const locatarios = await prisma.locatario.findMany({
+      select: {
+        id: true,
+        nome: true,
+        cpfCnpj: true,
+        endereco: true,
+        email: true,
+        contratoId: true,
+        contrato: {
+          select: {
+            id: true,
+            imovel: {
+              select: {
+                codigo: true,
+                bairro: true,
+                cidade: true,
+                uf: true,
+                valorAluguel: true
+              }
+            },
+            imovelLocacao: {
+              select: {
+                valorTotal: true,
+                dataInicio: true,
+                dataFim: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        nome: "asc"
+      }
+    });
+    return { success: true, locatarios };
+  } catch (error: any) {
+    console.error("Erro ao obter lista de locatários:", error);
+    return { success: false, error: error.message || "Erro ao obter lista de locatários." };
+  }
+}
+
+export async function criarAcordoManualAction(input: {
+  locatarioId: string;
+  contratoId: string | null;
+  descricao: string;
+  valor: number;
+  vencimentoStr: string;
+  cpfCnpj?: string;
+  enderecoJson?: any;
+}) {
+  try {
+    const { locatarioId, contratoId, descricao, valor, vencimentoStr, cpfCnpj, enderecoJson } = input;
+
+    if (!descricao || descricao.trim() === "") {
+      return { success: false, error: "A descrição é obrigatória." };
+    }
+    if (!valor || valor <= 0) {
+      return { success: false, error: "O valor deve ser maior que zero." };
+    }
+    if (!vencimentoStr) {
+      return { success: false, error: "A data de vencimento é obrigatória." };
+    }
+
+    // 1. Atualizar CPF/CNPJ e Endereço do Locatário se fornecidos
+    if (cpfCnpj || enderecoJson) {
+      const updateData: any = {};
+      if (cpfCnpj) {
+        updateData.cpfCnpj = cpfCnpj;
+      }
+      if (enderecoJson) {
+        updateData.endereco = typeof enderecoJson === "string" ? enderecoJson : JSON.stringify(enderecoJson);
+      }
+      await prisma.locatario.update({
+        where: { id: locatarioId },
+        data: updateData
+      });
+    }
+
+    // 2. Criar transação financeira
+    const tx = await prisma.transacaoFinanceira.create({
+      data: {
+        descricao: descricao,
+        valor: valor,
+        tipo: "RECEITA",
+        categoria: "ALUGUEL",
+        status: "PENDENTE",
+        dataVencimento: new Date(vencimentoStr),
+        contratoId: contratoId || null
+      }
+    });
+
+    console.log(`[criarAcordoManualAction] Transação criada com ID: ${tx.id}. Gerando BolePix...`);
+
+    // 3. Emitir o BolePix no Banco Inter de forma síncrona
+    const { gerarBolePixAction } = await import("@/lib/inter");
+    const interRes = await gerarBolePixAction(tx.id);
+
+    if (!interRes.success) {
+      // Deletar a transação criada se falhar a emissão do Inter para evitar lixo no banco
+      await prisma.transacaoFinanceira.delete({ where: { id: tx.id } });
+      return { success: false, error: interRes.error || "Falha ao emitir boleto no Banco Inter." };
+    }
+
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+    revalidatePath("/juridico");
+
+    return {
+      success: true,
+      transacaoId: tx.id,
+      nossoNumero: interRes.nossoNumero,
+      pixCopiaECola: interRes.pixCopiaECola,
+      codigoBarras: interRes.codigoBarras,
+      pdfUrl: interRes.pdfUrl
+    };
+  } catch (error: any) {
+    console.error("Erro ao criar acordo manual:", error);
+    return { success: false, error: error.message || "Erro inesperado ao criar acordo manual." };
+  }
+}
+
+
+

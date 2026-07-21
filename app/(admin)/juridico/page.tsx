@@ -20,8 +20,11 @@ import {
   Building,
   FileSpreadsheet,
   Check,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
+import { getLocatariosListAction, criarAcordoManualAction } from '@/app/actions/interActions';
+
 
 interface Contrato {
   contrato: string;
@@ -92,6 +95,21 @@ export default function JuridicoPage() {
   const [boletoValue, setBoletoValue] = useState<number>(0);
   const [boletoPayer, setBoletoPayer] = useState<{ name: string; cpf: string }>({ name: '', cpf: '' });
 
+  // Manual Agreement States (Banco Inter Integration)
+  const [locatarios, setLocatarios] = useState<any[]>([]);
+  const [loadingLocatarios, setLoadingLocatarios] = useState(false);
+  const [showManualAgreementModal, setShowManualAgreementModal] = useState(false);
+  const [selectedLocatarioId, setSelectedLocatarioId] = useState('');
+  const [agreementValue, setAgreementValue] = useState<number>(0);
+  const [agreementDate, setAgreementDate] = useState('');
+  const [agreementDesc, setAgreementDesc] = useState('');
+  const [customCpfCnpj, setCustomCpfCnpj] = useState('');
+  const [customAddress, setCustomAddress] = useState({ logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' });
+  const [generatedAgreementBoleto, setGeneratedAgreementBoleto] = useState<any | null>(null);
+  const [isGeneratingAgreement, setIsGeneratingAgreement] = useState(false);
+  const [agreementError, setAgreementError] = useState<string | null>(null);
+
+
   // Template Editing & Fill State
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
@@ -131,8 +149,121 @@ export default function JuridicoPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Load locatarios from database
+  useEffect(() => {
+    async function loadLocatarios() {
+      setLoadingLocatarios(true);
+      try {
+        const res = await getLocatariosListAction();
+        if (res.success && res.locatarios) {
+          setLocatarios(res.locatarios);
+        } else {
+          console.error("Erro ao carregar locatários:", res.error);
+        }
+      } catch (err) {
+        console.error("Erro no loadLocatarios:", err);
+      } finally {
+        setLoadingLocatarios(false);
+      }
+    }
+    loadLocatarios();
+  }, []);
+
+  const handleLocatarioChange = (locatarioId: string) => {
+    setSelectedLocatarioId(locatarioId);
+    setAgreementError(null);
+    setGeneratedAgreementBoleto(null);
+    
+    const loc = locatarios.find(l => l.id === locatarioId);
+    if (loc) {
+      setCustomCpfCnpj(loc.cpfCnpj || '');
+      setAgreementDesc(`Acordo de Débitos - ${loc.nome}`);
+      
+      // Parse address
+      let addr = { logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' };
+      if (loc.endereco) {
+        try {
+          const parsed = typeof loc.endereco === 'string' ? JSON.parse(loc.endereco) : loc.endereco;
+          addr = {
+            logradouro: parsed.logradouro || '',
+            numero: parsed.numero || '',
+            complemento: parsed.complemento || '',
+            bairro: parsed.bairro || '',
+            cidade: parsed.cidade || parsed.municipio || '',
+            uf: parsed.uf || parsed.estado || '',
+            cep: parsed.cep || ''
+          };
+        } catch (e) {
+          console.error("Erro ao fazer parse do endereço do locatário:", e);
+          if (typeof loc.endereco === 'string') {
+            addr.logradouro = loc.endereco;
+          }
+        }
+      }
+      setCustomAddress(addr);
+    } else {
+      setCustomCpfCnpj('');
+      setCustomAddress({ logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' });
+      setAgreementDesc('');
+    }
+  };
+
+  const handleGenerateManualAgreement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLocatarioId) {
+      setAgreementError("Selecione um inquilino.");
+      return;
+    }
+    if (agreementValue <= 0) {
+      setAgreementError("O valor do acordo deve ser maior que zero.");
+      return;
+    }
+    if (!agreementDate) {
+      setAgreementError("Defina uma data de vencimento.");
+      return;
+    }
+    if (!agreementDesc.trim()) {
+      setAgreementError("Defina uma descrição para o acordo.");
+      return;
+    }
+
+    const loc = locatarios.find(l => l.id === selectedLocatarioId);
+    if (!loc) return;
+
+    setIsGeneratingAgreement(true);
+    setAgreementError(null);
+    setGeneratedAgreementBoleto(null);
+
+    try {
+      const res = await criarAcordoManualAction({
+        locatarioId: selectedLocatarioId,
+        contratoId: loc.contratoId || null,
+        descricao: agreementDesc,
+        valor: agreementValue,
+        vencimentoStr: agreementDate,
+        cpfCnpj: customCpfCnpj,
+        enderecoJson: customAddress
+      });
+
+      if (res.success) {
+        setGeneratedAgreementBoleto(res);
+        setToastMessage("Boleto de acordo gerado com sucesso!");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } else {
+        setAgreementError(res.error || "Erro ao emitir boleto no Banco Inter.");
+      }
+    } catch (err: any) {
+      console.error("Erro ao submeter acordo manual:", err);
+      setAgreementError(err.message || "Erro inesperado ao gerar o acordo.");
+    } finally {
+      setIsGeneratingAgreement(false);
+    }
+  };
+
   // Initial Load from LocalStorage
   useEffect(() => {
+
     // 1. Load Contracts
     const savedContracts = localStorage.getItem('imob-pro-contracts-state');
     if (savedContracts) {
@@ -1447,7 +1578,25 @@ CONTRATADA`
                 <h2 className="text-lg font-bold text-[#280003]">Central de Renegociação de Dívidas</h2>
                 <p className="text-xs text-gray-500">Calcule descontos, juros e multas contratuais, gere boletos de entrada e registre acordos</p>
               </div>
+              <button
+                onClick={() => {
+                  setSelectedLocatarioId('');
+                  setAgreementValue(0);
+                  setAgreementDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+                  setAgreementDesc('');
+                  setCustomCpfCnpj('');
+                  setCustomAddress({ logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' });
+                  setGeneratedAgreementBoleto(null);
+                  setAgreementError(null);
+                  setShowManualAgreementModal(true);
+                }}
+                className="px-4 py-2 text-xs bg-[#004777] hover:bg-[#004777]/90 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Criar Acordo Manual (Inter)
+              </button>
             </div>
+
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -1511,7 +1660,342 @@ CONTRATADA`
           MODALS SECTION
          ---------------------------------------------------- */}
 
+      {/* MANUAL AGREEMENT MODAL (BANCO INTER) */}
+      {showManualAgreementModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col border border-black/5 animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="bg-[#004777] text-white p-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Criar Acordo Manual (Banco Inter)</h3>
+                <p className="text-xs opacity-80 mt-1">Selecione o inquilino, consulte as informações do contrato, preencha os dados e gere o boleto com Pix real.</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowManualAgreementModal(false)}
+                className="text-white hover:text-gray-200 transition-colors p-1.5 rounded-lg hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGenerateManualAgreement} className="flex-1 flex flex-col min-h-0">
+              <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+                {agreementError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 flex items-start gap-3 text-sm">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                    <div>
+                      <strong className="font-bold">Falha ao emitir boleto:</strong>
+                      <p className="mt-0.5 leading-relaxed">{agreementError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Main columns */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  
+                  {/* Left Column: Tenant Selection and Contract Reference */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500 uppercase">Selecione o Inquilino</label>
+                      <select
+                        required
+                        value={selectedLocatarioId}
+                        onChange={(e) => handleLocatarioChange(e.target.value)}
+                        className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20 bg-white"
+                      >
+                        <option value="">-- Selecione --</option>
+                        {loadingLocatarios ? (
+                          <option disabled>Carregando inquilinos...</option>
+                        ) : (
+                          locatarios.map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.nome} (CPF: {loc.cpfCnpj || 'Não cadastrado'})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Contract Reference Card */}
+                    {selectedLocatarioId && (
+                      <div className="space-y-4">
+                        {/* Reference Card */}
+                        {(() => {
+                          const selectedLoc = locatarios.find(l => l.id === selectedLocatarioId);
+                          if (selectedLoc?.contrato) {
+                            const imovel = selectedLoc.contrato.imovel;
+                            const locacao = selectedLoc.contrato.imovelLocacao;
+                            return (
+                              <div className="bg-[#004777]/5 border border-[#004777]/10 rounded-xl p-4 space-y-3 text-xs leading-relaxed">
+                                <h4 className="font-bold text-[#004777] uppercase tracking-wider text-[10px] border-b border-[#004777]/10 pb-1.5 flex items-center gap-1.5">
+                                  <Building className="w-3.5 h-3.5" />
+                                  Informações do Contrato de Referência
+                                </h4>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[#280003] font-semibold">
+                                  <div>
+                                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Imóvel</span>
+                                    <span>{imovel?.codigo || 'Sem código'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Bairro</span>
+                                    <span>{imovel?.bairro || 'Centro'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Aluguel Contratual</span>
+                                    <span className="text-[#004777] font-bold">
+                                      R$ {(locacao?.valorTotal || imovel?.valorAluguel || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400 block text-[9px] uppercase font-bold">Vigência</span>
+                                    <span>
+                                      {locacao?.dataInicio ? new Date(locacao.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''} até {locacao?.dataFim ? new Date(locacao.dataFim).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-xs font-semibold leading-relaxed flex items-start gap-2">
+                                <Info className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                <div>
+                                  Inquilino sem contrato ativo. O boleto será emitido como cobrança avulsa e não estará associado a um contrato.
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+
+                        {/* Pagador Details (Editable) */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                          <h4 className="font-bold text-gray-500 uppercase tracking-wider text-[10px] border-b border-gray-200 pb-1.5">
+                            Dados de Faturamento & Endereço do Pagador
+                          </h4>
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="flex flex-col gap-1 col-span-2">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">CPF ou CNPJ</label>
+                              <input 
+                                type="text"
+                                required
+                                value={customCpfCnpj}
+                                onChange={(e) => setCustomCpfCnpj(e.target.value)}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">Logradouro (Rua, Av, etc)</label>
+                              <input 
+                                type="text"
+                                required
+                                value={customAddress.logradouro}
+                                onChange={(e) => setCustomAddress({ ...customAddress, logradouro: e.target.value })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">Número</label>
+                              <input 
+                                type="text"
+                                required
+                                value={customAddress.numero}
+                                onChange={(e) => setCustomAddress({ ...customAddress, numero: e.target.value })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">CEP (Apenas Números)</label>
+                              <input 
+                                type="text"
+                                required
+                                maxLength={8}
+                                value={customAddress.cep}
+                                onChange={(e) => setCustomAddress({ ...customAddress, cep: e.target.value.replace(/\D/g, '') })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">Bairro</label>
+                              <input 
+                                type="text"
+                                required
+                                value={customAddress.bairro}
+                                onChange={(e) => setCustomAddress({ ...customAddress, bairro: e.target.value })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">Cidade</label>
+                              <input 
+                                type="text"
+                                required
+                                value={customAddress.cidade}
+                                onChange={(e) => setCustomAddress({ ...customAddress, cidade: e.target.value })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Agreement Details Input */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500 uppercase">Valor do Boleto (R$)</label>
+                      <div className="relative">
+                        <DollarSign className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          min="1"
+                          value={agreementValue || ''}
+                          onChange={(e) => setAgreementValue(Number(e.target.value))}
+                          placeholder="0,00"
+                          className="w-full pl-9 pr-4 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-400 italic">Digite o valor livre que deseja para este boleto do acordo.</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500 uppercase">Vencimento do Boleto</label>
+                      <input
+                        type="date"
+                        required
+                        value={agreementDate}
+                        onChange={(e) => setAgreementDate(e.target.value)}
+                        className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500 uppercase">Descrição da Cobrança / Identificação do Acordo</label>
+                      <input
+                        type="text"
+                        required
+                        value={agreementDesc}
+                        onChange={(e) => setAgreementDesc(e.target.value)}
+                        placeholder="Ex: Acordo de Débitos - Parcela 1/3"
+                        className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                      />
+                    </div>
+
+                    {/* Result Card when generated */}
+                    {generatedAgreementBoleto && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-200">
+                        <h4 className="font-bold text-emerald-800 text-xs uppercase flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          BolePix Emitido com Sucesso!
+                        </h4>
+                        <div className="text-xs space-y-2 text-emerald-900 leading-relaxed font-semibold">
+                          <div className="flex justify-between border-b border-emerald-100 pb-1.5">
+                            <span className="text-gray-500">Nosso Número (Inter):</span>
+                            <span>{generatedAgreementBoleto.nossoNumero}</span>
+                          </div>
+                          
+                          {generatedAgreementBoleto.pixCopiaECola && (
+                            <div className="space-y-1">
+                              <span className="text-gray-500 block">PIX Copia e Cola</span>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={generatedAgreementBoleto.pixCopiaECola}
+                                  className="flex-1 bg-white border border-emerald-200 rounded px-2 py-1 font-mono text-[9px]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(generatedAgreementBoleto.pixCopiaECola);
+                                    setToastMessage("Pix copiado!");
+                                    setShowToast(true);
+                                    setTimeout(() => setShowToast(false), 2000);
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[10px]"
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {generatedAgreementBoleto.codigoBarras && (
+                            <div className="space-y-1">
+                              <span className="text-gray-500 block">Código de Barras</span>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={generatedAgreementBoleto.codigoBarras}
+                                  className="flex-1 bg-white border border-emerald-200 rounded px-2 py-1 font-mono text-[9px]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(generatedAgreementBoleto.codigoBarras);
+                                    setToastMessage("Código de barras copiado!");
+                                    setShowToast(true);
+                                    setTimeout(() => setShowToast(false), 2000);
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[10px]"
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {generatedAgreementBoleto.pdfUrl && (
+                            <div className="pt-2 border-t border-emerald-100 flex justify-end">
+                              <a
+                                href={generatedAgreementBoleto.pdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-lg text-xs shadow flex items-center gap-1"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                Baixar PDF do Boleto
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="bg-[#EEEEF3]/40 border-t border-[#EEEEF3] p-4 flex justify-end gap-3.5">
+                <button
+                  type="button"
+                  onClick={() => setShowManualAgreementModal(false)}
+                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-semibold"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGeneratingAgreement || !selectedLocatarioId}
+                  className="bg-[#004777] hover:bg-[#004777]/90 text-white font-bold text-sm px-6 py-2 rounded-xl shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5 active:scale-95"
+                >
+                  {isGeneratingAgreement ? 'Processando BolePix...' : 'Confirmar & Gerar Boleto'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------
+          MODALS SECTION
+         ---------------------------------------------------- */}
+
       {/* SIGNATURE MODAL */}
+
       {showSignModal && selectedContractForSign && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col border border-black/5 animate-in fade-in zoom-in-95 duration-200">

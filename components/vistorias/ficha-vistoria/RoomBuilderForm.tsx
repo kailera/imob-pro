@@ -16,6 +16,23 @@ const roomTypes: RoomType[] = [
   'Quarto', 'Sala', 'Cozinha', 'Banheiro', 'Varanda', 'Garagem', 'Corredor', 'Outro'
 ];
 
+function generateUUID(): string {
+  if (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  const cryptoObj = typeof window !== "undefined" ? window.crypto : null;
+  if (cryptoObj && cryptoObj.getRandomValues) {
+    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c: any) =>
+      (Number(c) ^ (cryptoObj.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16)
+    );
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function RoomBuilderForm({
   rooms,
   onAddRoom,
@@ -31,7 +48,7 @@ export function RoomBuilderForm({
     if (!roomName.trim()) return;
 
     const newRoom: Room = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateUUID(),
       type: selectedType,
       name: roomName.trim(),
       visaoGeral: "",
