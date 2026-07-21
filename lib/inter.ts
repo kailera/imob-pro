@@ -112,9 +112,12 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     const transacao = await prisma.transacaoFinanceira.findUnique({
       where: { id: transacaoId },
       include: {
+        imovel: true,
         contrato: {
           include: {
+            imovel: true,
             locatarios: true,
+            imovelLocacao: true,
           },
         },
       },
@@ -161,6 +164,20 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       } as any;
     }
 
+    // Validação de nome
+    if (!locatario.nome || locatario.nome.trim() === "") {
+      return { success: false, error: "Nome do locatário é obrigatório." };
+    }
+
+    // Validação de CPF/CNPJ
+    const cleanCpfCnpj = locatario.cpfCnpj ? locatario.cpfCnpj.replace(/\D/g, "") : "";
+    if (!cleanCpfCnpj) {
+      return { success: false, error: `Inquilino ${locatario.nome} não possui CPF/CNPJ cadastrado. Por favor, preencha o CPF/CNPJ no cadastro do inquilino.` };
+    }
+    if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
+      return { success: false, error: `CPF/CNPJ do inquilino ${locatario.nome} é inválido (deve conter 11 ou 14 dígitos).` };
+    }
+
     // 2. Resolve credenciais do Inter
     const creds = await getInterCredentials(finalImobId);
     token = await getInterAccessToken(finalImobId);
@@ -168,24 +185,55 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     baseUrl = getInterBaseUrl(creds.sandbox);
 
     // 3. Estrutura o pagador (Inquilino)
-    let enderecoObj: any = { logradouro: "Rua não informada", bairro: "Centro", municipio: "Cidade", estado: "SP", cep: "00000000" };
+    let enderecoObj: any = { logradouro: "", bairro: "", municipio: "", estado: "", cep: "" };
     if (locatario.endereco) {
       try {
         const parsed = JSON.parse(locatario.endereco as string);
         enderecoObj = {
-          logradouro: parsed.logradouro || enderecoObj.logradouro,
-          bairro: parsed.bairro || enderecoObj.bairro,
-          municipio: parsed.municipio || enderecoObj.municipio,
-          estado: parsed.estado || enderecoObj.estado,
-          cep: parsed.cep ? String(parsed.cep).replace(/\D/g, "") : enderecoObj.cep,
+          logradouro: parsed.logradouro || "",
+          bairro: parsed.bairro || "",
+          municipio: parsed.municipio || parsed.cidade || "",
+          estado: parsed.estado || parsed.uf || "",
+          cep: parsed.cep ? String(parsed.cep).replace(/\D/g, "") : "",
         };
       } catch (e) {
-        // Fallback simples se não for JSON válido
         if (typeof locatario.endereco === "string") {
           enderecoObj.logradouro = locatario.endereco;
         }
       }
     }
+
+    // Fallback dinâmico para endereço do imóvel
+    if (!enderecoObj.logradouro || !enderecoObj.cep || enderecoObj.cep.length !== 8 || enderecoObj.cep === "00000000") {
+      const imovel = transacao.imovel || transacao.contrato?.imovel;
+      if (imovel) {
+        let rawAddress = "";
+        if (imovel.descricao && imovel.descricao.includes("Endereço completo importado:")) {
+          rawAddress = imovel.descricao.replace("Endereço completo importado: ", "").trim();
+        } else if (imovel.descricao) {
+          rawAddress = imovel.descricao.trim();
+        }
+
+        enderecoObj = {
+          logradouro: rawAddress || enderecoObj.logradouro || "Rua não informada",
+          bairro: imovel.bairro && imovel.bairro !== "Importado via CSV" ? imovel.bairro : (enderecoObj.bairro || "Centro"),
+          municipio: imovel.cidade && imovel.cidade !== "Indefinida" ? imovel.cidade : (enderecoObj.municipio || "Ilha Solteira"),
+          estado: imovel.uf || (enderecoObj.estado || "SP"),
+          cep: imovel.cep && imovel.cep > 0 ? String(imovel.cep).padStart(8, "0") : (enderecoObj.cep || "15385000"),
+        };
+      }
+    }
+
+    // Validação final de campos de endereço obrigatórios para o Inter
+    if (!enderecoObj.logradouro || enderecoObj.logradouro.trim() === "" || enderecoObj.logradouro === "Rua não informada") {
+      return { success: false, error: `Dados de endereço de ${locatario.nome} incompletos. Por favor, preencha o logradouro.` };
+    }
+    if (!enderecoObj.cep || enderecoObj.cep.length !== 8 || enderecoObj.cep === "00000000") {
+      return { success: false, error: `CEP de ${locatario.nome} está ausente ou é inválido (deve conter 8 dígitos).` };
+    }
+    if (!enderecoObj.bairro) enderecoObj.bairro = "Centro";
+    if (!enderecoObj.municipio) enderecoObj.municipio = "Ilha Solteira";
+    if (!enderecoObj.estado) enderecoObj.estado = "SP";
 
     const todayStr = new Date().toISOString().split("T")[0];
     let dataVencimentoStr = new Date(transacao.dataVencimento).toISOString().split("T")[0];
@@ -193,8 +241,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       dataVencimentoStr = todayStr;
     }
 
-    const cleanCpfCnpj = locatario.cpfCnpj.replace(/\D/g, "");
-    const payload = {
+    const payload: any = {
       seuNumero: transacao.id.replace(/-/g, "").substring(0, 15),
       valorNominal: transacao.valor,
       dataVencimento: dataVencimentoStr,
@@ -210,6 +257,53 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         cep: enderecoObj.cep,
       },
     };
+
+    // Configura multa, juros e bonificação (desconto pontualidade) do contrato
+    const imovelLocacao = transacao.contrato?.imovelLocacao;
+    if (imovelLocacao) {
+      // 1. Multa
+      const multaAtraso = imovelLocacao.multaAtrasoPercentual;
+      if (multaAtraso && multaAtraso > 0) {
+        payload.multa = {
+          codigo: "PERCENTUAL",
+          taxa: multaAtraso,
+        };
+      }
+
+      // 2. Juros/Mora (pro-rata mensal)
+      const jurosAtraso = imovelLocacao.jurosAtrasoPercentual;
+      if (jurosAtraso && jurosAtraso > 0) {
+        payload.mora = {
+          codigo: "TAXAMENSAL",
+          taxa: jurosAtraso,
+        };
+      }
+
+      // 3. Bonificação (Desconto de Pontualidade)
+      const descPontualidade = imovelLocacao.descontoPontualidade;
+      if (descPontualidade && descPontualidade > 0) {
+        let limiteDate = new Date(dataVencimentoStr);
+        if (imovelLocacao.diasAntecedenciaDesc && imovelLocacao.diasAntecedenciaDesc > 0) {
+          limiteDate.setDate(limiteDate.getDate() - imovelLocacao.diasAntecedenciaDesc);
+        }
+        
+        const limiteStr = limiteDate.toISOString().split("T")[0];
+        
+        if (imovelLocacao.tipoDesconto === "VALOR") {
+          payload.desconto = {
+            codigo: "VALORFIXODATAINFORMAR",
+            valor: descPontualidade,
+            dataLimite: limiteStr,
+          };
+        } else if (imovelLocacao.tipoDesconto === "PERCENTUAL") {
+          payload.desconto = {
+            codigo: "PERCENTUALDATAINFORMAR",
+            taxa: descPontualidade,
+            dataLimite: limiteStr,
+          };
+        }
+      }
+    }
 
     console.log("[gerarBolePixAction] Enviando POST para:", `${baseUrl}/cobranca/v3/cobrancas`);
     console.log("[gerarBolePixAction] Payload:", JSON.stringify(payload, null, 2));
@@ -522,4 +616,71 @@ export async function simularPagamentoBolePixAction(transacaoId: string): Promis
     };
   }
 }
+
+/**
+ * Cancela/Baixa uma cobrança BolePix no Banco Inter.
+ */
+export async function cancelarBolePixAction(transacaoId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const transacao = await prisma.transacaoFinanceira.findUnique({
+      where: { id: transacaoId },
+      include: {
+        contrato: true,
+      },
+    });
+
+    if (!transacao) {
+      return { success: false, error: "Transação não encontrada." };
+    }
+
+    if (!transacao.interNossoNumero) {
+      return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter ativa." };
+    }
+
+    let imobId = transacao.contrato?.imobId;
+    if (!imobId) {
+      const firstImob = await prisma.imob.findFirst();
+      imobId = firstImob?.id || "default";
+    }
+
+    const creds = await getInterCredentials(imobId);
+    const token = await getInterAccessToken(imobId);
+    const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
+    const baseUrl = getInterBaseUrl(creds.sandbox);
+
+    // POST /cobranca/v3/cobrancas/{nossoNumero}/cancelar
+    await axios.post(
+      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interNossoNumero}/cancelar`,
+      { motivoCancelamento: "APEDIDODOCLIENTE" },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        httpsAgent,
+      }
+    );
+
+    // Atualiza o status local para CANCELADO
+    await prisma.transacaoFinanceira.update({
+      where: { id: transacaoId },
+      data: {
+        interStatus: "CANCELADO",
+        status: "CANCELADO",
+      },
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Erro ao cancelar BolePix no Banco Inter:", err.response?.data || err.message);
+    return {
+      success: false,
+      error: err.response?.data?.title || err.response?.data?.message || err.message || "Erro inesperado ao cancelar boleto.",
+    };
+  }
+}
+
 

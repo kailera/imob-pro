@@ -117,10 +117,7 @@ export default function FinancialFilterBar({ filters, onChange, onApply }: Filte
             className="border border-gray-200 rounded-xl p-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-1 focus:ring-[#004777] cursor-pointer"
           >
             <option value="Todos">Todos</option>
-            <option value="Banco do Brasil">Banco do Brasil</option>
-            <option value="Caixa Econômica">Caixa Econômica</option>
-            <option value="Itaú">Itaú</option>
-            <option value="Bradesco">Bradesco</option>
+            <option value="077 - Banco Inter">077 - Banco Inter</option>
           </select>
         </div>
 
@@ -133,8 +130,7 @@ export default function FinancialFilterBar({ filters, onChange, onApply }: Filte
             className="border border-gray-200 rounded-xl p-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-1 focus:ring-[#004777] cursor-pointer"
           >
             <option value="Todas as contas">Todas as contas</option>
-            <option value="Conta Principal - 1234-5">Conta Principal - 1234-5</option>
-            <option value="Conta Reserva - 5432-1">Conta Reserva - 5432-1</option>
+            <option value="45033751-0">Corrente - 45033751-0</option>
           </select>
         </div>
       </div>

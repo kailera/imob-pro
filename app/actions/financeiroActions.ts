@@ -353,3 +353,60 @@ export async function criarRepassePendente(rentTransactionId: string) {
     console.error("[criarRepassePendente] Erro ao criar repasse automático:", error);
   }
 }
+
+/**
+ * Renegocia uma cobrança pendente ou vencida.
+ * Se já houver boleto do Inter gerado, realiza a baixa/cancelamento no banco primeiro.
+ */
+export async function renegociarCobrancaAction(
+  cobrancaId: string,
+  novoVencimentoStr: string,
+  novoValor: number
+) {
+  try {
+    const tx = await prisma.transacaoFinanceira.findUnique({
+      where: { id: cobrancaId },
+    });
+
+    if (!tx) {
+      return { success: false, error: "Cobrança não encontrada." };
+    }
+
+    if (tx.status === "LIQUIDADO") {
+      return { success: false, error: "Não é possível renegociar uma cobrança que já foi paga." };
+    }
+
+    // Se possui boleto no Inter, realiza o cancelamento primeiro
+    if (tx.interNossoNumero) {
+      const { cancelarBolePixAction } = await import("@/lib/inter");
+      const cancelRes = await cancelarBolePixAction(cobrancaId);
+      if (!cancelRes.success) {
+        return { success: false, error: `Falha ao cancelar o boleto anterior no Banco Inter: ${cancelRes.error}` };
+      }
+    }
+
+    // Atualiza a transação local com a nova data, novo valor e limpa os campos de integração anteriores
+    await prisma.transacaoFinanceira.update({
+      where: { id: cobrancaId },
+      data: {
+        dataVencimento: new Date(novoVencimentoStr),
+        valor: novoValor,
+        interNossoNumero: null,
+        interPixCode: null,
+        interBarcode: null,
+        interPdfKey: null,
+        interStatus: null,
+        status: "PENDENTE",
+      },
+    });
+
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao renegociar cobrança:", error);
+    return { success: false, error: error.message || "Erro inesperado ao renegociar cobrança." };
+  }
+}
+

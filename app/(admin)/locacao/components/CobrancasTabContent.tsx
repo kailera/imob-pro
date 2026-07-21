@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Coins } from 'lucide-react';
 import FinancialFilterBar, { FilterState } from "@/components/cobrancas/FinancialFilterBar";
 import FinancialSummary from "@/components/cobrancas/FinancialSummary";
 import FinancialTable from "@/components/cobrancas/FinancialTable";
@@ -102,6 +103,13 @@ export default function CobrancasTabContent({ activeTab, cobrancaTotals, cobranc
                             <h2 className="text-2xl font-semibold text-[#280003]">Cobranças de Aluguéis</h2>
                             <p className="text-sm text-gray-500 mt-1">Gerencie os recebimentos, boletos e repasses dos aluguéis ativos</p>
                         </div>
+                        <a 
+                            href="/cobrancas"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-[#004777] hover:bg-[#003355] text-white font-bold rounded-xl text-xs transition-all shadow-sm cursor-pointer mb-2"
+                        >
+                            <Coins className="w-4 h-4" />
+                            <span>Faturamento e Boletos Banco Inter</span>
+                        </a>
                     </div>
                     <FinancialFilterBar 
                         filters={filters}

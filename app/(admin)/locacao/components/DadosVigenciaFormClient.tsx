@@ -21,11 +21,13 @@ interface ImovelLocacaoData {
 interface DadosVigenciaFormClientProps {
   imovelLocacao: ImovelLocacaoData | null;
   isEditMode: boolean;
+  vencimentoDia?: number | null;
 }
 
 export default function DadosVigenciaFormClient({
   imovelLocacao,
   isEditMode,
+  vencimentoDia,
 }: DadosVigenciaFormClientProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -271,6 +273,15 @@ export default function DadosVigenciaFormClient({
               <option value="LOCATARIO">Locatário</option>
             </select>
           </div>
+
+          {vencimentoDia !== undefined && (
+            <div className="bg-blue-50/80 border border-blue-100 p-3 rounded-xl mt-2">
+              <span className="text-[#004777] font-bold block text-[9px] uppercase tracking-wider">Dia de Vencimento</span>
+              <span className="text-xs font-bold text-gray-700">
+                {vencimentoDia ? `Definido nas cobranças como todo dia ${vencimentoDia}` : "Sem cobranças geradas para definir o dia."}
+              </span>
+            </div>
+          )}
         </div>
 
         <button
@@ -360,6 +371,15 @@ export default function DadosVigenciaFormClient({
               : "-"}
           </span>
         </div>
+        
+        {vencimentoDia !== undefined && (
+          <div className="flex justify-between items-center py-1.5 border-t border-gray-100 mt-1.5 pt-1.5">
+            <span className="text-gray-400 text-[10px] uppercase font-bold">Dia de Vencimento</span>
+            <span className="text-[#004777] font-extrabold text-sm">
+              {vencimentoDia ? `Todo dia ${vencimentoDia}` : "-"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

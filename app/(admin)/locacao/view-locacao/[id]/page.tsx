@@ -119,6 +119,12 @@ export default async function ViewLocacao({
     const vistorias = imovel?.vistorias || []
     const contratoDocumentos = parseDocumentos(contrato.documentoUrl)
 
+    // Encontrar o dia de vencimento com base nas cobranças existentes
+    const aluguelTxs = transacaoFinanceiras.filter(tx => tx.categoria === "ALUGUEL")
+    const vencimentoDia = aluguelTxs.length > 0 
+        ? new Date(aluguelTxs[0].dataVencimento).getUTCDate() 
+        : null
+
     const formatCurrency = (val: number | null | undefined) => {
         if (val === null || val === undefined) return "R$ 0,00"
         return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val)
@@ -159,7 +165,7 @@ export default async function ViewLocacao({
                 </div>
 
                 {/* Dashboard Overview Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="bg-white p-5 rounded-3xl border border-gray-150 shadow-xs flex items-center gap-4">
                         <div className="p-3 bg-amber-50 text-amber-700 rounded-2xl">
                             <DollarSign className="w-6 h-6" />
@@ -188,6 +194,18 @@ export default async function ViewLocacao({
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Vigência</span>
                             <span className="text-xs font-bold text-[#280003] block mt-0.5">
                                 {formatDate(imovelLocacao?.dataInicio)} até {formatDate(imovelLocacao?.dataFim)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-3xl border border-gray-150 shadow-xs flex items-center gap-4">
+                        <div className="p-3 bg-rose-50 text-rose-700 rounded-2xl">
+                            <Clock className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Vencimento</span>
+                            <span className="text-xs font-bold text-[#280003] block mt-0.5">
+                                {vencimentoDia ? `Todo dia ${vencimentoDia}` : "Não definido"}
                             </span>
                         </div>
                     </div>
@@ -256,15 +274,15 @@ export default async function ViewLocacao({
                                     <div className="grid grid-cols-3 gap-2 md:col-span-2 pt-2 border-t border-dashed border-gray-100">
                                         <div>
                                             <span className="text-gray-400 block font-bold text-[9px] uppercase tracking-wider">Condomínio</span>
-                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorCondominio)}</span>
+                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorCondominio ? imovel.valorCondominio / 100 : 0)}</span>
                                         </div>
                                         <div>
                                             <span className="text-gray-400 block font-bold text-[9px] uppercase tracking-wider">IPTU</span>
-                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorIPTU)}</span>
+                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorIPTU ? imovel.valorIPTU / 100 : 0)}</span>
                                         </div>
                                         <div>
                                             <span className="text-gray-400 block font-bold text-[9px] uppercase tracking-wider">Aluguel Base</span>
-                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorAluguel)}</span>
+                                            <span className="text-brand-dark font-bold">{formatCurrency(imovel.valorAluguel ? imovel.valorAluguel / 100 : 0)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -486,6 +504,7 @@ export default async function ViewLocacao({
                         <DadosVigenciaFormClient
                             imovelLocacao={imovelLocacao}
                             isEditMode={isEditMode}
+                            vencimentoDia={vencimentoDia}
                         />
 
                         {/* Documentos do Contrato */}

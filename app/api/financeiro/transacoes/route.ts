@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     if (tipo) where.tipo = tipo;
     if (categoria) where.categoria = categoria;
-    if (status) {
+    if (status && status !== 'Todas') {
       // Map situations from page view if needed, or query directly
       if (status === 'Pendente') {
         where.status = 'PENDENTE';
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       const limitNum = parseInt(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      const [transacoes, total] = await Promise.all([
+      const [transacoes, total, statusGroup] = await Promise.all([
         prisma.transacaoFinanceira.findMany({
           where,
           orderBy: { dataVencimento: 'desc' },
@@ -79,15 +79,50 @@ export async function GET(req: NextRequest) {
             }
           }
         }),
-        prisma.transacaoFinanceira.count({ where })
+        prisma.transacaoFinanceira.count({ where }),
+        prisma.transacaoFinanceira.groupBy({
+          by: ['status'],
+          where,
+          _sum: {
+            valor: true
+          }
+        })
       ]);
+
+      const totalsByStatus = {
+        registrado: 0,
+        liquidado: 0,
+        baixado: 0,
+        recepcionado: 0,
+        cancelado: 0
+      };
+
+      let totalValor = 0;
+      for (const group of statusGroup) {
+        const sumVal = group._sum.valor || 0;
+        totalValor += sumVal;
+        
+        if (group.status === 'LIQUIDADO') {
+          totalsByStatus.liquidado = sumVal;
+        } else if (group.status === 'CANCELADO') {
+          totalsByStatus.cancelado = sumVal;
+        } else if (group.status === 'PENDENTE') {
+          totalsByStatus.recepcionado = sumVal;
+        }
+      }
+      totalsByStatus.registrado = totalValor;
+
+      console.log("[transacoes-api] where:", JSON.stringify(where));
+      console.log("[transacoes-api] statusGroup:", JSON.stringify(statusGroup));
+      console.log("[transacoes-api] totalsByStatus:", JSON.stringify(totalsByStatus));
 
       return NextResponse.json({
         data: transacoes,
         total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(total / limitNum)
+        totalPages: Math.ceil(total / limitNum),
+        totals: totalsByStatus
       });
     }
 

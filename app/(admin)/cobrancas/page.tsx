@@ -89,6 +89,7 @@ const DEFAULT_COBRANCAS: BilletData[] = [
 export default function CobrancasPage() {
   const [cobrancas, setCobrancas] = useState<BilletData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totals, setTotals] = useState({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,6 +164,10 @@ export default function CobrancasPage() {
       setTotalPages(responseData.totalPages || 1);
       setTotalItems(total);
 
+      if (responseData.totals) {
+        setTotals(responseData.totals);
+      }
+
       const noFiltersApplied = 
         filters.status === 'Todas' && 
         filters.startDate === '' && 
@@ -206,6 +211,20 @@ export default function CobrancasPage() {
         setCobrancas(savedList);
         setTotalPages(1);
         setTotalItems(savedList.length);
+
+        const mockTotals = savedList.reduce(
+          (acc, curr) => {
+            const val = curr.valor || 0;
+            acc.registrado += val;
+            if (curr.situacao === 'Liquidado') acc.liquidado += val;
+            else if (curr.situacao === 'Recepcionado') acc.recepcionado += val;
+            else if (curr.situacao === 'Cancelado') acc.cancelado += val;
+            else if (curr.situacao === 'Baixado') acc.baixado += val;
+            return acc;
+          },
+          { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
+        );
+        setTotals(mockTotals);
       } else {
         // Mapear do banco de dados para a interface da tabela
         const mapped: BilletData[] = rawData.map((tx: any) => {
@@ -263,6 +282,19 @@ export default function CobrancasPage() {
     } catch (err) {
       console.error(err);
       setCobrancas(DEFAULT_COBRANCAS);
+      const mockTotals = DEFAULT_COBRANCAS.reduce(
+        (acc, curr) => {
+          const val = curr.valor || 0;
+          acc.registrado += val;
+          if (curr.situacao === 'Liquidado') acc.liquidado += val;
+          else if (curr.situacao === 'Recepcionado') acc.recepcionado += val;
+          else if (curr.situacao === 'Cancelado') acc.cancelado += val;
+          else if (curr.situacao === 'Baixado') acc.baixado += val;
+          return acc;
+        },
+        { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
+      );
+      setTotals(mockTotals);
     } finally {
       setLoading(false);
     }
@@ -319,18 +351,7 @@ export default function CobrancasPage() {
     loadData();
   };
 
-  const totals = cobrancas.reduce(
-    (acc, curr) => {
-      const val = curr.valor || 0;
-      acc.registrado += val;
-      if (curr.situacao === 'Liquidado') acc.liquidado += val;
-      else if (curr.situacao === 'Recepcionado') acc.recepcionado += val;
-      else if (curr.situacao === 'Cancelado') acc.cancelado += val;
-      else if (curr.situacao === 'Baixado') acc.baixado += val;
-      return acc;
-    },
-    { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
-  );
+
 
   const percentProgress = batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0;
 

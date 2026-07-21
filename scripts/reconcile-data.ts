@@ -38,22 +38,77 @@ function parseMoney(valStr: string | undefined): number {
   return isNaN(value) ? 0 : value;
 }
 
-function normalizeName(name: string): string {
-  if (!name) return "";
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+function levenshtein(a: string, b: string): number {
+  const tmp = [];
+  let i, j, alen = a.length, blen = b.length;
+  if (alen === 0) return blen;
+  if (blen === 0) return alen;
+  for (i = 0; i <= alen; i++) tmp[i] = [i];
+  for (j = 0; j <= blen; j++) tmp[0][j] = j;
+  for (i = 1; i <= alen; i++) {
+    for (j = 1; j <= blen; j++) {
+      tmp[i][j] = Math.min(
+        tmp[i - 1][j] + 1,
+        tmp[i][j - 1] + 1,
+        tmp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return tmp[alen][blen];
 }
 
-function cleanName(name: string): string {
-  return normalizeName(name)
-    .replace(/\b(ltda|me|epp|s\/a|sa)\b/g, "")
-    .replace(/[^a-z0-9 ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+function cleanTextForMatch(name: string): string {
+  if (!name) return "";
+  let s = name.toLowerCase();
+  
+  // Substitui sequências de erro de encoding comuns e caracteres lixo por nada
+  s = s.replace(/´┐¢/g, "");
+  s = s.replace(/[´┐¢]/g, "");
+  
+  // Remove sufixos corporativos comuns
+  s = s.replace(/\b(ltda|me|epp|s\/a|sa|transportes)\b/g, "");
+  
+  // Normaliza acentos
+  s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // Mantém apenas a-z e espaços
+  s = s.replace(/[^a-z ]/g, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  
+  return s;
+}
+
+function calculateSimilarity(name1: string, name2: string): number {
+  const clean1 = cleanTextForMatch(name1);
+  const clean2 = cleanTextForMatch(name2);
+  
+  if (clean1 === clean2) return 1.0;
+  if (!clean1 || !clean2) return 0.0;
+  
+  // Se um nome contiver o outro por inteiro (contanto que não seja curto demais)
+  if (clean1.length > 5 && clean2.length > 5) {
+    if (clean1.includes(clean2) || clean2.includes(clean1)) {
+      return 0.95;
+    }
+  }
+
+  // Se o primeiro e o último nome batem exatamente (ex: Renan Sanches Geronel vs Renan S. Geronel)
+  const w1 = clean1.split(" ");
+  const w2 = clean2.split(" ");
+  if (w1.length >= 2 && w2.length >= 2) {
+    if (w1[0] === w2[0] && w1[w1.length - 1] === w2[w2.length - 1]) {
+      const dist = levenshtein(clean1, clean2);
+      const maxLen = Math.max(clean1.length, clean2.length);
+      const baseSim = 1 - dist / maxLen;
+      if (baseSim >= 0.60) {
+        return 0.92; // Eleva a similaridade para passar do limiar de 85%
+      }
+    }
+  }
+  
+  const dist = levenshtein(clean1, clean2);
+  const maxLen = Math.max(clean1.length, clean2.length);
+  return 1 - dist / maxLen;
 }
 
 async function main() {
@@ -155,7 +210,7 @@ async function main() {
 
   const locatarioIndex = new Map<string, typeof dbLocatarios[0]>();
   for (const loc of dbLocatarios) {
-    const cleaned = cleanName(loc.nome);
+    const cleaned = cleanTextForMatch(loc.nome);
     if (cleaned) {
       locatarioIndex.set(cleaned, loc);
     }
@@ -187,20 +242,25 @@ async function main() {
     const metadataObj = typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata;
     const sacadoName = (metadataObj as any)?.sacadoNome || "";
     const sacadoCpf = (metadataObj as any)?.sacadoCpf || "";
-    const cleanedSacado = cleanName(sacadoName);
-
+    const cleanedSacado = cleanTextForMatch(sacadoName);
     if (!cleanedSacado) continue;
 
-    // Buscar correspondência de locatário
-    let matchedLocatario = locatarioIndex.get(cleanedSacado);
-    if (!matchedLocatario) {
-      // Busca parcial (um contém o outro)
-      for (const [key, locObj] of locatarioIndex.entries()) {
-        if (key.includes(cleanedSacado) || cleanedSacado.includes(key)) {
-          matchedLocatario = locObj;
-          break;
-        }
+    // Buscar correspondência de locatário com melhor similaridade (Fuzzy matching)
+    let matchedLocatario = null;
+    let bestSimilarity = 0;
+
+    for (const loc of dbLocatarios) {
+      const cleanedLocName = cleanTextForMatch(loc.nome);
+      const sim = calculateSimilarity(cleanedSacado, cleanedLocName);
+      if (sim > bestSimilarity) {
+        bestSimilarity = sim;
+        matchedLocatario = loc;
       }
+    }
+
+    // Aceita o cruzamento apenas se a similaridade for maior ou igual a 85%
+    if (bestSimilarity < 0.85) {
+      matchedLocatario = null;
     }
 
     if (matchedLocatario && matchedLocatario.contrato) {
@@ -226,9 +286,41 @@ async function main() {
     }
   }
 
-  const unlinkedCount = await prisma.transacaoFinanceira.count({
+  const unlinkedTxs = await prisma.transacaoFinanceira.findMany({
     where: { categoria: "ALUGUEL", contratoId: null }
   });
+  
+  const uniqueOrphans = new Set<string>();
+  const orphanDetails: { name: string; bestMatch: string; score: number }[] = [];
+  
+  for (const tx of unlinkedTxs) {
+    const metadataObj = typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata;
+    const sacadoName = (metadataObj as any)?.sacadoNome || "";
+    if (sacadoName && !uniqueOrphans.has(sacadoName)) {
+      uniqueOrphans.add(sacadoName);
+      
+      const cleaned = cleanTextForMatch(sacadoName);
+      let bestMatch = "Nenhum";
+      let maxSim = 0;
+      for (const loc of dbLocatarios) {
+        const cleanedLoc = cleanTextForMatch(loc.nome);
+        const sim = calculateSimilarity(cleaned, cleanedLoc);
+        if (sim > maxSim) {
+          maxSim = sim;
+          bestMatch = loc.nome;
+        }
+      }
+      orphanDetails.push({ name: sacadoName, bestMatch, score: maxSim });
+    }
+  }
+
+  console.log("\n=============================================================");
+  console.log("  SACADOS ÓRFÃOS E SUAS MELHORES CORRESPONDÊNCIAS");
+  console.log("=============================================================");
+  for (const detail of orphanDetails.sort((a, b) => b.score - a.score)) {
+    console.log(`• ${detail.name} -> Melhor correspondência: "${detail.bestMatch}" (Similaridade: ${(detail.score * 100).toFixed(1)}%)`);
+  }
+  console.log("=============================================================");
 
   console.log("\n=============================================================");
   console.log("  RELATÓRIO DE RECONCILIAÇÃO");
@@ -237,7 +329,7 @@ async function main() {
   console.log(`  Transações já vinculadas anteriormente: ${alreadyLinked}`);
   console.log(`  Transações vinculadas nesta rodada:   ${txsLinked}`);
   console.log(`  CPFs de locatários atualizados:      ${cpfsUpdated}`);
-  console.log(`  Transações que permanecem órfãs:     ${unlinkedCount}`);
+  console.log(`  Transações que permanecem órfãs:     ${unlinkedTxs.length}`);
   console.log("=============================================================\n");
 }
 
