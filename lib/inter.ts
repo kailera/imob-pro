@@ -326,21 +326,42 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     const codigoSolicitacao = postData.codigoSolicitacao;
     console.log(`[gerarBolePixAction] Cobrança criada. codigoSolicitacao: ${codigoSolicitacao}. Buscando detalhes...`);
 
-    // 4.5. Consulta os dados gerados (nossoNumero, pixCopiaECola, codigoBarras)
-    const getResponse = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/${codigoSolicitacao}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      httpsAgent,
-    });
+    // 4.5. Consulta os dados gerados (nossoNumero, pixCopiaECola, codigoBarras) com retry
+    let getData: any = null;
+    const getAttempts = 4;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const getData = getResponse.data;
+    for (let attempt = 1; attempt <= getAttempts; attempt++) {
+      try {
+        console.log(`[gerarBolePixAction] Tentativa ${attempt} de buscar detalhes da solicitação no Banco Inter...`);
+        const getResponse = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/${codigoSolicitacao}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          httpsAgent,
+        });
+        const temp = getResponse.data;
+        if (temp && temp.boleto && temp.boleto.nossoNumero) {
+          getData = temp;
+          console.log(`[gerarBolePixAction] Detalhes obtidos com sucesso na tentativa ${attempt}.`);
+          break;
+        }
+      } catch (e: any) {
+        console.warn(`[gerarBolePixAction] Tentativa ${attempt} de obter detalhes falhou:`, e.response?.data || e.message || e);
+      }
+      if (attempt < getAttempts) {
+        const delay = attempt * 1500; // 1.5s, 3s, 4.5s
+        console.log(`[gerarBolePixAction] Aguardando ${delay}ms antes da próxima tentativa...`);
+        await sleep(delay);
+      }
+    }
+
     if (!getData || !getData.boleto || !getData.boleto.nossoNumero) {
-      return { success: false, error: "Não foi possível obter os detalhes do boleto gerado." };
+      return { success: false, error: "Não foi possível obter os detalhes do boleto gerado no Banco Inter após várias tentativas de consulta." };
     }
 
     const nossoNumero = getData.boleto.nossoNumero;
     const pixCopiaECola = getData.pix?.pixCopiaECola || "";
     const codigoBarras = getData.boleto.codigoBarras || "";
-    console.log(`[gerarBolePixAction] Detalhes obtidos. nossoNumero: ${nossoNumero}`);
+    console.log(`[gerarBolePixAction] Detalhes finais obtidos. nossoNumero: ${nossoNumero}`);
 
     // 5. Baixa o PDF do boleto gerado no Banco Inter
     let pdfKey = "";
