@@ -13,6 +13,6 @@
 
 ## 3. Validação e Testes
 
-- [ ] 3.1 Emitir um acordo manual selecionando um inquilino real, definindo um valor personalizado (ex: R$ 550,00) e vencimento futuro
-- [ ] 3.2 Verificar no console/logs se o payload enviado à API v3 do Banco Inter está no formato correto (incluindo dados de endereço e pagador)
-- [ ] 3.3 Confirmar se a transação financeira correspondente foi salva no Postgres e se aparece corretamente na aba de Cobranças
+- [x] 3.1 Emitir um acordo manual selecionando um inquilino real, definindo um valor personalizado (ex: R$ 550,00) e vencimento futuro
+- [x] 3.2 Verificar no console/logs se o payload enviado à API v3 do Banco Inter está no formato correto (incluindo dados de endereço e pagador)
+- [x] 3.3 Confirmar se a transação financeira correspondente foi salva no Postgres e se aparece corretamente na aba de Cobranças
