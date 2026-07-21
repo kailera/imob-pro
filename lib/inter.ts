@@ -14,6 +14,55 @@ export interface InterAuthCredentials {
 }
 
 /**
+ * Sanitiza e formata a descrição da transação no formato aceito pelo Banco Inter (linha1..linha5 de no máximo 78 chars).
+ */
+export function formatMensagemInter(descricao: string): Record<string, string> {
+  if (!descricao) return {};
+
+  // 1. Normalizar e sanitizar caracteres especiais incompatíveis com a API v3 do Banco Inter
+  const sanitized = descricao
+    .replace(/R\$/gi, "RS")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s.,\-/:;()%]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!sanitized) return {};
+
+  // 2. Quebrar o texto em linhas de no máximo 78 caracteres respeitando limites de palavras
+  const words = sanitized.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    if (!word) continue;
+    if ((currentLine ? currentLine + " " + word : word).length <= 78) {
+      currentLine = currentLine ? currentLine + " " + word : word;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      let rem = word;
+      while (rem.length > 78) {
+        lines.push(rem.substring(0, 78));
+        rem = rem.substring(78);
+      }
+      currentLine = rem;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  // 3. Preencher no máximo 5 linhas (linha1..linha5) suportadas no leiaute do Banco Inter
+  const msg: Record<string, string> = {};
+  if (lines[0]) msg.linha1 = lines[0].substring(0, 78);
+  if (lines[1]) msg.linha2 = lines[1].substring(0, 78);
+  if (lines[2]) msg.linha3 = lines[2].substring(0, 78);
+  if (lines[3]) msg.linha4 = lines[3].substring(0, 78);
+  if (lines[4]) msg.linha5 = lines[4].substring(0, 78);
+
+  return msg;
+}
+
+/**
  * Obtém as credenciais de integração com o Banco Inter da imobiliária a partir do banco de dados.
  */
 export async function getInterCredentials(imobId: string): Promise<InterAuthCredentials> {
@@ -259,15 +308,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     };
 
     if (transacao.descricao) {
-      const desc = transacao.descricao.trim();
-      const lines = desc.split("\n").map(l => l.substring(0, 78));
-      const msg: any = {};
-      if (lines[0]) msg.linha1 = lines[0];
-      if (lines[1]) msg.linha2 = lines[1];
-      if (lines[2]) msg.linha3 = lines[2];
-      if (lines[3]) msg.linha4 = lines[3];
-      if (lines[4]) msg.linha5 = lines[4];
-      
+      const msg = formatMensagemInter(transacao.descricao);
       if (Object.keys(msg).length > 0) {
         payload.mensagem = msg;
       }
