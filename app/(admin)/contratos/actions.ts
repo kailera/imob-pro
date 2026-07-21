@@ -343,6 +343,29 @@ export async function createContratoLocacao(input: {
   valorIPTU: number;
   documentoUrl?: any;
   tenantUploadedDocs?: any;
+
+  // Novos campos adicionais
+  taxaAdministracao?: number | null;
+  taxaMultasEncargos?: number | null;
+  taxaIntermediacao?: number | null;
+  irrfResponsabilidade?: string | null;
+  carenciaRepasse?: number | null;
+  periodicidadeReajuste?: number | null;
+  indiceReajuste?: string | null;
+  multaQuebraContrato?: number | null;
+  tipoMultaQuebra?: string | null;
+  vencimentoQuebra?: string | null;
+  descontoPontualidade?: number | null;
+  tipoDesconto?: string | null;
+  diasAntecedenciaDesc?: number | null;
+  multaAtrasoPercentual?: number | null;
+  diasCarenciaMulta?: number | null;
+  jurosAtrasoPercentual?: number | null;
+  diasCarenciaJuros?: number | null;
+
+  // Primeiro período de cobrança (Vencimento em aberto)
+  dataInicioPeriodo?: string | null;
+  dataFimPeriodo?: string | null;
 }) {
   try {
     const imobId = await getOrCreateDefaultImobId();
@@ -358,6 +381,28 @@ export async function createContratoLocacao(input: {
           hasCondominio: input.valorCondominio > 0,
           hasIPTU: input.valorIPTU > 0,
           valorTotal: input.valorAluguel + input.valorCondominio + input.valorIPTU,
+
+          // Novos campos
+          taxaAdministracao: input.taxaAdministracao,
+          taxaMultasEncargos: input.taxaMultasEncargos,
+          taxaIntermediacao: input.taxaIntermediacao,
+          irrfResponsabilidade: input.irrfResponsabilidade,
+          carenciaRepasse: input.carenciaRepasse,
+
+          periodicidadeReajuste: input.periodicidadeReajuste,
+          indiceReajuste: input.indiceReajuste,
+          multaQuebraContrato: input.multaQuebraContrato,
+          tipoMultaQuebra: input.tipoMultaQuebra || "PERCENTUAL",
+          vencimentoQuebra: input.vencimentoQuebra ? new Date(input.vencimentoQuebra) : null,
+
+          descontoPontualidade: input.descontoPontualidade,
+          tipoDesconto: input.tipoDesconto || "PERCENTUAL",
+          diasAntecedenciaDesc: input.diasAntecedenciaDesc,
+
+          multaAtrasoPercentual: input.multaAtrasoPercentual,
+          diasCarenciaMulta: input.diasCarenciaMulta,
+          jurosAtrasoPercentual: input.jurosAtrasoPercentual,
+          diasCarenciaJuros: input.diasCarenciaJuros,
         },
       });
 
@@ -365,14 +410,22 @@ export async function createContratoLocacao(input: {
       await tx.periodoContratoLocacao.create({
         data: {
           imovelLocacaoId: imovelLocacao.id,
-          dataInicio: new Date(input.dataInicio),
-          dataFim: new Date(input.dataFim),
+          dataInicio: input.dataInicioPeriodo ? new Date(input.dataInicioPeriodo) : new Date(input.dataInicio),
+          dataFim: input.dataFimPeriodo ? new Date(input.dataFimPeriodo) : new Date(input.dataFim),
           valorAluguel: input.valorAluguel,
           hasCondominio: input.valorCondominio > 0,
           valorCondominio: input.valorCondominio,
           hasIPTU: input.valorIPTU > 0,
           valorIPTU: input.valorIPTU,
           valorTotal: input.valorAluguel + input.valorCondominio + input.valorIPTU,
+          descontoPontualidade: input.descontoPontualidade,
+          tipoDesconto: input.tipoDesconto || "PERCENTUAL",
+          diasAntecedenciaDesc: input.diasAntecedenciaDesc,
+          multaAtrasoPercentual: input.multaAtrasoPercentual,
+          diasCarenciaMulta: input.diasCarenciaMulta,
+          jurosAtrasoPercentual: input.jurosAtrasoPercentual,
+          diasCarenciaJuros: input.diasCarenciaJuros,
+          indiceReajuste: input.indiceReajuste,
         },
       });
 

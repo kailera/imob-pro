@@ -128,6 +128,12 @@ model ImovelLocacao {
   hasIPTU       Boolean
   valorTotal    Float
 
+  taxaAdministracao    Float? // Taxa de administração (ex: 10.00)
+  taxaMultasEncargos   Float? // Taxa sobre multas e encargos (ex: 50.00)
+  taxaIntermediacao    Float? // Taxa de intermediação (ex: 100.00)
+  irrfResponsabilidade String? // "LOCADOR" ou "LOCATARIO"
+  carenciaRepasse      Int? // Carência para repasse do aluguel (ex: 10)
+
   // Relação com múltiplos períodos vigentes e históricos
   periodos PeriodoContratoLocacao[]
 
@@ -249,7 +255,7 @@ model Fiador {
 }
 
 model Locatario {
-  id            String @id @default(uuid())
+  id            String  @id @default(uuid())
   nome          String
   cpfCnpj       String
   telefone      Json? // [{ tipo: string, numero: string, observacao?: string }]
@@ -266,17 +272,17 @@ model Locatario {
   rne           String?
 
   // Dados do Cônjuge
-  conjugeNome         String?
-  conjugeCpf          String?
-  conjugeRg           String?
-  conjugeOrgaoEmissor String?
-  conjugeEmail        String?
-  conjugeDataNasc     String?
-  conjugeProfissao    String?
-  conjugeRendaMensal  Float?
+  conjugeNome          String?
+  conjugeCpf           String?
+  conjugeRg            String?
+  conjugeOrgaoEmissor  String?
+  conjugeEmail         String?
+  conjugeDataNasc      String?
+  conjugeProfissao     String?
+  conjugeRendaMensal   Float?
   conjugeNacionalidade String?
-  conjugeRne          String?
-  conjugeTelefone     Json? // [{ tipo: string, numero: string, observacao?: string }]
+  conjugeRne           String?
+  conjugeTelefone      Json? // [{ tipo: string, numero: string, observacao?: string }]
 
   documentoUrl Json? // Objeto/lista JSON mapeando documentos digitalizados por categoria/nome
   contratoId   String?

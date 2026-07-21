@@ -182,6 +182,20 @@ export function useNovoContratoForm({
   const [periodoCarencia, setPeriodoCarencia] = useState<string>('NAO_GARANTIR');
   const [abrangenciaGarantia, setAbrangenciaGarantia] = useState<string>('SOMENTE_ALUGUEL');
   const [periodicidadeReajuste, setPeriodicidadeReajuste] = useState<string>('12');
+  const [indiceReajuste, setIndiceReajuste] = useState<string>('IGPM');
+
+  // Novos campos adicionais
+  const [taxaAdministracao, setTaxaAdministracao] = useState<string>('10,00');
+  const [taxaMultasEncargos, setTaxaMultasEncargos] = useState<string>('50,00');
+  const [taxaIntermediacao, setTaxaIntermediacao] = useState<string>('100,00');
+  const [irrfResponsabilidade, setIrrfResponsabilidade] = useState<string>('LOCADOR');
+  const [carenciaRepasse, setCarenciaRepasse] = useState<string>('10');
+  const [carenciaHonorarios, setCarenciaHonorarios] = useState<string>('90');
+
+  // Primeiro período de cobrança / vencimento em aberto
+  const [inicioPrimeiroPeriodo, setInicioPrimeiroPeriodo] = useState<string>('');
+  const [fimPrimeiroPeriodo, setFimPrimeiroPeriodo] = useState<string>('');
+  const [vencimentoPrimeiroPeriodo, setVencimentoPrimeiroPeriodo] = useState<string>('');
 
   // Sync initial lists
   useEffect(() => {
@@ -243,6 +257,29 @@ export function useNovoContratoForm({
     } else if (imovel.aluguelDados && imovel.aluguelDados.proprietario) {
       setResolvedLandlord(imovel.aluguelDados.proprietario);
       setSelectedProprietarioIndex(imovel.aluguelDados.proprietario.id);
+    }
+
+    if (imovel.aluguelDados) {
+      const d = imovel.aluguelDados;
+      if (d.indiceReajuste) setIndiceReajuste(d.indiceReajuste);
+      if (d.descontoPontualidade) setDescontoPontualidade(d.descontoPontualidade);
+      if (d.diasDescontoPontualidade) setValidadeDescontoPontualidade(d.diasDescontoPontualidade);
+      if (d.multaRescisao || d.multaQuebraValor) setMultaQuebraContrato(d.multaRescisao || d.multaQuebraValor);
+      if (d.dataVenceQuebra) setQuebraContratoVenceEm(d.dataVenceQuebra);
+      if (d.multaAtraso) setMultaAtraso(d.multaAtraso);
+      if (d.carenciaMulta) setCobrancaAposDias(d.carenciaMulta);
+      if (d.jurosMensal) setMultaJurosMensal(d.jurosMensal);
+      if (d.carenciaJuros) setCobrancaAposDiasJuros(d.carenciaJuros);
+      if (d.honorariosAdv) setHonorarios(d.honorariosAdv);
+      if (d.carenciaHonorarios) setCarenciaHonorarios(d.carenciaHonorarios);
+      if (d.periodoCarencia) setPeriodoCarencia(d.periodoCarencia);
+      if (d.abrangenciaGarantia) setAbrangenciaGarantia(d.abrangenciaGarantia);
+
+      if (d.taxaAdministracao) setTaxaAdministracao(d.taxaAdministracao);
+      if (d.taxaMultasEncargos) setTaxaMultasEncargos(d.taxaMultasEncargos);
+      if (d.taxaIntermediacao) setTaxaIntermediacao(d.taxaIntermediacao);
+      if (d.irrfResponsabilidade) setIrrfResponsabilidade(d.irrfResponsabilidade);
+      if (d.carenciaRepasse) setCarenciaRepasse(d.carenciaRepasse);
     }
 
     if (imovel.vistorias && imovel.vistorias.length > 0) {
@@ -678,6 +715,27 @@ export function useNovoContratoForm({
         valorIPTU: Number(customIptu) || 0,
         documentoUrl: contractUploadedDocs,
         tenantUploadedDocs: tenantUploadedDocs,
+
+        // Novos campos
+        taxaAdministracao: taxaAdministracao ? parseFloat(taxaAdministracao.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        taxaMultasEncargos: taxaMultasEncargos ? parseFloat(taxaMultasEncargos.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        taxaIntermediacao: taxaIntermediacao ? parseFloat(taxaIntermediacao.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        irrfResponsabilidade: irrfResponsabilidade || null,
+        carenciaRepasse: carenciaRepasse ? parseInt(carenciaRepasse) : null,
+        periodicidadeReajuste: periodicidadeReajuste ? parseInt(periodicidadeReajuste) : null,
+        indiceReajuste: indiceReajuste || null,
+        multaQuebraContrato: multaQuebraContrato ? parseFloat(multaQuebraContrato.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        vencimentoQuebra: quebraContratoVenceEm || null,
+        descontoPontualidade: descontoPontualidade ? parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        diasAntecedenciaDesc: validadeDescontoPontualidade ? parseInt(validadeDescontoPontualidade) : null,
+        multaAtrasoPercentual: multaAtraso ? parseFloat(multaAtraso.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        diasCarenciaMulta: cobrancaAposDias ? parseInt(cobrancaAposDias) : null,
+        jurosAtrasoPercentual: multaJurosMensal ? parseFloat(multaJurosMensal.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        diasCarenciaJuros: cobrancaAposDiasJuros ? parseInt(cobrancaAposDiasJuros) : null,
+
+        // Primeiro período de cobrança (Vencimento em aberto)
+        dataInicioPeriodo: inicioPrimeiroPeriodo || null,
+        dataFimPeriodo: fimPrimeiroPeriodo || null,
       });
 
       if (!res.success) {
@@ -987,6 +1045,26 @@ export function useNovoContratoForm({
     setAbrangenciaGarantia,
     periodicidadeReajuste,
     setPeriodicidadeReajuste,
+    indiceReajuste,
+    setIndiceReajuste,
+    taxaAdministracao,
+    setTaxaAdministracao,
+    taxaMultasEncargos,
+    setTaxaMultasEncargos,
+    taxaIntermediacao,
+    setTaxaIntermediacao,
+    irrfResponsabilidade,
+    setIrrfResponsabilidade,
+    carenciaRepasse,
+    setCarenciaRepasse,
+    carenciaHonorarios,
+    setCarenciaHonorarios,
+    inicioPrimeiroPeriodo,
+    setInicioPrimeiroPeriodo,
+    fimPrimeiroPeriodo,
+    setFimPrimeiroPeriodo,
+    vencimentoPrimeiroPeriodo,
+    setVencimentoPrimeiroPeriodo,
     handlePropertySearch,
     handleSelectSearchedProperty,
     handleCreateTenantAndFiador,

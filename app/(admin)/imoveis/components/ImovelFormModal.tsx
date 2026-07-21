@@ -96,9 +96,18 @@ export default function ImovelFormModal({
   // Detailed Rental States
   const [indiceReajuste, setIndiceReajuste] = useState("8,33");
   const [multaRescisao, setMultaRescisao] = useState("");
+  // Estados para suportar Multa em Porcentagem / Meses
+  const [multaQuebraTipo, setMultaQuebraTipo] = useState<"VALOR" | "PERCENTUAL" | "MESES">("VALOR");
+  const [multaQuebraValor, setMultaQuebraValor] = useState(""); // Guarda o texto formatado (ex: "10,00 %" ou "R$ 3.000,00")
+  const [showMesesPopover, setShowMesesPopover] = useState(false);
+  const [multaEmMesesInput, setMultaEmMesesInput] = useState("3.6");
   const [dataVenceQuebra, setDataVenceQuebra] = useState("2027-11-19");
   const [descontoPontualidade, setDescontoPontualidade] = useState("9,44");
   const [diasDescontoPontualidade, setDiasDescontoPontualidade] = useState("5");
+  // Estados para o Desconto de Pontualidade em Reais
+  const [descontoTipo, setDescontoTipo] = useState<"PERCENTUAL" | "VALOR">("PERCENTUAL");
+  const [showPontualidadeBrlPopover, setShowPontualidadeBrlPopover] = useState(false);
+  const [descontoEmReaisInput, setDescontoEmReaisInput] = useState("");
   const [multaAtraso, setMultaAtraso] = useState("10,00");
   const [carenciaMulta, setCarenciaMulta] = useState("1");
   const [jurosMensal, setJurosMensal] = useState("1,00");
@@ -194,6 +203,18 @@ export default function ImovelFormModal({
       setIndiceReajuste(d.indiceReajuste || "IGPM");
       setMultaRescisao(d.multaRescisao ? formatBRL(d.multaRescisao.replace(/\D/g, "")) : "");
       setDataVenceQuebra(d.dataVenceQuebra || "2027-11-19");
+
+      const tipoSalvo = d.multaQuebraTipo || "VALOR";
+      setMultaQuebraTipo(tipoSalvo);
+      if (tipoSalvo === "PERCENTUAL") {
+        setMultaQuebraValor(d.multaQuebraValor ? `${d.multaQuebraValor} %` : "");
+      } else if (tipoSalvo === "MESES") {
+        setMultaQuebraValor(d.multaQuebraValor ? `${d.multaQuebraValor} %` : "");
+        setMultaEmMesesInput(d.multaEmMeses || "3.6");
+      } else {
+        // Padrão antigo em Reais (VALOR)
+        setMultaQuebraValor(d.multaRescisao ? formatBRL(d.multaRescisao.replace(/\D/g, "")) : "");
+      }
       setDescontoPontualidade(d.descontoPontualidade || "9,44");
       setDiasDescontoPontualidade(d.diasDescontoPontualidade || "5");
       setMultaAtraso(d.multaAtraso || "10,00");
@@ -296,7 +317,7 @@ export default function ImovelFormModal({
           setUf(data.uf || "");
           setBairro(data.bairro || "");
           setRua(data.logradouro || "");
-          
+
           // Focus the 'numero' input after a small timeout to let react state commit
           setTimeout(() => {
             numeroInputRef.current?.focus();
@@ -345,6 +366,37 @@ export default function ImovelFormModal({
     setNovaParcelaValor("");
   };
 
+  const handleConfirmarMeses = () => {
+    const meses = parseFloat(multaEmMesesInput.replace(",", "."));
+    if (isNaN(meses)) return;
+    // Cálculo da porcentagem baseada em meses (geralmente assume-se um padrão de 36 meses de contrato)
+    // Exemplo: 3.6 meses de multa em um contrato de 36 meses = 10%
+    const prazoContratoPadrao = 36;
+    const porcentagemCalculada = (meses / prazoContratoPadrao) * 100;
+
+    setMultaQuebraTipo("MESES");
+    setMultaQuebraValor(`${porcentagemCalculada.toFixed(2).replace(".", ",")} %`);
+    setShowMesesPopover(false);
+  };
+
+  const handleConfirmarDescontoBrl = () => {
+    // Limpa caracteres não numéricos e converte para número decimal
+    const valorDesconto = parseFloat(descontoEmReaisInput.replace(/\D/g, "")) / 100;
+    const aluguelNumerico = parseFloat(valorAluguel.replace(/\D/g, "")) / 100;
+
+    if (isNaN(valorDesconto) || isNaN(aluguelNumerico) || aluguelNumerico === 0) {
+      alert("Por favor, preencha o valor do aluguel primeiro.");
+      return;
+    }
+
+    // Calcula a porcentagem correspondente
+    const porcentagemCalculada = (valorDesconto / aluguelNumerico) * 100;
+
+    setDescontoTipo("VALOR");
+    // Define o valor do campo em porcentagem formatado (ex: "8,33 %")
+    setDescontoPontualidade(`${porcentagemCalculada.toFixed(2).replace(".", ",")} %`);
+    setShowPontualidadeBrlPopover(false);
+  };
   const handleRemoveParcela = (index: number) => {
     setParcelasIntermediacao(parcelasIntermediacao.filter((_, i) => i !== index));
   };
@@ -416,7 +468,7 @@ export default function ImovelFormModal({
         genero: "Masculino"
       });
       if (res.success && res.data) {
-        setAllLocadores(prev => [...prev, res.data].sort((a,b) => a.nome.localeCompare(b.nome)));
+        setAllLocadores(prev => [...prev, res.data].sort((a, b) => a.nome.localeCompare(b.nome)));
         setProprietarioId(res.data.id);
         setShowNewLocadorModal(false);
         // Clear fields
@@ -444,12 +496,15 @@ export default function ImovelFormModal({
   // Prepare aluguelDados JSON payload for form submission
   const aluguelDadosJsonString = JSON.stringify({
     indiceReajuste,
-    multaRescisao,
+    multaRescisao: multaQuebraTipo === "VALOR" ? multaQuebraValor : "",
     dataVenceQuebra,
     descontoPontualidade,
     diasDescontoPontualidade,
     multaAtraso,
     carenciaMulta,
+    multaQuebraTipo,
+    multaQuebraValor,
+    multaEmMeses: multaQuebraTipo === "MESES" ? multaEmMesesInput : null,
     jurosMensal,
     carenciaJuros,
     honorariosAdv,
@@ -1000,16 +1055,73 @@ export default function ImovelFormModal({
                           </select>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Multa por Quebra (R$) *</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 3.000,00"
-                            required={forLocacao}
-                            value={multaRescisao}
-                            onChange={handleCurrencyChange(setMultaRescisao)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
+                        <div className="relative">
+                          <label className="block text-xs font-bold text-[#280003] mb-1">
+                            Multa por Quebra de Contrato*:
+                          </label>
+                          <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
+                            <input
+                              type="text"
+                              placeholder={multaQuebraTipo === "VALOR" ? "Ex: R$ 3.000,00" : "Ex: 10,00 %"}
+                              required={forLocacao}
+                              value={multaQuebraValor}
+                              onChange={(e) => {
+                                if (multaQuebraTipo === "VALOR") {
+                                  setMultaQuebraValor(formatBRL(e.target.value));
+                                } else {
+                                  // Permite digitação de porcentagem direta
+                                  let val = e.target.value.replace(/[^\d,]/g, "");
+                                  setMultaQuebraValor(val ? `${val} %` : "");
+                                }
+                              }}
+                              className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMultaQuebraTipo("MESES");
+                                setShowMesesPopover(!showMesesPopover);
+                              }}
+                              className="flex items-center gap-1.5 px-3 bg-zinc-50 border-l border-zinc-200 text-xs font-semibold text-[#004777] hover:bg-zinc-100 transition-colors"
+                            >
+                              <span className="text-sm">📅</span>
+                              Meses
+                            </button>
+                          </div>
+
+                          {/* Popover em meses (conforme a imagem) */}
+                          {showMesesPopover && (
+                            <div className="absolute right-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
+                              <div className="space-y-3">
+                                <label className="block text-xs font-semibold text-gray-600">
+                                  Informe a multa em meses:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={multaEmMesesInput}
+                                  onChange={(e) => setMultaEmMesesInput(e.target.value)}
+                                  placeholder="Ex: 3.6"
+                                  className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleConfirmarMeses}
+                                    className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
+                                  >
+                                    ✓ OK
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowMesesPopover(false)}
+                                    className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
+                                  >
+                                    ✕ Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -1028,15 +1140,73 @@ export default function ImovelFormModal({
                     <div className="space-y-3 pt-4 border-t border-zinc-200/60">
                       <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Pontualidade</h5>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Desconto Pontualidade (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 9,44"
-                            value={descontoPontualidade}
-                            onChange={(e) => setDescontoPontualidade(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
+                        <div className="relative">
+                          <label className="block text-xs font-bold text-[#280003] mb-1">
+                            Desconto pontualidade:
+                          </label>
+                          <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
+                            <input
+                              type="text"
+                              placeholder="Ex: 8,33 %"
+                              value={descontoPontualidade.includes("%") ? descontoPontualidade : `${descontoPontualidade} %`}
+                              onChange={(e) => {
+                                setDescontoTipo("PERCENTUAL");
+                                let val = e.target.value.replace(/[^\d,]/g, "");
+                                setDescontoPontualidade(val ? `${val} %` : "");
+                              }}
+                              className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Inicializa o input de reais se já existir um desconto cadastrado
+                                const aluguelNumerico = parseFloat(valorAluguel.replace(/\D/g, "")) / 100;
+                                const descPct = parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", "."));
+                                if (!isNaN(aluguelNumerico) && !isNaN(descPct)) {
+                                  const valorSugerido = (descPct / 100) * aluguelNumerico;
+                                  setDescontoEmReaisInput(formatBRL(String(Math.round(valorSugerido * 100))));
+                                }
+                                setShowPontualidadeBrlPopover(!showPontualidadeBrlPopover);
+                              }}
+                              className="flex items-center justify-center px-4 bg-[#6366F1] text-xs font-bold text-white hover:bg-[#4F46E5] transition-colors"
+                            >
+                              R$
+                            </button>
+                          </div>
+
+                          {/* Popover em Reais */}
+                          {showPontualidadeBrlPopover && (
+                            <div className="absolute left-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
+                              <div className="space-y-3">
+                                <label className="block text-xs font-semibold text-gray-600">
+                                  Informe o valor em reais:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={descontoEmReaisInput}
+                                  onChange={(e) => setDescontoEmReaisInput(formatBRL(e.target.value))}
+                                  placeholder="Ex: R$ 150,00"
+                                  className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleConfirmarDescontoBrl}
+                                    className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
+                                  >
+                                    ✓ OK
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPontualidadeBrlPopover(false)}
+                                    className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
+                                  >
+                                    ✕ Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -1323,8 +1493,8 @@ export default function ImovelFormModal({
                     className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
                   />
                   <div>
-                     <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
-                     <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
+                    <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
+                    <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
                   </div>
                 </label>
               </div>
@@ -1561,8 +1731,8 @@ export default function ImovelFormModal({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-zinc-200 transform transition-all duration-300 scale-100 animate-scale-up space-y-4 p-6">
             <div className="flex justify-between items-center pb-3 border-b border-zinc-200">
               <h4 className="font-bold text-sm text-[#280003]">Cadastrar Novo Proprietário</h4>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowNewLocadorModal(false)}
                 className="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-lg transition-colors cursor-pointer"
               >

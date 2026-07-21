@@ -38,6 +38,28 @@ interface CondicoesContratuaisSectionProps {
   setPeriodoCarencia: (val: string) => void;
   abrangenciaGarantia: string;
   setAbrangenciaGarantia: (val: string) => void;
+
+  // Novos campos
+  indiceReajuste: string;
+  setIndiceReajuste: (val: string) => void;
+  taxaAdministracao: string;
+  setTaxaAdministracao: (val: string) => void;
+  taxaMultasEncargos: string;
+  setTaxaMultasEncargos: (val: string) => void;
+  taxaIntermediacao: string;
+  setTaxaIntermediacao: (val: string) => void;
+  irrfResponsabilidade: string;
+  setIrrfResponsabilidade: (val: string) => void;
+  carenciaRepasse: string;
+  setCarenciaRepasse: (val: string) => void;
+  carenciaHonorarios: string;
+  setCarenciaHonorarios: (val: string) => void;
+  inicioPrimeiroPeriodo: string;
+  setInicioPrimeiroPeriodo: (val: string) => void;
+  fimPrimeiroPeriodo: string;
+  setFimPrimeiroPeriodo: (val: string) => void;
+  vencimentoPrimeiroPeriodo: string;
+  setVencimentoPrimeiroPeriodo: (val: string) => void;
 }
 
 export function CondicoesContratuaisSection({
@@ -76,7 +98,29 @@ export function CondicoesContratuaisSection({
   periodoCarencia,
   setPeriodoCarencia,
   abrangenciaGarantia,
-  setAbrangenciaGarantia
+  setAbrangenciaGarantia,
+
+  // Novos campos
+  indiceReajuste,
+  setIndiceReajuste,
+  taxaAdministracao,
+  setTaxaAdministracao,
+  taxaMultasEncargos,
+  setTaxaMultasEncargos,
+  taxaIntermediacao,
+  setTaxaIntermediacao,
+  irrfResponsabilidade,
+  setIrrfResponsabilidade,
+  carenciaRepasse,
+  setCarenciaRepasse,
+  carenciaHonorarios,
+  setCarenciaHonorarios,
+  inicioPrimeiroPeriodo,
+  setInicioPrimeiroPeriodo,
+  fimPrimeiroPeriodo,
+  setFimPrimeiroPeriodo,
+  vencimentoPrimeiroPeriodo,
+  setVencimentoPrimeiroPeriodo
 }: CondicoesContratuaisSectionProps) {
   return (
     <div id="section-condicoes" className="bg-[#EEEEF3]/10 p-4 rounded-xl border border-zinc-100 space-y-3 md:col-span-2 scroll-mt-2">
@@ -139,6 +183,55 @@ export function CondicoesContratuaisSection({
             value={periodicidadeReajuste}
             onChange={e => setPeriodicidadeReajuste(e.target.value)}
             required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Índice de Reajuste *</label>
+          <select
+            value={indiceReajuste}
+            onChange={e => setIndiceReajuste(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          >
+            <option value="IGP">IGP</option>
+            <option value="IGPM">IGPM</option>
+            <option value="INPC">INPC</option>
+            <option value="IPC">IPC</option>
+            <option value="IPC-DI">IPC-DI</option>
+            <option value="IPCA">IPCA</option>
+          </select>
+        </div>
+
+        {/* Seção: Vencimento em Aberto (Primeiro Período de Cobrança) */}
+        <div className="col-span-2 border-t border-zinc-100 pt-3">
+          <span className="text-xs font-bold text-[#004777] block mb-2">Vencimento em Aberto (Migração / Primeiro Período)</span>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Início do Período</label>
+          <input
+            type="date"
+            value={inicioPrimeiroPeriodo}
+            onChange={e => setInicioPrimeiroPeriodo(e.target.value)}
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Fim do Período</label>
+          <input
+            type="date"
+            value={fimPrimeiroPeriodo}
+            onChange={e => setFimPrimeiroPeriodo(e.target.value)}
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Data de Vencimento do Boleto</label>
+          <input
+            type="date"
+            value={vencimentoPrimeiroPeriodo}
+            onChange={e => setVencimentoPrimeiroPeriodo(e.target.value)}
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
         </div>
@@ -248,7 +341,7 @@ export function CondicoesContratuaisSection({
           />
         </div>
 
-        <div className="col-span-2">
+        <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Honorários Advocatícios</label>
           <input
             type="text"
@@ -259,16 +352,27 @@ export function CondicoesContratuaisSection({
           />
         </div>
 
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Carência dos honorários adv. (dias corridos) *</label>
+          <input
+            type="number"
+            value={carenciaHonorarios}
+            onChange={e => setCarenciaHonorarios(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+
         <div className="col-span-2 border-t border-zinc-100 pt-3">
           <span className="text-xs font-bold text-[#004777] block mb-2">Repasse</span>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Carência para repasse do aluguel (dias corridos): </label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Carência para repasse do aluguel (dias corridos): *</label>
           <input
             type="number"
-            value={carenciaDiasCorridos}
-            onChange={e => setCarenciaDiasCorridos(e.target.value)}
+            value={carenciaRepasse}
+            onChange={e => setCarenciaRepasse(e.target.value)}
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -309,6 +413,54 @@ export function CondicoesContratuaisSection({
           >
             <option value="SOMENTE_ALUGUEL">Somente o Aluguel</option>
             <option value="ALUGUEL_LANCAMENTOS">Aluguel e demais lançamentos</option>
+          </select>
+        </div>
+
+        <div className="col-span-2 border-t border-zinc-100 pt-3">
+          <span className="text-xs font-bold text-[#004777] block mb-2">Administração</span>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa de Administração (%) *</label>
+          <input
+            type="text"
+            value={taxaAdministracao}
+            onChange={e => setTaxaAdministracao(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa sobre Multas e Encargos (%) *</label>
+          <input
+            type="text"
+            value={taxaMultasEncargos}
+            onChange={e => setTaxaMultasEncargos(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa de Intermediação (%) *</label>
+          <input
+            type="text"
+            value={taxaIntermediacao}
+            onChange={e => setTaxaIntermediacao(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Retenção IRRF (Responsabilidade) *</label>
+          <select
+            value={irrfResponsabilidade}
+            onChange={e => setIrrfResponsabilidade(e.target.value)}
+            required
+            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+          >
+            <option value="LOCADOR">LOCADOR</option>
+            <option value="LOCATARIO">LOCATARIO</option>
+            <option value="ISENTO">ISENTO</option>
           </select>
         </div>
       </div>

@@ -224,6 +224,28 @@ export default function NovoContratoModal({
                                         setPeriodoCarencia={form.setPeriodoCarencia}
                                         abrangenciaGarantia={form.abrangenciaGarantia}
                                         setAbrangenciaGarantia={form.setAbrangenciaGarantia}
+
+                                        // Novos Campos
+                                        indiceReajuste={form.indiceReajuste}
+                                        setIndiceReajuste={form.setIndiceReajuste}
+                                        taxaAdministracao={form.taxaAdministracao}
+                                        setTaxaAdministracao={form.setTaxaAdministracao}
+                                        taxaMultasEncargos={form.taxaMultasEncargos}
+                                        setTaxaMultasEncargos={form.setTaxaMultasEncargos}
+                                        taxaIntermediacao={form.taxaIntermediacao}
+                                        setTaxaIntermediacao={form.setTaxaIntermediacao}
+                                        irrfResponsabilidade={form.irrfResponsabilidade}
+                                        setIrrfResponsabilidade={form.setIrrfResponsabilidade}
+                                        carenciaRepasse={form.carenciaRepasse}
+                                        setCarenciaRepasse={form.setCarenciaRepasse}
+                                        carenciaHonorarios={form.carenciaHonorarios}
+                                        setCarenciaHonorarios={form.setCarenciaHonorarios}
+                                        inicioPrimeiroPeriodo={form.inicioPrimeiroPeriodo}
+                                        setInicioPrimeiroPeriodo={form.setInicioPrimeiroPeriodo}
+                                        fimPrimeiroPeriodo={form.fimPrimeiroPeriodo}
+                                        setFimPrimeiroPeriodo={form.setFimPrimeiroPeriodo}
+                                        vencimentoPrimeiroPeriodo={form.vencimentoPrimeiroPeriodo}
+                                        setVencimentoPrimeiroPeriodo={form.setVencimentoPrimeiroPeriodo}
                                     />
                                     {/* Seção 4: Anexos e Documentos Finais */}
                                     <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-4 col-span-2">
