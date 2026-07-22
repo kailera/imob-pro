@@ -224,6 +224,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
 
       {selectedRoomId !== 'geral' && selectedRoom && onUpdateRoom && (
         <div className="flex flex-col gap-4 border-b border-[#EEEEF3] pb-4 mb-2">
+          {/* Visão Geral do Ambiente */}
           <div className="flex flex-col gap-1.5 relative">
             <label className="text-xs font-bold text-[#004777] uppercase tracking-wider flex items-center justify-between">
               <span>Visão Geral do Ambiente ({selectedRoom.name})</span>
@@ -244,7 +245,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
                 onChange={(e) => onUpdateRoom(selectedRoom.id, { visaoGeral: e.target.value })}
                 disabled={isProcessingAI || isUploading}
                 placeholder="Descreva o estado geral do ambiente..."
-                className="w-full min-h-[100px] p-3 pb-12 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:opacity-70"
+                className="w-full min-h-[90px] p-3 pb-12 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:opacity-70"
               />
               <div className="absolute bottom-3 right-3">
                 {isRecording && recordingField === 'visaoGeral' ? (
@@ -258,6 +259,52 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
                 ) : (
                   <button
                     onClick={() => handleStartRecording('visaoGeral')}
+                    disabled={isRecording || isProcessingAI || isUploading}
+                    className="flex items-center justify-center w-8 h-8 bg-[#004777]/10 text-[#004777] rounded-full hover:bg-[#004777]/20 transition-colors shadow-sm disabled:opacity-50"
+                    title="Gravar áudio com IA"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Observações do Ambiente */}
+          <div className="flex flex-col gap-1.5 relative">
+            <label className="text-xs font-bold text-[#004777] uppercase tracking-wider flex items-center justify-between">
+              <span>Observações do Ambiente ({selectedRoom.name})</span>
+              {isRecording && recordingField === 'comentarios' && (
+                <span className="text-red-500 flex items-center gap-1 animate-pulse font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Gravando...
+                </span>
+              )}
+              {isProcessingAI && recordingField === 'comentarios' && (
+                <span className="text-[#004777] flex items-center gap-1 font-semibold">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Processando IA...
+                </span>
+              )}
+            </label>
+            <div className="relative">
+              <textarea
+                value={selectedRoom.comentarios || ""}
+                onChange={(e) => onUpdateRoom(selectedRoom.id, { comentarios: e.target.value })}
+                disabled={isProcessingAI || isUploading}
+                placeholder="Adicione observações adicionais/complementares do ambiente..."
+                className="w-full min-h-[80px] p-3 pb-12 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:opacity-70"
+              />
+              <div className="absolute bottom-3 right-3">
+                {isRecording && recordingField === 'comentarios' ? (
+                  <button
+                    onClick={stopRecording}
+                    className="flex items-center justify-center w-8 h-8 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors shadow-sm"
+                    title="Parar gravação"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStartRecording('comentarios')}
                     disabled={isRecording || isProcessingAI || isUploading}
                     className="flex items-center justify-center w-8 h-8 bg-[#004777]/10 text-[#004777] rounded-full hover:bg-[#004777]/20 transition-colors shadow-sm disabled:opacity-50"
                     title="Gravar áudio com IA"
