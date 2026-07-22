@@ -38,6 +38,20 @@ function safeInterActionError(error: unknown): string {
   return "Não foi possível concluir a operação no Banco Inter. Verifique as credenciais, permissões e o ambiente selecionado.";
 }
 
+function logInterActionError(operation: string, error: unknown) {
+  const axiosLikeError = error as {
+    message?: string;
+    code?: string;
+    response?: { status?: number };
+  };
+
+  console.error(`[inter-webhook-config] Falha ao ${operation}:`, {
+    status: axiosLikeError?.response?.status,
+    code: axiosLikeError?.code,
+    message: axiosLikeError?.message || "Erro desconhecido",
+  });
+}
+
 export async function getInterConfigAction() {
   try {
     const imobId = await getOrCreateDefaultImobId();
@@ -149,7 +163,7 @@ export async function configureInterWebhookAction() {
       message: `Webhook ${registration.environment === "SANDBOX" ? "do Sandbox" : "de Produção"} cadastrado com sucesso.`,
     };
   } catch (error) {
-    console.error("[inter-webhook-config] Falha ao cadastrar webhook:", error);
+    logInterActionError("cadastrar webhook", error);
     return { success: false as const, error: safeInterActionError(error) };
   }
 }
@@ -162,7 +176,7 @@ export async function retrieveInterWebhookAction() {
     const registration = await retrieveInterWebhook(imobId);
     return { success: true as const, registration };
   } catch (error) {
-    console.error("[inter-webhook-config] Falha ao consultar webhook:", error);
+    logInterActionError("consultar webhook", error);
     return { success: false as const, error: safeInterActionError(error) };
   }
 }
@@ -384,6 +398,5 @@ export async function getAgreementTransactionsAction() {
     return { success: false, error: error.message || "Erro ao obter acordos." };
   }
 }
-
 
 

@@ -121,7 +121,7 @@ export async function configureInterWebhook(
   const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
 
   await axios.put(
-    `${baseUrl}/cobranca/v3/webhook`,
+    `${baseUrl}/cobranca/v3/cobrancas/webhook`,
     { webhookUrl: normalizedUrl },
     {
       headers: {
@@ -144,7 +144,7 @@ export async function retrieveInterWebhook(imobId: string): Promise<InterWebhook
   const token = await getInterAccessToken(imobId);
   const baseUrl = getInterBaseUrl(credentials.sandbox);
   const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
-  const response = await axios.get(`${baseUrl}/cobranca/v3/webhook`, {
+  const response = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/webhook`, {
     headers: { Authorization: `Bearer ${token}` },
     httpsAgent,
   });
