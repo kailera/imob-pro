@@ -16,7 +16,11 @@ export const calcularIndiceReajuste = async (indice: string, dataInicio: string,
     };
     try {
         const params = new URLSearchParams({ formato: "json", dataInicial: formatarData(dataInicio), dataFinal: formatarData(dataFim) });
-        const response = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados?${params}`, { next: { revalidate: 3600 } });
+        const response = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados?${params}`, {
+            headers: { Accept: "application/json" },
+            next: { revalidate: 3600 },
+            signal: AbortSignal.timeout(15000),
+        });
         if (!response.ok) throw new Error("Serviço de índices indisponível.");
         const dados = (await response.json()) as Array<{ data: string; valor: string }>;
         if (!dados.length) return { success: false, error: "Ainda não há valores publicados para esse período." };

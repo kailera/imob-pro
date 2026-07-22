@@ -219,25 +219,36 @@ export default function ControleLocaticioClient({
     const periodoAnterior = [...periodos].sort(
       (a, b) => new Date(b.dataFim).getTime() - new Date(a.dataFim).getTime()
     )[0];
-    if (!periodoAnterior || !valorAluguelAnterior) return;
-    setIsCalculating(true);
-    setCalculoInfo("");
-    const resultado = await calcularIndiceReajuste(
-      novoIndice,
-      formatDateForInput(periodoAnterior.dataInicio),
-      formatDateForInput(periodoAnterior.dataFim)
-    );
-    if (resultado.success && resultado.percentual !== undefined) {
-      const percentual = resultado.percentual.toString();
-      setPercentualReajuste(percentual);
-      aplicarPercentual(percentual);
-      setReajusteAutomatico(true);
-      setCalculoInfo(`${resultado.mesesConsiderados} competências: ${resultado.competenciaInicial} a ${resultado.competenciaFinal}`);
-    } else {
-      setReajusteAutomatico(false);
-      setCalculoInfo(resultado.error || "Informe o percentual manualmente.");
+    if (!periodoAnterior) {
+      setCalculoInfo("Não foi encontrado um período anterior para calcular o reajuste.");
+      return;
     }
-    setIsCalculating(false);
+    if (!valorAluguelAnterior) {
+      setCalculoInfo("Informe o aluguel anterior antes de calcular.");
+      return;
+    }
+    setIsCalculating(true);
+    const inicioConsulta = formatDateForInput(periodoAnterior.dataInicio);
+    const fimConsulta = formatDateForInput(periodoAnterior.dataFim);
+    setCalculoInfo(`Consultando ${novoIndice} de ${formatDate(periodoAnterior.dataInicio)} a ${formatDate(periodoAnterior.dataFim)}...`);
+    try {
+      const resultado = await calcularIndiceReajuste(novoIndice, inicioConsulta, fimConsulta);
+      if (resultado.success && resultado.percentual !== undefined) {
+        const percentual = resultado.percentual.toString();
+        setPercentualReajuste(percentual);
+        aplicarPercentual(percentual);
+        setReajusteAutomatico(true);
+        setCalculoInfo(`Aplicado: ${resultado.mesesConsiderados} competências, de ${resultado.competenciaInicial} a ${resultado.competenciaFinal}.`);
+      } else {
+        setReajusteAutomatico(false);
+        setCalculoInfo(resultado.error || "Informe o percentual manualmente.");
+      }
+    } catch (error: unknown) {
+      setReajusteAutomatico(false);
+      setCalculoInfo(error instanceof Error ? `Falha na consulta: ${error.message}` : "Falha ao consultar o índice oficial.");
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
