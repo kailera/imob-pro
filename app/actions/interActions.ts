@@ -15,6 +15,29 @@ async function getOrCreateDefaultImobId() {
   return newImob.id;
 }
 
+async function requireInterAdmin() {
+  const { userId, orgRole } = await auth();
+  if (!userId) throw new Error("Não autenticado.");
+  if (orgRole === "org:admin") return;
+
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { role: true, ativo: true },
+  });
+  if (!user?.ativo || user.role !== "ADMIN") {
+    throw new Error("Apenas administradores podem gerenciar o webhook do Banco Inter.");
+  }
+}
+
+function safeInterActionError(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message.includes("administradores") || error.message === "Não autenticado.") {
+      return error.message;
+    }
+  }
+  return "Não foi possível concluir a operação no Banco Inter. Verifique as credenciais, permissões e o ambiente selecionado.";
+}
+
 export async function getInterConfigAction() {
   try {
     const imobId = await getOrCreateDefaultImobId();
@@ -109,6 +132,38 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
   } catch (error: any) {
     console.error("Erro ao salvar configurações do Banco Inter:", error);
     return { success: false, error: error.message || "Erro ao salvar as configurações." };
+  }
+}
+
+export async function configureInterWebhookAction() {
+  try {
+    await requireInterAdmin();
+    const imobId = await getOrCreateDefaultImobId();
+    const webhookUrl = process.env.INTER_WEBHOOK_URL
+      || "https://inter-webhook.euatendo.online/api/webhooks/inter";
+    const { configureInterWebhook } = await import("@/lib/inter");
+    const registration = await configureInterWebhook(imobId, webhookUrl);
+    return {
+      success: true as const,
+      registration,
+      message: `Webhook ${registration.environment === "SANDBOX" ? "do Sandbox" : "de Produção"} cadastrado com sucesso.`,
+    };
+  } catch (error) {
+    console.error("[inter-webhook-config] Falha ao cadastrar webhook:", error);
+    return { success: false as const, error: safeInterActionError(error) };
+  }
+}
+
+export async function retrieveInterWebhookAction() {
+  try {
+    await requireInterAdmin();
+    const imobId = await getOrCreateDefaultImobId();
+    const { retrieveInterWebhook } = await import("@/lib/inter");
+    const registration = await retrieveInterWebhook(imobId);
+    return { success: true as const, registration };
+  } catch (error) {
+    console.error("[inter-webhook-config] Falha ao consultar webhook:", error);
+    return { success: false as const, error: safeInterActionError(error) };
   }
 }
 
@@ -329,7 +384,6 @@ export async function getAgreementTransactionsAction() {
     return { success: false, error: error.message || "Erro ao obter acordos." };
   }
 }
-
 
 
 

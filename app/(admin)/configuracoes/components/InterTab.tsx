@@ -1,5 +1,5 @@
 import React from "react";
-import { UploadCloud, CheckCircle, Loader2 } from "lucide-react";
+import { UploadCloud, CheckCircle, Loader2, Radio, Search } from "lucide-react";
 
 interface InterTabProps {
   isAdmin: boolean;
@@ -11,6 +11,13 @@ interface InterTabProps {
   } | null;
   handleInterSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   isPending: boolean;
+  webhookLoading: "register" | "consult" | null;
+  webhookInfo: {
+    webhookUrl: string;
+    environment: "SANDBOX" | "PRODUCTION";
+  } | null;
+  handleConfigureWebhook: () => Promise<void>;
+  handleRetrieveWebhook: () => Promise<void>;
 }
 
 export function InterTab({
@@ -18,6 +25,10 @@ export function InterTab({
   config,
   handleInterSubmit,
   isPending,
+  webhookLoading,
+  webhookInfo,
+  handleConfigureWebhook,
+  handleRetrieveWebhook,
 }: InterTabProps) {
   return (
     <div>
@@ -151,6 +162,47 @@ export function InterTab({
                 "Salvar Integração"
               )}
             </button>
+          </div>
+
+          <div className="border-t border-gray-100 pt-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#280003]">Webhook de recebimentos</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Cadastre ou consulte a URL usada pelo Inter para avisar quando uma cobrança for recebida.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={handleRetrieveWebhook}
+                  disabled={webhookLoading !== null || isPending || !config}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {webhookLoading === "consult" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  Consultar webhook
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfigureWebhook}
+                  disabled={webhookLoading !== null || isPending || !config}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {webhookLoading === "register" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
+                  Cadastrar/Atualizar webhook
+                </button>
+              </div>
+            </div>
+
+            {webhookInfo && (
+              <div className="mt-4 rounded-xl border border-emerald-200/60 bg-emerald-50 p-4 text-sm">
+                <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+                  <CheckCircle className="w-4 h-4" />
+                  Ambiente: {webhookInfo.environment === "SANDBOX" ? "Sandbox" : "Produção"}
+                </div>
+                <p className="mt-2 text-emerald-900 break-all">{webhookInfo.webhookUrl}</p>
+              </div>
+            )}
           </div>
         </form>
       )}

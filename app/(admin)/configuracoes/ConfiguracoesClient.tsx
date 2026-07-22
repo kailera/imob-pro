@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { saveInterConfigAction, getInterConfigAction } from "@/app/actions/interActions";
+import {
+  configureInterWebhookAction,
+  getInterConfigAction,
+  retrieveInterWebhookAction,
+  saveInterConfigAction,
+} from "@/app/actions/interActions";
 import { getImobConfigAction, saveImobConfigAction, createNewUser, getUsers, getCurrentUserRole, deleteUser } from "@/app/(admin)/configuracoes/configuracoesActions";
 import {
   Building,
@@ -31,6 +36,11 @@ export default function ConfiguracoesClient() {
     sandbox: boolean;
     hasCert: boolean;
     hasKey: boolean;
+  } | null>(null);
+  const [webhookLoading, setWebhookLoading] = useState<"register" | "consult" | null>(null);
+  const [webhookInfo, setWebhookInfo] = useState<{
+    webhookUrl: string;
+    environment: "SANDBOX" | "PRODUCTION";
   } | null>(null);
 
   // Estado Perfil Imobiliária
@@ -204,6 +214,44 @@ export default function ConfiguracoesClient() {
         setMessage({ type: "error", text: res.error || "Erro ao salvar integração." });
       }
     });
+  }
+
+  async function handleConfigureInterWebhook() {
+    if (!config?.sandbox) {
+      const confirmed = window.confirm(
+        "A integração está em PRODUÇÃO. Deseja cadastrar/atualizar o webhook real do Banco Inter?",
+      );
+      if (!confirmed) return;
+    }
+    setMessage(null);
+    setWebhookLoading("register");
+    try {
+      const result = await configureInterWebhookAction();
+      if (result.success) {
+        setWebhookInfo(result.registration);
+        setMessage({ type: "success", text: result.message });
+      } else {
+        setMessage({ type: "error", text: result.error });
+      }
+    } finally {
+      setWebhookLoading(null);
+    }
+  }
+
+  async function handleRetrieveInterWebhook() {
+    setMessage(null);
+    setWebhookLoading("consult");
+    try {
+      const result = await retrieveInterWebhookAction();
+      if (result.success) {
+        setWebhookInfo(result.registration);
+        setMessage({ type: "success", text: "Webhook consultado com sucesso no Banco Inter." });
+      } else {
+        setMessage({ type: "error", text: result.error });
+      }
+    } finally {
+      setWebhookLoading(null);
+    }
   }
 
   // Submit Perfil Imobiliária
@@ -439,6 +487,10 @@ export default function ConfiguracoesClient() {
             config={config}
             handleInterSubmit={handleInterSubmit}
             isPending={isPending}
+            webhookLoading={webhookLoading}
+            webhookInfo={webhookInfo}
+            handleConfigureWebhook={handleConfigureInterWebhook}
+            handleRetrieveWebhook={handleRetrieveInterWebhook}
           />
         )}
 

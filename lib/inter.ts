@@ -96,6 +96,69 @@ function getInterBaseUrl(sandbox: boolean): string {
     : "https://cdpj.partners.bancointer.com.br";
 }
 
+export interface InterWebhookRegistration {
+  webhookUrl: string;
+  environment: "SANDBOX" | "PRODUCTION";
+}
+
+function validateWebhookUrl(webhookUrl: string): string {
+  const parsed = new URL(webhookUrl);
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hash) {
+    throw new Error("A URL do webhook deve usar HTTPS e não pode conter credenciais ou fragmentos.");
+  }
+  return parsed.toString().replace(/\/$/, "");
+}
+
+/** Cadastra ou atualiza o webhook da API Cobrança V3 no ambiente configurado. */
+export async function configureInterWebhook(
+  imobId: string,
+  webhookUrl: string,
+): Promise<InterWebhookRegistration> {
+  const normalizedUrl = validateWebhookUrl(webhookUrl);
+  const credentials = await getInterCredentials(imobId);
+  const token = await getInterAccessToken(imobId);
+  const baseUrl = getInterBaseUrl(credentials.sandbox);
+  const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
+
+  await axios.put(
+    `${baseUrl}/cobranca/v3/webhook`,
+    { webhookUrl: normalizedUrl },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      httpsAgent,
+    },
+  );
+
+  return {
+    webhookUrl: normalizedUrl,
+    environment: credentials.sandbox ? "SANDBOX" : "PRODUCTION",
+  };
+}
+
+/** Consulta o webhook cadastrado no ambiente atual da integração. */
+export async function retrieveInterWebhook(imobId: string): Promise<InterWebhookRegistration> {
+  const credentials = await getInterCredentials(imobId);
+  const token = await getInterAccessToken(imobId);
+  const baseUrl = getInterBaseUrl(credentials.sandbox);
+  const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
+  const response = await axios.get(`${baseUrl}/cobranca/v3/webhook`, {
+    headers: { Authorization: `Bearer ${token}` },
+    httpsAgent,
+  });
+  const webhookUrl = response.data?.webhookUrl;
+  if (typeof webhookUrl !== "string" || !webhookUrl) {
+    throw new Error("O Banco Inter não retornou uma URL de webhook cadastrada.");
+  }
+
+  return {
+    webhookUrl,
+    environment: credentials.sandbox ? "SANDBOX" : "PRODUCTION",
+  };
+}
+
 /**
  * Cria o agente HTTPS com suporte a mTLS (certificados em memória obtidos do banco de dados).
  */
