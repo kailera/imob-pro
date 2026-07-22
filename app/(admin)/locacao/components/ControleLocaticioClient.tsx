@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Plus, Trash2, X, Loader2, Calculator } from "lucide-react";
+import { TrendingUp, Plus, Trash2, X, Loader2, Calculator, AlertTriangle, CheckCircle2, History } from "lucide-react";
 import {
   addPeriodoContratoLocacao,
   updatePeriodoContratoLocacao,
   deletePeriodoContratoLocacao,
   calcularIndiceReajuste,
 } from "../actions";
+import { adicionarDiasUTC, calcularFaixaPeriodo, formatarDataInput } from "@/lib/locacao/periodos";
 
 interface Periodo {
   id: string;
@@ -30,13 +31,21 @@ interface Periodo {
   valorAluguelAnterior?: number | null;
   percentualReajuste?: number | null;
   reajusteAutomatico?: boolean;
+  manterValorDeflacao?: boolean;
   dataCalculoReajuste?: string | Date | null;
+  tipoPeriodo?: "BASE" | "REAJUSTE" | string;
+  origemPeriodo?: "MANUAL" | "SICADI_PROVISORIO" | "CALCULO_SISTEMA" | string;
 }
 
 interface ControleLocaticioClientProps {
   periodos: Periodo[];
   imovelLocacaoId: string;
   isEditMode?: boolean;
+  dataInicioContrato?: string | Date | null;
+  dataFimContrato?: string | Date | null;
+  proximoReajuste?: string | Date | null;
+  periodicidadeReajuste?: number | null;
+  historicoStatus?: string | null;
   onAddPeriodo?: () => void;
   onEditPeriodo?: (periodo: Periodo) => void;
 }
@@ -44,7 +53,11 @@ interface ControleLocaticioClientProps {
 export default function ControleLocaticioClient({
   periodos,
   imovelLocacaoId,
-  isEditMode = false,
+  dataInicioContrato,
+  dataFimContrato,
+  proximoReajuste,
+  periodicidadeReajuste = 12,
+  historicoStatus = "NAO_INICIADO",
   onAddPeriodo,
   onEditPeriodo,
 }: ControleLocaticioClientProps) {
@@ -78,8 +91,10 @@ export default function ControleLocaticioClient({
   const [valorAluguelAnterior, setValorAluguelAnterior] = useState("");
   const [percentualReajuste, setPercentualReajuste] = useState("");
   const [reajusteAutomatico, setReajusteAutomatico] = useState(false);
+  const [manterValorDeflacao, setManterValorDeflacao] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculoInfo, setCalculoInfo] = useState("");
+  const [tipoPeriodo, setTipoPeriodo] = useState<"BASE" | "REAJUSTE">("REAJUSTE");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -90,7 +105,7 @@ export default function ControleLocaticioClient({
 
   const formatDate = (date: any) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("pt-BR");
+    return new Date(date).toLocaleDateString("pt-BR", { timeZone: "UTC" });
   };
 
   const formatDateForInput = (date: any) => {
@@ -108,25 +123,33 @@ export default function ControleLocaticioClient({
     )[0];
     setModalType("ADD");
     setEditingPeriodId(null);
-    setDataInicio("");
-    setDataFim("");
+    const inicioSugerido = ultimoPeriodo
+      ? adicionarDiasUTC(ultimoPeriodo.dataFim, 1)
+      : dataInicioContrato ? new Date(dataInicioContrato) : null;
+    const faixaSugerida = inicioSugerido && dataFimContrato
+      ? calcularFaixaPeriodo(inicioSugerido, periodicidadeReajuste || 12, dataFimContrato)
+      : null;
+    setDataInicio(inicioSugerido ? formatarDataInput(inicioSugerido) : "");
+    setDataFim(faixaSugerida ? formatarDataInput(faixaSugerida.dataFim) : "");
     setValorAluguel(ultimoPeriodo?.valorAluguel?.toFixed(2) || "");
-    setHasCondominioState(false);
-    setValorCondominio("");
-    setHasIPTUState(false);
-    setValorIPTU("");
-    setDescontoPontualidade("");
-    setTipoDesconto("VALOR");
-    setDiasAntecedenciaDesc("");
-    setMultaAtrasoPercentual("");
-    setDiasCarenciaMulta("");
-    setJurosAtrasoPercentual("");
-    setDiasCarenciaJuros("");
+    setHasCondominioState(ultimoPeriodo?.hasCondominio ?? false);
+    setValorCondominio(ultimoPeriodo?.valorCondominio?.toString() || "");
+    setHasIPTUState(ultimoPeriodo?.hasIPTU ?? false);
+    setValorIPTU(ultimoPeriodo?.valorIPTU?.toString() || "");
+    setDescontoPontualidade(ultimoPeriodo?.descontoPontualidade?.toString() || "");
+    setTipoDesconto(ultimoPeriodo?.tipoDesconto || "VALOR");
+    setDiasAntecedenciaDesc(ultimoPeriodo?.diasAntecedenciaDesc?.toString() || "");
+    setMultaAtrasoPercentual(ultimoPeriodo?.multaAtrasoPercentual?.toString() || "");
+    setDiasCarenciaMulta(ultimoPeriodo?.diasCarenciaMulta?.toString() || "");
+    setJurosAtrasoPercentual(ultimoPeriodo?.jurosAtrasoPercentual?.toString() || "");
+    setDiasCarenciaJuros(ultimoPeriodo?.diasCarenciaJuros?.toString() || "");
     setIndiceReajuste(ultimoPeriodo?.indiceReajuste || "IGPM");
     setValorAluguelAnterior(ultimoPeriodo?.valorAluguel?.toFixed(2) || "");
     setPercentualReajuste("");
     setReajusteAutomatico(false);
+    setManterValorDeflacao(true);
     setCalculoInfo("");
+    setTipoPeriodo(ultimoPeriodo ? "REAJUSTE" : "BASE");
     setIsModalOpen(true);
   };
 
@@ -151,7 +174,9 @@ export default function ControleLocaticioClient({
     setValorAluguelAnterior(p.valorAluguelAnterior?.toString() || "");
     setPercentualReajuste(p.percentualReajuste?.toString() || "");
     setReajusteAutomatico(p.reajusteAutomatico ?? false);
+    setManterValorDeflacao(p.manterValorDeflacao ?? true);
     setCalculoInfo("");
+    setTipoPeriodo(p.tipoPeriodo === "BASE" ? "BASE" : "REAJUSTE");
     setIsModalOpen(true);
   };
 
@@ -181,9 +206,11 @@ export default function ControleLocaticioClient({
         jurosAtrasoPercentual: parseFloat(jurosAtrasoPercentual) || null,
         diasCarenciaJuros: parseInt(diasCarenciaJuros) || null,
         indiceReajuste: indiceReajuste || null,
-        valorAluguelAnterior: parseFloat(valorAluguelAnterior) || null,
-        percentualReajuste: percentualReajuste === "" ? null : parseFloat(percentualReajuste),
-        reajusteAutomatico,
+        valorAluguelAnterior: tipoPeriodo === "BASE" ? null : parseFloat(valorAluguelAnterior) || null,
+        percentualReajuste: tipoPeriodo === "BASE" || percentualReajuste === "" ? null : parseFloat(percentualReajuste),
+        reajusteAutomatico: tipoPeriodo === "BASE" ? false : reajusteAutomatico,
+        manterValorDeflacao,
+        tipoPeriodo,
       };
 
       let res;
@@ -207,11 +234,14 @@ export default function ControleLocaticioClient({
     }
   };
 
-  const aplicarPercentual = (percentual: string, base = valorAluguelAnterior) => {
+  const aplicarPercentual = (percentual: string, base = valorAluguelAnterior, manterDeflacao = manterValorDeflacao) => {
     const baseNumerica = Number(base);
     const percentualNumerico = Number(percentual);
     if (Number.isFinite(baseNumerica) && Number.isFinite(percentualNumerico)) {
-      setValorAluguel((baseNumerica * (1 + percentualNumerico / 100)).toFixed(2));
+      const novoValor = percentualNumerico < 0 && manterDeflacao
+        ? baseNumerica
+        : baseNumerica * (1 + percentualNumerico / 100);
+      setValorAluguel(novoValor.toFixed(2));
     }
   };
 
@@ -238,7 +268,8 @@ export default function ControleLocaticioClient({
         setPercentualReajuste(percentual);
         aplicarPercentual(percentual);
         setReajusteAutomatico(true);
-        setCalculoInfo(`Aplicado: ${resultado.mesesConsiderados} competências, de ${resultado.competenciaInicial} a ${resultado.competenciaFinal}.`);
+        const origem = resultado.fonte === "CONTINGENCIA_BCB" ? "contingência oficial local" : "Banco Central online";
+        setCalculoInfo(`Aplicado via ${origem}: ${resultado.mesesConsiderados} competências, de ${resultado.competenciaInicial} a ${resultado.competenciaFinal}.`);
       } else {
         setReajusteAutomatico(false);
         setCalculoInfo(resultado.error || "Informe o percentual manualmente.");
@@ -268,6 +299,33 @@ export default function ControleLocaticioClient({
     }
   };
 
+  const periodoProvisorio = periodos.length === 1 && periodos[0].origemPeriodo === "SICADI_PROVISORIO";
+  const statusVisual = historicoStatus === "COMPLETO"
+    ? { label: "Histórico completo", className: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: CheckCircle2 }
+    : historicoStatus === "DIVERGENTE"
+      ? { label: "Histórico divergente", className: "border-rose-200 bg-rose-50 text-rose-800", icon: AlertTriangle }
+      : { label: periodos.length ? "Histórico parcial" : "Histórico não iniciado", className: "border-amber-200 bg-amber-50 text-amber-900", icon: AlertTriangle };
+  const StatusIcon = statusVisual.icon;
+
+  const handleAcaoPrincipal = () => {
+    if (periodoProvisorio) {
+      openEditModal(periodos[0]);
+      if (dataInicioContrato && dataFimContrato && proximoReajuste) {
+        const fimPeloSicadi = adicionarDiasUTC(proximoReajuste, -1);
+        const fimTotal = new Date(dataFimContrato);
+        setDataInicio(formatarDataInput(dataInicioContrato));
+        setDataFim(formatarDataInput(fimPeloSicadi > fimTotal ? fimTotal : fimPeloSicadi));
+      } else if (dataInicioContrato && dataFimContrato) {
+        const faixa = calcularFaixaPeriodo(dataInicioContrato, periodicidadeReajuste || 12, dataFimContrato);
+        setDataInicio(formatarDataInput(faixa.dataInicio));
+        setDataFim(formatarDataInput(faixa.dataFim));
+      }
+      setTipoPeriodo("BASE");
+      return;
+    }
+    openAddModal();
+  };
+
   return (
     <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -275,14 +333,27 @@ export default function ControleLocaticioClient({
           <TrendingUp className="w-4 h-4 text-[#004777]" />
           Controle Locatício
         </h2>
-        {(isEditMode || onAddPeriodo) && (
-          <button
-            onClick={onAddPeriodo || openAddModal}
-            className="flex items-center gap-1 text-[10px] font-bold text-[#004777] hover:underline cursor-pointer bg-transparent border-0 font-sans"
-          >
-            <Plus className="w-3.5 h-3.5" /> Adicionar Período
-          </button>
-        )}
+        <button
+          onClick={onAddPeriodo || handleAcaoPrincipal}
+          className="flex items-center gap-1 rounded-xl bg-[#004777] px-3 py-2 text-[10px] font-bold text-white hover:bg-[#003355] cursor-pointer border-0 font-sans"
+        >
+          {periodoProvisorio ? <History className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+          {periodoProvisorio ? "Corrigir período inicial" : periodos.length ? "Adicionar reajuste" : "Cadastrar período inicial"}
+        </button>
+      </div>
+
+      <div className={`flex items-start gap-2 rounded-2xl border px-3 py-2.5 text-[10px] ${statusVisual.className}`}>
+        <StatusIcon className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-black uppercase tracking-wide">{statusVisual.label}</p>
+          <p className="mt-0.5 font-medium">
+            {periodoProvisorio
+              ? "O Sicadi trouxe o valor vigente em um período provisório que ocupa todo o contrato. Revise o aluguel-base e a data final para liberar os reajustes seguintes."
+              : historicoStatus === "COMPLETO"
+                ? "Os períodos estão contínuos desde o início do contrato até a vigência atual."
+                : "Cadastre os períodos conhecidos em ordem. Lacunas permanecem sinalizadas até a reconstrução alcançar o período vigente."}
+          </p>
+        </div>
       </div>
 
       {periodos.length > 0 ? (
@@ -313,7 +384,7 @@ export default function ControleLocaticioClient({
                 <span className="text-gray-400 text-[10px] uppercase font-bold">Aluguel Vigente</span>
                 <div className="flex items-center gap-2">
                   <span className="font-black text-brand-dark text-sm">{formatCurrency(activePeriodo.valorAluguel)}</span>
-                  {isEditMode && periodos.length > 1 && (
+                  {periodos.length > 1 && (
                     <button
                       onClick={() => handleDelete(activePeriodo.id)}
                       className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
@@ -329,14 +400,12 @@ export default function ControleLocaticioClient({
               <div className="space-y-1.5 pb-3 border-b border-gray-50">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 text-[10px] uppercase font-bold">Desconto Pontualidade</span>
-                  {(isEditMode || onEditPeriodo) && (
-                    <button
-                      onClick={() => onEditPeriodo ? onEditPeriodo(activePeriodo) : openEditModal(activePeriodo)}
-                      className="text-[9px] font-bold text-[#004777] hover:underline bg-transparent border-0 font-sans"
-                    >
-                      Editar Período
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onEditPeriodo ? onEditPeriodo(activePeriodo) : openEditModal(activePeriodo)}
+                    className="text-[9px] font-bold text-[#004777] hover:underline bg-transparent border-0 font-sans"
+                  >
+                    Editar período
+                  </button>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Valor/Percentual</span>
@@ -408,6 +477,13 @@ export default function ControleLocaticioClient({
                   <div className="rounded-xl bg-[#004777]/5 border border-[#004777]/10 px-3 py-2 text-[10px] text-[#004777]">
                     {activePeriodo.reajusteAutomatico ? "Calculado automaticamente pela série oficial" : "Percentual informado manualmente"}
                     {activePeriodo.dataCalculoReajuste ? ` em ${formatDate(activePeriodo.dataCalculoReajuste)}` : ""}.
+                    {activePeriodo.percentualReajuste < 0 && (
+                      <span className="block mt-1 font-bold">
+                        {activePeriodo.manterValorDeflacao !== false
+                          ? "Deflação não aplicada: aluguel mantido."
+                          : "Deflação aplicada: aluguel reduzido."}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -424,7 +500,9 @@ export default function ControleLocaticioClient({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-zinc-200 animate-scale-up">
             <div className="flex items-center justify-between px-6 py-4 bg-[#EEEEF3]/50 border-b border-zinc-100">
               <h3 className="text-sm font-bold text-[#280003]">
-                {modalType === "ADD" ? "Adicionar Novo Período Contratual" : "Editar Período Contratual"}
+                {tipoPeriodo === "BASE"
+                  ? "Cadastrar período inicial e aluguel-base"
+                  : modalType === "ADD" ? "Adicionar reajuste contratual" : "Editar período contratual"}
               </h3>
               <button
                 type="button"
@@ -436,6 +514,12 @@ export default function ControleLocaticioClient({
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {editingPeriodId && periodos.find((periodo) => periodo.id === editingPeriodId)?.origemPeriodo === "SICADI_PROVISORIO" && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <p className="font-black">Período provisório importado</p>
+                  <p className="mt-1 text-[10px]">O valor atual do Sicadi não representa necessariamente o aluguel-base. Confirme o valor inicial e a data em que ocorreu o primeiro reajuste.</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
@@ -463,7 +547,20 @@ export default function ControleLocaticioClient({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#004777]/15 bg-[#004777]/5 p-4 space-y-3">
+              {tipoPeriodo === "BASE" && (
+                <div className="rounded-2xl border border-[#004777]/15 bg-[#004777]/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-[#004777] font-bold">
+                    <History className="w-4 h-4" /> Aluguel-base do contrato
+                  </div>
+                  <p className="text-[10px] text-gray-600">O período inicial é a referência histórica. Ele não possui percentual de reajuste nem aluguel anterior.</p>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Valor do aluguel-base *</label>
+                    <input type="number" min="0.01" step="0.01" required value={valorAluguel} onChange={(e) => setValorAluguel(e.target.value)} className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />
+                  </div>
+                </div>
+              )}
+
+              <div className={`rounded-2xl border border-[#004777]/15 bg-[#004777]/5 p-4 space-y-3 ${tipoPeriodo === "BASE" ? "hidden" : ""}`}>
                 <div className="flex items-center gap-2 text-[#004777] font-bold">
                   <Calculator className="w-4 h-4" /> Cálculo do reajuste
                 </div>
@@ -497,6 +594,29 @@ export default function ControleLocaticioClient({
                   {isCalculating ? "Consultando índice..." : "Atualizar pelo índice oficial"}
                 </button>
                 {calculoInfo && <p className={`text-[10px] ${reajusteAutomatico ? "text-emerald-700" : "text-amber-700"}`}>{calculoInfo}</p>}
+                {Number(percentualReajuste) < 0 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2 text-amber-900">
+                    <p className="font-bold">O índice apurado foi negativo.</p>
+                    <p className="text-[10px]">Aplicá-lo reduzirá o aluguel. Escolha como este contrato deve tratar a deflação:</p>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={manterValorDeflacao}
+                        onChange={(e) => {
+                          setManterValorDeflacao(e.target.checked);
+                          aplicarPercentual(percentualReajuste, valorAluguelAnterior, e.target.checked);
+                        }}
+                        className="mt-0.5 rounded text-[#004777] focus:ring-[#004777]"
+                      />
+                      <span className="font-semibold">Manter o aluguel atual e não aplicar a redução</span>
+                    </label>
+                    <p className="text-[10px] font-semibold">
+                      {manterValorDeflacao
+                        ? `O aluguel permanecerá em ${formatCurrency(Number(valorAluguelAnterior))}.`
+                        : `A redução será aplicada e o aluguel passará para ${formatCurrency(Number(valorAluguel))}.`}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Novo aluguel *</label>
                   <input type="number" step="0.01" required value={valorAluguel} onChange={(e) => setValorAluguel(e.target.value)} className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />

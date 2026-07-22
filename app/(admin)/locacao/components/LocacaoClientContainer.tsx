@@ -10,16 +10,24 @@ import CobrancasTabContent from './CobrancasTabContent';
 import ContratosTabContent from './ContratosTabContent';
 import ModelosTabContent, { ContractTemplate } from './ModelosTabContent';
 import NovoContratoModal from './NovoContratoModal';
+import AgendaVencimentosLocacao from './AgendaVencimentosLocacao';
+import type { AgendaLocacaoEvento } from '../actions';
 interface LocacaoClientContainerProps {
     initialContratos: any[];
     initialCobrancas: any[];
     initialImoveis: any[];
+    initialAgenda: AgendaLocacaoEvento[];
+    agendaAno: number;
+    agendaMes: number;
 }
 
 export default function LocacaoClientContainer({
     initialContratos,
     initialCobrancas,
-    initialImoveis
+    initialImoveis,
+    initialAgenda,
+    agendaAno,
+    agendaMes,
 }: LocacaoClientContainerProps) {
 
     // 1. Estados que controlam a interface geral da página
@@ -143,12 +151,11 @@ export default function LocacaoClientContainer({
             {/* ── CONTEÚDO DAS ABAS ── */}
 
             {activeTab === 'contratos' && (
-                // Temporário até criarmos o componente de Contratos
-                <div className="p-8 text-center text-gray-500 border-2 border-dashed rounded-xl">
-                    <p>Aba de Contratos será carregada aqui.</p>
-                    <p className="text-xs mt-2">Contratos carregados: {initialContratos.length}</p>
-                </div>
-
+                <AgendaVencimentosLocacao
+                    initialAno={agendaAno}
+                    initialMes={agendaMes}
+                    initialEventos={initialAgenda}
+                />
             )}
             {activeTab === 'contratos' && (
                 <ContratosTabContent

@@ -146,6 +146,10 @@ model ImovelLocacao {
   periodicidadeReajuste Int? // Salva em meses. Ex: 12
   indiceReajuste        String? // Ex: "IGPM", "IPCA", "INPC"
 
+  // --- QUALIDADE DO HISTORICO LOCATICIO ---
+  historicoPeriodosStatus String    @default("NAO_INICIADO") // NAO_INICIADO, PARCIAL, COMPLETO, DIVERGENTE
+  historicoRevisadoEm     DateTime?
+
   // --- QUEBRA DE CONTRATO ---
   multaQuebraContrato Float? // Valor ou percentual (ex: 8.33)
   tipoMultaQuebra     String? // "PERCENTUAL", "MESES" ou "VALOR"
@@ -195,12 +199,17 @@ model PeriodoContratoLocacao {
   indiceReajuste        String?
   valorAluguelAnterior  Float?
   percentualReajuste    Float?
-  reajusteAutomatico    Boolean @default(false)
+  reajusteAutomatico    Boolean   @default(false)
+  manterValorDeflacao   Boolean   @default(true)
   dataCalculoReajuste   DateTime?
+  tipoPeriodo           String    @default("REAJUSTE") // BASE ou REAJUSTE
+  origemPeriodo         String    @default("MANUAL") // MANUAL, SICADI_PROVISORIO ou CALCULO_SISTEMA
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([dataFim])
+  @@index([imovelLocacaoId, dataInicio, dataFim])
   @@map("periodo_contrato_locacao")
 }
 

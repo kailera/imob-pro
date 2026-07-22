@@ -1,8 +1,7 @@
 import React from 'react';
-import { getContratosLocacao, getCobrancas } from './actions';
+import { getContratosLocacao, getCobrancas, getAgendaVencimentosLocacao } from './actions';
 import { getImoveis } from '@/app/actions/imoveisActions';
 import LocacaoClientContainer from './components/LocacaoClientContainer';
-import NovoContratoModal from './components/NovoContratoModal';
 export const dynamic = 'force-dynamic';
 
 
@@ -11,10 +10,14 @@ export default async function LocacaoPage() {
 
   // 2. Buscamos todos os dados paralelamente para carregar a página mais rápido
   // Usar Promise.all evita que uma requisição espere a outra terminar
-  const [contratosRes, cobrancasRes, imoveisRes] = await Promise.all([
+  const agora = new Date();
+  const agendaAno = agora.getFullYear();
+  const agendaMes = agora.getMonth() + 1;
+  const [contratosRes, cobrancasRes, imoveisRes, agendaRes] = await Promise.all([
     getContratosLocacao(),
     getCobrancas(),
-    getImoveis() // Pre-carregamos os imóveis aqui no servidor para já entregar pronto
+    getImoveis(), // Pre-carregamos os imóveis aqui no servidor para já entregar pronto
+    getAgendaVencimentosLocacao(agendaAno, agendaMes),
   ]);
 
   // 3. Tratamento defensivo: garantimos que sempre teremos um array, mesmo se a API falhar
@@ -29,6 +32,9 @@ export default async function LocacaoPage() {
         initialContratos={contratos}
         initialCobrancas={cobrancas}
         initialImoveis={imoveis}
+        initialAgenda={agendaRes.data}
+        agendaAno={agendaAno}
+        agendaMes={agendaMes}
       />
 
     </div>

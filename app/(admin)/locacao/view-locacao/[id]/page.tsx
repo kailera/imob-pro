@@ -536,6 +536,11 @@ export default async function ViewLocacao({
                             periodos={imovelLocacao?.periodos || []}
                             imovelLocacaoId={imovelLocacao?.id || ""}
                             isEditMode={isEditMode}
+                            dataInicioContrato={imovelLocacao?.dataInicio}
+                            dataFimContrato={imovelLocacao?.dataFim}
+                            proximoReajuste={imovelLocacao?.proximoReajuste}
+                            periodicidadeReajuste={imovelLocacao?.periodicidadeReajuste}
+                            historicoStatus={imovelLocacao?.historicoPeriodosStatus}
                         />
 
                         {/* Histórico de Vistorias */}

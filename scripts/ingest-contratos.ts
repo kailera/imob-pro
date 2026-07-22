@@ -142,6 +142,16 @@ async function main() {
       const proximoReajuste = parseDate(proximoReajusteStr);
       const valorAluguel = parseMoney(valorAluguelStr);
 
+      // Nunca recriar um contrato já importado: isso apagaria períodos e correções manuais.
+      const contratoJaExistente = await prisma.contratoImovelLocacao.findUnique({
+        where: { id: contratoId },
+        select: { id: true },
+      });
+      if (contratoJaExistente) {
+        console.log(`Contrato #${contratoId} já existe. Preservando o histórico cadastrado e ignorando a linha.`);
+        continue;
+      }
+
       // Usaremos o contratoId para compor um código único para o Imóvel
       const imovelCodigo = `IMB-CSV-${contratoId}`;
 
@@ -184,32 +194,6 @@ async function main() {
 
       // 3. Criar o Contrato (ContratoImovelLocacao)
       // Para evitar duplicidade, excluímos contratos com o mesmo ID se existirem ou fazemos upsert
-      const contratoExistente = await prisma.contratoImovelLocacao.findUnique({
-        where: { id: contratoId },
-      });
-
-      if (contratoExistente) {
-        // Excluir Locatários e Locadores antigos vinculados a esta locação/contrato para evitar duplicidade
-        await prisma.locatario.deleteMany({
-          where: { contratoId: contratoExistente.id }
-        });
-        if (contratoExistente.imovelLocacaoId) {
-          await prisma.locador.deleteMany({
-            where: { imovelLocacaoId: contratoExistente.imovelLocacaoId }
-          });
-        }
-        // Deletar o contrato antigo temporariamente
-        await prisma.contratoImovelLocacao.delete({
-          where: { id: contratoExistente.id }
-        });
-        // Deletar a locação antiga temporariamente
-        if (contratoExistente.imovelLocacaoId) {
-          await prisma.imovelLocacao.delete({
-            where: { id: contratoExistente.imovelLocacaoId }
-          });
-        }
-      }
-
       const contrato = await prisma.contratoImovelLocacao.create({
         data: {
           id: contratoId,

@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { DataTable, Column } from '@/components/shared/DataTable';
+import { adicionarDiasUTC } from '@/lib/locacao/periodos';
 
 // Podemos exportar a interface para reuso, caso o pai precise dela
 export interface Contrato {
@@ -67,6 +67,37 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 if (!locacao?.dataFim) return 'Não informado';
                 return new Date(locacao.dataFim).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            }
+        },
+        {
+            header: 'Próximo reajuste',
+            accessorKey: 'proximoReajuste',
+            cell: (item: any) => {
+                const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
+                if (!locacao) return 'Não informado';
+                const periodos = [...(locacao.periodos || [])].sort(
+                    (a: any, b: any) => new Date(a.dataInicio).getTime() - new Date(b.dataInicio).getTime()
+                );
+                const ultimo = periodos[periodos.length - 1];
+                const data = ultimo ? adicionarDiasUTC(ultimo.dataFim, 1) : locacao.proximoReajuste;
+                if (!data || new Date(data) > new Date(locacao.dataFim)) return '—';
+                return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            }
+        },
+        {
+            header: 'Histórico',
+            accessorKey: 'historicoPeriodosStatus',
+            cell: (item: any) => {
+                const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
+                const status = locacao?.historicoPeriodosStatus || 'NAO_INICIADO';
+                const config: Record<string, { label: string; classe: string }> = {
+                    COMPLETO: { label: 'Completo', classe: 'bg-emerald-50 text-emerald-700' },
+                    PARCIAL: { label: 'Parcial', classe: 'bg-amber-50 text-amber-700' },
+                    DIVERGENTE: { label: 'Divergente', classe: 'bg-rose-50 text-rose-700' },
+                    NAO_INICIADO: { label: 'Não iniciado', classe: 'bg-gray-100 text-gray-600' },
+                };
+                const visual = config[status] || config.NAO_INICIADO;
+                return <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${visual.classe}`}>{visual.label}</span>;
             }
         },
         {

@@ -115,6 +115,7 @@ async function main() {
           periodicidadeReajuste: 12,
           indiceReajuste: "IGPM",
           proximoReajuste: proximoReajuste || imovelLocacao.proximoReajuste,
+          historicoPeriodosStatus: "PARCIAL",
           multaAtrasoPercentual: 10.0, // Default
           diasCarenciaMulta: 1,        // Default
           jurosAtrasoPercentual: 1.0,  // Default
@@ -146,6 +147,8 @@ async function main() {
             jurosAtrasoPercentual: 1.0,
             diasCarenciaJuros: 1,
             indiceReajuste: "IGPM",
+            tipoPeriodo: "BASE",
+            origemPeriodo: "SICADI_PROVISORIO",
           },
         });
         periodsCreated++;

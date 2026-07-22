@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { adicionarDiasUTC, calcularFaixaPeriodo, normalizarDataUTC } from "@/lib/locacao/periodos";
 
 // Interface para entrada do Locatário (Inquilino)
 export interface LocatarioInput {
@@ -391,6 +392,8 @@ export async function createContratoLocacao(input: {
 
           periodicidadeReajuste: input.periodicidadeReajuste,
           indiceReajuste: input.indiceReajuste,
+          historicoPeriodosStatus: "COMPLETO",
+          historicoRevisadoEm: new Date(),
           multaQuebraContrato: input.multaQuebraContrato,
           tipoMultaQuebra: input.tipoMultaQuebra || "PERCENTUAL",
           vencimentoQuebra: input.vencimentoQuebra ? new Date(input.vencimentoQuebra) : null,
@@ -407,11 +410,16 @@ export async function createContratoLocacao(input: {
       });
 
       // 1.1 Criar o primeiro Período Contratual vigente
+      const faixaPrimeiroPeriodo = calcularFaixaPeriodo(
+        input.dataInicioPeriodo || input.dataInicio,
+        input.periodicidadeReajuste || 12,
+        input.dataFim,
+      );
       await tx.periodoContratoLocacao.create({
         data: {
           imovelLocacaoId: imovelLocacao.id,
           dataInicio: input.dataInicioPeriodo ? new Date(input.dataInicioPeriodo) : new Date(input.dataInicio),
-          dataFim: input.dataFimPeriodo ? new Date(input.dataFimPeriodo) : new Date(input.dataFim),
+          dataFim: input.dataFimPeriodo ? new Date(input.dataFimPeriodo) : faixaPrimeiroPeriodo.dataFim,
           valorAluguel: input.valorAluguel,
           hasCondominio: input.valorCondominio > 0,
           valorCondominio: input.valorCondominio,
@@ -426,6 +434,16 @@ export async function createContratoLocacao(input: {
           jurosAtrasoPercentual: input.jurosAtrasoPercentual,
           diasCarenciaJuros: input.diasCarenciaJuros,
           indiceReajuste: input.indiceReajuste,
+          tipoPeriodo: "BASE",
+          origemPeriodo: "MANUAL",
+        },
+      });
+      await tx.imovelLocacao.update({
+        where: { id: imovelLocacao.id },
+        data: {
+          proximoReajuste: faixaPrimeiroPeriodo.dataFim < normalizarDataUTC(input.dataFim)
+            ? adicionarDiasUTC(faixaPrimeiroPeriodo.dataFim, 1)
+            : null,
         },
       });
 
