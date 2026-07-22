@@ -1,0 +1,26 @@
+[1mdiff --git a/prisma/migrations/20260721011727_add_campos_locacao/migration.sql b/prisma/migrations/20260721011727_add_campos_locacao/migration.sql[m
+[1mindex 503e44c..551cb9a 100644[m
+[1m--- a/prisma/migrations/20260721011727_add_campos_locacao/migration.sql[m
+[1m+++ b/prisma/migrations/20260721011727_add_campos_locacao/migration.sql[m
+[36m@@ -1,6 +1,21 @@[m
+[32m+[m[32m-- AlterTable[m
+[32m+[m[32mALTER TABLE "contrato_imovel_locacao" ADD COLUMN     "documentoUrl" JSONB;[m
+[32m+[m
+ -- AlterTable[m
+ ALTER TABLE "imovel_locacao" ADD COLUMN     "carenciaRepasse" INTEGER,[m
+ ADD COLUMN     "irrfResponsabilidade" TEXT,[m
+ ADD COLUMN     "taxaAdministracao" DOUBLE PRECISION,[m
+ ADD COLUMN     "taxaIntermediacao" DOUBLE PRECISION,[m
+ ADD COLUMN     "taxaMultasEncargos" DOUBLE PRECISION;[m
+[32m+[m
+[32m+[m[32m-- AlterTable[m
+[32m+[m[32mALTER TABLE "periodo_contrato_locacao" ADD COLUMN     "indiceReajuste" TEXT;[m
+[32m+[m
+[32m+[m[32m-- AlterTable[m
+[32m+[m[32mALTER TABLE "users" ADD COLUMN     "creci" TEXT;[m
+[32m+[m
+[32m+[m[32m-- AlterTable[m
+[32m+[m[32mALTER TABLE "vistoria" ADD COLUMN     "locatarioId" TEXT;[m
+[32m+[m
+[32m+[m[32m-- AddForeignKey[m
+[32m+[m[32mALTER TABLE "vistoria" ADD CONSTRAINT "vistoria_locatarioId_fkey" FOREIGN KEY ("locatarioId") REFERENCES "Locatario"("id") ON DELETE SET NULL ON UPDATE CASCADE;[m

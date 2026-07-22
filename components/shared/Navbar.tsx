@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Search, Bell, LayoutDashboard, Scale, Coins, Settings, Download } from "lucide-react";
+import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,7 @@ const navItems = [
   { name: "Vistorias", href: "/vistorias", icon: ClipboardCheck },
   { name: "Imóveis", href: "/imoveis", icon: Building },
   { name: "Locação", href: "/locacao", icon: Key },
+  { name: "Manutenções", href: "/manutencoes", icon: Wrench },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "CRM", href: "/crm", icon: LayoutDashboard },
   { name: "Jurídico", href: "/juridico", icon: Scale },

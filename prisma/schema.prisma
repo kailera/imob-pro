@@ -37,6 +37,8 @@ model Imob {
   imovels                Imovel[]
   contratoImovelLocacaos ContratoImovelLocacao[]
   configuracaoInter      ConfiguracaoInter?
+  prestadorServicos      PrestadorServico[]
+  manutencoes            Manutencao[]
 
   @@map("imob")
 }
@@ -74,6 +76,7 @@ model Imovel {
   id              String     @id @default(uuid())
   codigo          String     @unique
   numero          Int
+  logradouro      String?
   bairro          String
   cidade          String
   uf              String
@@ -114,6 +117,7 @@ model Imovel {
   vistorias              Vistoria[]
   contratoImovelLocacaos ContratoImovelLocacao[]
   transacoes             TransacaoFinanceira[]
+  manutencoes            Manutencao[]
 
   @@map("imovel")
 }
@@ -230,6 +234,7 @@ model ContratoImovelLocacao {
   locatarios           Locatario[]
   transacaoFinanceiras TransacaoFinanceira[]
   documentoUrl         Json?
+  manutencoes          Manutencao[]
 
   @@map("contrato_imovel_locacao")
 }
@@ -609,6 +614,98 @@ model ContractTemplate {
 }
 
 //*************************************************************
+// --------------- MANUTENCOES --------------------
+//*************************************************************
+
+model PrestadorServico {
+  id        String   @id @default(uuid())
+  imobId    String
+  nome      String
+  area      String
+  telefone  String?
+  pix       String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  imob        Imob         @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  manutencoes Manutencao[]
+
+  @@index([imobId, nome])
+  @@map("prestador_servico")
+}
+
+enum StatusManutencao {
+  EM_ANDAMENTO
+  FINALIZADA
+}
+
+enum StatusDescontoManutencao {
+  PROGRAMADO
+  APLICADO
+  CANCELADO
+}
+
+model Manutencao {
+  id                   String           @id @default(uuid())
+  imobId               String
+  contratoId           String
+  imovelId             String
+  prestadorId          String?
+  descricao            String           @db.Text
+  dataManutencao       DateTime
+  valor                Decimal          @db.Decimal(15, 2)
+  status               StatusManutencao @default(EM_ANDAMENTO)
+  repassarProprietario Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  imob       Imob                  @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  imovel     Imovel                @relation(fields: [imovelId], references: [id], onDelete: Restrict)
+  contrato   ContratoImovelLocacao @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  prestador  PrestadorServico?     @relation(fields: [prestadorId], references: [id], onDelete: SetNull)
+  documentos DocumentoManutencao[]
+  descontos  DescontoManutencao[]
+
+  @@index([imobId])
+  @@index([contratoId])
+  @@index([imovelId])
+  @@index([prestadorId])
+  @@map("manutencao")
+}
+
+model DocumentoManutencao {
+  id           String   @id @default(uuid())
+  manutencaoId String
+  nomeOriginal String
+  url          String
+  storageKey   String?
+  mimeType     String
+  tamanhoBytes Int?
+  createdAt    DateTime @default(now())
+
+  manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+}
+
+model DescontoManutencao {
+  id           String                   @id @default(uuid())
+  manutencaoId String
+  competencia  String // Formato YYYY-MM
+  valor        Decimal                  @db.Decimal(15, 2)
+  status       StatusDescontoManutencao @default(PROGRAMADO)
+  repasseId    String?
+  aplicadoEm   DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  manutencao Manutencao           @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  repasse    TransacaoFinanceira? @relation(fields: [repasseId], references: [id], onDelete: SetNull)
+
+  @@unique([manutencaoId, competencia])
+  @@index([competencia, status])
+}
+
+//*************************************************************
 // --------------- FINANCEIRO --------------------
 //*************************************************************
 
@@ -663,17 +760,18 @@ model TransacaoFinanceira {
   repassesGerados   TransacaoFinanceira[] @relation("RepasseOrigem")
 
   // Integration Fields
-  interNossoNumero       String?   @unique
+  interNossoNumero       String?              @unique
   interPixCode           String? // PIX Copy & Paste string
   interBarcode           String? // Boleto Barcode
   interPdfKey            String? // File name/key in RustFS/MinIO
   interStatus            String? // Inter's status: APROVADO, PAGO, VENCIDO, etc.
-  interCodigoSolicitacao String?   @unique
-  interSeuNumero         String?   @unique
+  interCodigoSolicitacao String?              @unique
+  interSeuNumero         String?              @unique
   interTxId              String?
   interOrigemRecebimento String?
   interDataRecebimento   DateTime?
-  interValorRecebido     Decimal?  @db.Decimal(15, 2) // para confronto
+  interValorRecebido     Decimal?             @db.Decimal(15, 2) // para confronto
+  descontosManutencao    DescontoManutencao[]
 
   @@map("transacao_financeira")
 }

@@ -16,6 +16,7 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  Wrench,
 } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 
@@ -23,6 +24,7 @@ import { PerfilTab } from "./components/PerfilTab";
 import { InterTab } from "./components/InterTab";
 import { UsersTab } from "./components/UsersTab";
 import { ModelosTab } from "./components/ModelosTab";
+import { PrestadoresTab } from "./components/PrestadoresTab";
 
 export default function ConfiguracoesClient() {
   const { orgId, orgRole, userId: currentUserId } = useAuth();
@@ -71,7 +73,8 @@ export default function ConfiguracoesClient() {
   const [loadingRole, setLoadingRole] = useState(true);
 
 
-  const isAdmin = !orgRole || orgRole === "org:admin" || userDbRole === "ADMIN" || userDbRole === "CORRETOR"; const [activeTab, setActiveTab] = useState<"perfil" | "inter" | "users" | "modelos">("perfil");
+  const isAdmin = !orgRole || orgRole === "org:admin" || userDbRole === "ADMIN" || userDbRole === "CORRETOR";
+  const [activeTab, setActiveTab] = useState<"perfil" | "inter" | "users" | "prestadores" | "modelos">("perfil");
 
   async function handleCreateUserSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -433,6 +436,19 @@ export default function ConfiguracoesClient() {
         </button>
         <button
           onClick={() => {
+            setActiveTab("prestadores");
+            setMessage(null);
+          }}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeTab === "prestadores"
+            ? "bg-[#280003]/5 text-[#280003]"
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+        >
+          <Wrench className="w-4 h-4" />
+          Prestadores de Serviço
+        </button>
+        <button
+          onClick={() => {
             setActiveTab("modelos");
             setMessage(null);
           }}
@@ -519,7 +535,12 @@ export default function ConfiguracoesClient() {
           />
         )}
 
-        {/* 4. ABA MODELOS DE CONTRATOS */}
+        {/* 4. ABA PRESTADORES DE SERVIÇO */}
+        {activeTab === "prestadores" && (
+          <PrestadoresTab isAdmin={isAdmin} />
+        )}
+
+        {/* 5. ABA MODELOS DE CONTRATOS */}
         {activeTab === "modelos" && (
           <ModelosTab
             isAdmin={isAdmin}
