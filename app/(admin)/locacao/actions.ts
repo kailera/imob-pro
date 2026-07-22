@@ -2,6 +2,34 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma"; // Ajuste o caminho conforme a localização do seu Prisma Client configurado
+
+const SERIES_REAJUSTE: Record<string, number> = {
+    IPCA: 433, INPC: 188, IGPM: 189, IGP: 190, IPC: 193, "IPC-DI": 191,
+};
+
+export const calcularIndiceReajuste = async (indice: string, dataInicio: string, dataFim: string) => {
+    const serie = SERIES_REAJUSTE[indice];
+    if (!serie) return { success: false, error: "Índice não disponível para cálculo automático." };
+    const formatarData = (valor: string) => {
+        const [ano, mes, dia] = valor.split("-");
+        return `${dia}/${mes}/${ano}`;
+    };
+    try {
+        const params = new URLSearchParams({ formato: "json", dataInicial: formatarData(dataInicio), dataFinal: formatarData(dataFim) });
+        const response = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados?${params}`, { next: { revalidate: 3600 } });
+        if (!response.ok) throw new Error("Serviço de índices indisponível.");
+        const dados = (await response.json()) as Array<{ data: string; valor: string }>;
+        if (!dados.length) return { success: false, error: "Ainda não há valores publicados para esse período." };
+        const fator = dados.reduce((total, item) => {
+            const variacao = Number(item.valor.replace(",", "."));
+            return Number.isFinite(variacao) ? total * (1 + variacao / 100) : total;
+        }, 1);
+        return { success: true, percentual: Number(((fator - 1) * 100).toFixed(4)), competenciaInicial: dados[0].data, competenciaFinal: dados[dados.length - 1].data, mesesConsiderados: dados.length };
+    } catch (error: unknown) {
+        console.error("Erro ao calcular índice de reajuste:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Não foi possível consultar o índice." };
+    }
+};
 import {
     TipoVistoria,
     TipoImovelVistoriado,
@@ -259,6 +287,9 @@ export const addPeriodoContratoLocacao = async (input: {
     jurosAtrasoPercentual?: number | null;
     diasCarenciaJuros?: number | null;
     indiceReajuste?: string | null;
+    valorAluguelAnterior?: number | null;
+    percentualReajuste?: number | null;
+    reajusteAutomatico?: boolean;
 }) => {
     try {
         const dataInicioObj = new Date(input.dataInicio);
@@ -301,6 +332,10 @@ export const addPeriodoContratoLocacao = async (input: {
                 jurosAtrasoPercentual: input.jurosAtrasoPercentual,
                 diasCarenciaJuros: input.diasCarenciaJuros,
                 indiceReajuste: input.indiceReajuste,
+                valorAluguelAnterior: input.valorAluguelAnterior,
+                percentualReajuste: input.percentualReajuste,
+                reajusteAutomatico: input.reajusteAutomatico ?? false,
+                dataCalculoReajuste: input.percentualReajuste != null ? new Date() : null,
             },
         });
 
@@ -329,6 +364,9 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
     jurosAtrasoPercentual?: number | null;
     diasCarenciaJuros?: number | null;
     indiceReajuste?: string | null;
+    valorAluguelAnterior?: number | null;
+    percentualReajuste?: number | null;
+    reajusteAutomatico?: boolean;
 }) => {
     try {
         const dataInicioObj = new Date(input.dataInicio);
@@ -383,6 +421,10 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
                 jurosAtrasoPercentual: input.jurosAtrasoPercentual,
                 diasCarenciaJuros: input.diasCarenciaJuros,
                 indiceReajuste: input.indiceReajuste,
+                valorAluguelAnterior: input.valorAluguelAnterior,
+                percentualReajuste: input.percentualReajuste,
+                reajusteAutomatico: input.reajusteAutomatico ?? false,
+                dataCalculoReajuste: input.percentualReajuste != null ? new Date() : null,
             },
         });
 

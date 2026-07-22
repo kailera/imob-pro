@@ -16,6 +16,9 @@ interface ImovelLocacaoData {
   taxaIntermediacao?: number | null;
   irrfResponsabilidade?: string | null;
   carenciaRepasse?: number | null;
+  indiceReajuste?: string | null;
+  proximoReajuste?: string | Date | null;
+  periodicidadeReajuste?: number | null;
 }
 
 interface DadosVigenciaFormClientProps {
@@ -274,6 +277,17 @@ export default function DadosVigenciaFormClient({
             </select>
           </div>
 
+          <div className="bg-[#004777]/5 border border-[#004777]/10 p-3 rounded-xl grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-[#004777] font-bold block text-[9px] uppercase tracking-wider">Índice contratual</span>
+              <span>{imovelLocacao?.indiceReajuste || "Não definido"}</span>
+            </div>
+            <div>
+              <span className="text-[#004777] font-bold block text-[9px] uppercase tracking-wider">Próximo reajuste</span>
+              <span>{formatDateDisplay(imovelLocacao?.proximoReajuste)}</span>
+            </div>
+          </div>
+
           {vencimentoDia !== undefined && (
             <div className="bg-blue-50/80 border border-blue-100 p-3 rounded-xl mt-2">
               <span className="text-[#004777] font-bold block text-[9px] uppercase tracking-wider">Dia de Vencimento</span>
@@ -320,6 +334,20 @@ export default function DadosVigenciaFormClient({
         <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
           <span className="text-gray-400 text-[10px] uppercase font-bold">Data de Término</span>
           <span>{formatDateDisplay(imovelLocacao?.dataFim)}</span>
+        </div>
+        <div className="rounded-xl bg-[#004777]/5 border border-[#004777]/10 p-3 space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-[#004777] text-[10px] uppercase font-bold">Índice contratual</span>
+            <span className="font-extrabold text-[#004777]">{imovelLocacao?.indiceReajuste || "Não definido"}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 text-[10px] uppercase font-bold">Próximo reajuste</span>
+            <span>{formatDateDisplay(imovelLocacao?.proximoReajuste)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 text-[10px] uppercase font-bold">Periodicidade</span>
+            <span>{imovelLocacao?.periodicidadeReajuste ? `${imovelLocacao.periodicidadeReajuste} meses` : "-"}</span>
+          </div>
         </div>
         <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
           <span className="text-gray-400 text-[10px] uppercase font-bold">Has Condomínio</span>

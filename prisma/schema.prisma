@@ -193,6 +193,10 @@ model PeriodoContratoLocacao {
   jurosAtrasoPercentual Float?
   diasCarenciaJuros     Int?
   indiceReajuste        String?
+  valorAluguelAnterior  Float?
+  percentualReajuste    Float?
+  reajusteAutomatico    Boolean @default(false)
+  dataCalculoReajuste   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
