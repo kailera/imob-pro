@@ -97,7 +97,7 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             accessorKey: 'id',
             cell: (item: any) => {
                 return (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-end gap-2 md:justify-start">
                         <Link
                             href={`/locacao/view-locacao/${item.id}`}
                             className="inline-flex items-center gap-1 text-[#004777] hover:text-[#002f50] font-semibold text-xs hover:underline"
@@ -124,6 +124,7 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
                 data={contratos}
                 columns={columns}
                 onAddClick={onOpenModal} // O clique sobe para o LocacaoClientContainer abrir o modal!
+                responsiveCards
             />
         </div>
     );

@@ -17,6 +17,7 @@ interface DataTableProps<T> {
   searchValue?: string;
   onSearchChange?: (val: string) => void;
   searchPlaceholder?: string;
+  responsiveCards?: boolean;
 }
 
 export function DataTable<T>({
@@ -27,6 +28,7 @@ export function DataTable<T>({
   searchValue,
   onSearchChange,
   searchPlaceholder = "Buscar...",
+  responsiveCards = false,
 }: DataTableProps<T>) {
   const [internalSearch, setInternalSearch] = React.useState("");
 
@@ -89,14 +91,44 @@ export function DataTable<T>({
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full whitespace-nowrap">
+        {responsiveCards && (
+          <div className="divide-y divide-gray-100 md:hidden">
+            {filteredData.map((row, rowIndex) => (
+              <article key={rowIndex} className="space-y-3 p-4">
+                {columns.map((col, colIndex) => (
+                  <div
+                    key={colIndex}
+                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-3"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {col.header}
+                    </span>
+                    <div className="min-w-0 break-words text-right text-sm text-[#280003]">
+                      {col.cell ? col.cell(row) : (row[col.accessorKey] as React.ReactNode)}
+                    </div>
+                  </div>
+                ))}
+              </article>
+            ))}
+            {filteredData.length === 0 && (
+              <div className="px-4 py-12 text-center text-sm text-gray-500">
+                Nenhum registro encontrado.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className={responsiveCards ? "hidden w-full overflow-hidden md:block" : "overflow-x-auto"}>
+          <table className={responsiveCards ? "w-full table-fixed" : "w-full whitespace-nowrap"}>
             <thead>
               <tr className="border-b border-gray-100 bg-white">
                 {columns.map((col, index) => (
                   <th
                     key={index}
-                    className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className={responsiveCards
+                      ? "px-3 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider break-words"
+                      : "px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    }
                   >
                     {col.header}
                   </th>
@@ -107,7 +139,13 @@ export function DataTable<T>({
               {filteredData.map((row, rowIndex) => (
                 <tr key={rowIndex} className="hover:bg-gray-50 transition-colors group">
                   {columns.map((col, colIndex) => (
-                    <td key={colIndex} className="px-6 py-4 text-sm text-[#280003]">
+                    <td
+                      key={colIndex}
+                      className={responsiveCards
+                        ? "px-3 py-4 align-top text-sm text-[#280003] break-words"
+                        : "px-6 py-4 text-sm text-[#280003]"
+                      }
+                    >
                       {col.cell ? col.cell(row) : (row[col.accessorKey] as React.ReactNode)}
                     </td>
                   ))}

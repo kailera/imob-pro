@@ -263,8 +263,10 @@ export default function ClientesPage() {
       accessorKey: "id",
       cell: (item: ClienteRecord) => (
         <button
+          type="button"
           onClick={() => handleEditClick(item)}
-          className="text-xs font-bold text-[#004777] hover:underline cursor-pointer bg-transparent border-0"
+          aria-label={`Editar cliente ${item.nome}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border-0 bg-transparent px-3 text-xs font-bold text-[#004777] cursor-pointer hover:bg-[#004777]/5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"
         >
           Editar
         </button>
@@ -378,6 +380,7 @@ export default function ClientesPage() {
           title={`Lista de Clientes (${filteredClientes.length})`}
           data={filteredClientes}
           columns={columns}
+          responsiveCards
         />
       )}
 

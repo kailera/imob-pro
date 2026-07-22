@@ -289,17 +289,102 @@ export default function ImoveisClient({
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl shadow-sm border border-zinc-200/80 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full whitespace-nowrap text-left border-collapse">
+        <div className="divide-y divide-zinc-100 md:hidden">
+          {isLoading ? (
+            <div className="px-4 py-12 text-center text-sm font-medium text-[#280003]/60">
+              <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-[#004777]" />
+              Carregando imóveis da base de dados...
+            </div>
+          ) : filteredImoveis.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm font-medium text-[#280003]/50">
+              Nenhum imóvel encontrado com os filtros aplicados.
+            </div>
+          ) : (
+            paginatedImoveis.map((imovel) => (
+              <article key={imovel.id} className="space-y-3 p-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-[#004777]">{imovel.codigo}</span>
+                      {imovel.aluguelDados?.precisaAtualizar === true && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                          Pendência
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#280003]">
+                      <Building className="h-4 w-4 shrink-0 text-[#280003]/40" />
+                      {TIPO_LABELS[imovel.tipo]}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleEditClick(imovel)}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-[#EEEEF3] hover:text-[#004777]"
+                      title="Editar Imóvel"
+                      aria-label={`Editar imóvel ${imovel.codigo}`}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImovelToDelete(imovel)}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                      title="Excluir Imóvel"
+                      aria-label={`Excluir imóvel ${imovel.codigo}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 text-xs text-[#280003]/70">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#280003]/40" />
+                  <span className="min-w-0 break-words">
+                    {imovel.bairro}, {imovel.cidade} - {imovel.uf} · Número {imovel.numero} · CEP {imovel.cep}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {imovel.forVenda && (
+                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
+                      Venda · {formatBRL(imovel.valorVenda)}
+                    </span>
+                  )}
+                  {imovel.forLocacao && (
+                    <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">
+                      Locação · {formatBRL(imovel.valorAluguel)}/mês
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="w-full overflow-hidden">
+          <table className="hidden w-full table-fixed text-left border-collapse md:table">
+            <colgroup>
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[21%]" />
+              <col className="w-[13%]" />
+              <col className="w-[19%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-zinc-100 bg-[#EEEEF3]/30">
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50">Código</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50">Tipo</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50">Endereço</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50">Preço Venda</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50">Aluguel / Encargos</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 text-center">Modalidade</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 text-right">Ações</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 break-words">Código</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 break-words">Tipo</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 break-words">Endereço</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 break-words">Preço Venda</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 break-words">Aluguel / Encargos</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 text-center break-words">Modalidade</th>
+                <th className="px-3 py-4 text-xs font-bold uppercase tracking-wider text-[#280003]/50 text-right break-words">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -320,9 +405,9 @@ export default function ImoveisClient({
                 paginatedImoveis.map((imovel) => (
                   <tr key={imovel.id} className="hover:bg-zinc-50/60 transition-colors group">
                     {/* Código */}
-                    <td className="px-6 py-4 text-sm font-bold text-[#004777]">
-                      <div className="flex items-center gap-2">
-                        <span>{imovel.codigo}</span>
+                    <td className="px-3 py-4 text-sm font-bold text-[#004777]">
+                      <div className="flex min-w-0 flex-col items-start gap-1">
+                        <span className="break-words">{imovel.codigo}</span>
                         {imovel.aluguelDados?.precisaAtualizar === true && (
                           <span 
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 animate-pulse"
@@ -336,9 +421,9 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Tipo */}
-                    <td className="px-6 py-4 text-sm font-medium">
-                      <span className="flex items-center gap-2">
-                        <Building className="w-4 h-4 text-[#280003]/40" />
+                    <td className="px-3 py-4 text-sm font-medium">
+                      <span className="flex min-w-0 items-start gap-1.5 break-words">
+                        <Building className="mt-0.5 w-4 h-4 shrink-0 text-[#280003]/40" />
                         {TIPO_LABELS[imovel.tipo]}
                       </span>
                       {imovel.loteamento && (
@@ -349,9 +434,9 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Endereço */}
-                    <td className="px-6 py-4 text-sm text-[#280003]/80">
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#280003]/40" />
+                    <td className="px-3 py-4 text-sm text-[#280003]/80">
+                      <span className="flex min-w-0 items-start gap-1.5 break-words">
+                        <MapPin className="mt-0.5 w-3.5 h-3.5 shrink-0 text-[#280003]/40" />
                         {imovel.bairro}, {imovel.cidade} - {imovel.uf}
                       </span>
                       <span className="block text-xs text-[#280003]/50 mt-0.5">
@@ -360,7 +445,7 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Preço Venda */}
-                    <td className="px-6 py-4 text-sm font-semibold">
+                    <td className="px-3 py-4 text-sm font-semibold break-words">
                       {imovel.forVenda ? (
                         <span className="text-zinc-800 font-bold">{formatBRL(imovel.valorVenda)}</span>
                       ) : (
@@ -369,7 +454,7 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Aluguel / Encargos */}
-                    <td className="px-6 py-4 text-sm text-[#280003]/80">
+                    <td className="px-3 py-4 text-sm text-[#280003]/80 break-words">
                       {imovel.forLocacao ? (
                         <div className="space-y-0.5">
                           <span className="font-bold text-zinc-800 block">Aluguel: {formatBRL(imovel.valorAluguel)}/mês</span>
@@ -383,8 +468,8 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Modalidade */}
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className="px-3 py-4 text-center">
+                      <div className="flex flex-col items-center justify-center gap-1.5">
                         {imovel.forVenda && (
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 border border-emerald-100 text-emerald-700">
                             Venda
@@ -399,8 +484,8 @@ export default function ImoveisClient({
                     </td>
 
                     {/* Ações */}
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <td className="px-3 py-4 text-right text-sm font-medium">
+                      <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleEditClick(imovel)}
                           className="p-1.5 text-zinc-600 hover:text-[#004777] hover:bg-[#EEEEF3] rounded-lg transition-colors cursor-pointer"

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -567,16 +568,11 @@ export default function VistoriasPage() {
               </div>
             ) : (
               filteredVistorias.map((v) => (
-                <div
+                <Link
                   key={v.id}
-                  onClick={() => {
-                    if (window.innerWidth < 1024) {
-                      router.push(`/vistorias/ficha-vistoria/${v.id}`);
-                    } else {
-                      setSelectedVistoria(v);
-                    }
-                  }}
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-3 cursor-pointer hover:bg-slate-50/70 transition-all ${getStatusRowClass(
+                  href={`/vistorias/ficha-vistoria/${v.id}`}
+                  aria-label={`Abrir ficha da vistoria ${v.codigo}`}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-3 cursor-pointer hover:bg-slate-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#004777] transition-all ${getStatusRowClass(
                     v.status
                   )} ${selectedVistoria && selectedVistoria.id === v.id ? "bg-[#004777]/5 border-l-4" : ""}`}
                 >
@@ -599,7 +595,7 @@ export default function VistoriasPage() {
                       {v.dataVistoria ? `Vistoria: ${v.dataVistoria}` : `Solicitada: ${v.dataSolicitacao}`}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
