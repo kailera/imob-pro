@@ -657,14 +657,57 @@ model TransacaoFinanceira {
   comissao     Comissao[]
   conciliacoes MovimentacaoBancaria[]
 
+  // Garante que cada cobrança de aluguel gere no máximo um repasse.
+  transacaoOrigemId String?               @unique
+  transacaoOrigem   TransacaoFinanceira?  @relation("RepasseOrigem", fields: [transacaoOrigemId], references: [id], onDelete: SetNull)
+  repassesGerados   TransacaoFinanceira[] @relation("RepasseOrigem")
+
   // Integration Fields
-  interNossoNumero String? @unique
-  interPixCode     String? // PIX Copy & Paste string
-  interBarcode     String? // Boleto Barcode
-  interPdfKey      String? // File name/key in RustFS/MinIO
-  interStatus      String? // Inter's status: APROVADO, PAGO, VENCIDO, etc.
+  interNossoNumero       String?   @unique
+  interPixCode           String? // PIX Copy & Paste string
+  interBarcode           String? // Boleto Barcode
+  interPdfKey            String? // File name/key in RustFS/MinIO
+  interStatus            String? // Inter's status: APROVADO, PAGO, VENCIDO, etc.
+  interCodigoSolicitacao String?   @unique
+  interSeuNumero         String?   @unique
+  interTxId              String?
+  interOrigemRecebimento String?
+  interDataRecebimento   DateTime?
+  interValorRecebido     Decimal?  @db.Decimal(15, 2) // para confronto
 
   @@map("transacao_financeira")
+}
+
+model InterWebhookEvent {
+  id                 String                  @id @default(uuid())
+  eventKey           String                  @unique
+  codigoSolicitacao  String?
+  nossoNumero        String?
+  seuNumero          String?
+  contaCorrente      String?
+  situacao           String
+  origemRecebimento  String?
+  valorTotalRecebido Decimal?                @db.Decimal(15, 2)
+  dataHoraSituacao   DateTime?
+  payload            Json
+  status             InterWebhookEventStatus
+  tentativas         Int                     @default(0)
+  erro               String?
+  recebidoEm         DateTime                @default(now())
+  processadoEm       DateTime?
+
+  @@index([codigoSolicitacao])
+  @@index([nossoNumero])
+  @@index([status, recebidoEm])
+  @@map("inter_webhook_event")
+}
+
+enum InterWebhookEventStatus {
+  RECEBIDO
+  PROCESSANDO
+  PROCESSADO
+  IGNORADO
+  ERRO
 }
 
 model ConfiguracaoInter {

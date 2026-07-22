@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
+import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -239,118 +240,18 @@ export async function liquidarCobrancaAction(cobrancaId: string, dataPagamento: 
 // Cria automaticamente o repasse de locador correspondente a um aluguel liquidado
 export async function criarRepassePendente(rentTransactionId: string) {
   try {
-    const rentTx = await prisma.transacaoFinanceira.findUnique({
-      where: { id: rentTransactionId },
-      include: {
-        contrato: {
-          include: {
-            imovel: true,
-            imovelLocacao: {
-              include: {
-                locadors: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!rentTx || rentTx.categoria !== "ALUGUEL" || rentTx.status !== "LIQUIDADO") {
-      return;
+    const result = await prisma.$transaction((tx) =>
+      createPendingRepasseForRent(tx, rentTransactionId),
+    );
+    if (result.created) {
+      console.log(`[criarRepassePendente] Repasse pendente criado para o aluguel ${rentTransactionId}.`);
     }
-
-    // Verificar se já existe um repasse associado a este aluguel
-    const repassesContrato = await prisma.transacaoFinanceira.findMany({
-      where: {
-        contratoId: rentTx.contratoId,
-        categoria: "REPASSE",
-      },
-    });
-
-    const alreadyExists = repassesContrato.some((r) => {
-      const meta = r.metadata as any;
-      return meta && meta.rentTransactionId === rentTransactionId;
-    });
-
-    if (alreadyExists) {
-      console.log(`[criarRepassePendente] Repasse já existe para transação de aluguel: ${rentTransactionId}`);
-      return;
-    }
-
-    const contrato = rentTx.contrato;
-    if (!contrato || !contrato.imovel) return;
-
-    // Obter percentual da taxa de administração do imóvel (aluguelDados JSON)
-    const aluguelDados = (contrato.imovel.aluguelDados as any) || {};
-    const adminFeeStr = aluguelDados.taxaAdministracao || "10,00";
-    const adminFeePercent = parseFloat(adminFeeStr.replace(",", ".")) || 10.0;
-
-    const rentMeta = (rentTx.metadata as any) || {};
-    const rentValue = rentMeta.rentValue || rentTx.valor;
-    const adminFeeValue = rentValue * (adminFeePercent / 100);
-
-    // Buscar despesas de manutenção pagas no mesmo mês de competência deste imóvel
-    const competence = rentMeta.competence || new Date(rentTx.dataVencimento).toISOString().slice(0, 7);
-    const [ano, mesStr] = competence.split("-");
-    const mes = parseInt(mesStr);
-    const startDate = new Date(parseInt(ano), mes - 1, 1);
-    const endDate = new Date(parseInt(ano), mes, 0, 23, 59, 59);
-
-    const manutencoes = await prisma.transacaoFinanceira.findMany({
-      where: {
-        imovelId: contrato.imovelId,
-        tipo: "DESPESA",
-        categoria: "CUSTO_OPERACIONAL",
-        status: "LIQUIDADO",
-        dataPagamento: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    });
-
-    const maintenanceTotal = manutencoes.reduce((sum, tx) => sum + tx.valor, 0);
-    const maintenanceIds = manutencoes.map((tx) => tx.id);
-
-    // Valor Bruto Total pago (inclui aluguel + taxas acessórias conforme o contrato)
-    const grossTotal = rentTx.valor;
-    // O valor líquido repassado = Valor total pago - taxa de administração (calculada sobre o aluguel) - manutenção
-    const netValue = grossTotal - adminFeeValue - maintenanceTotal;
-
-    const ownerName = contrato.imovelLocacao?.locadors?.[0]?.nome || "Proprietário";
-    const propertyTitle = contrato.imovel.titulo || `Cód ${contrato.imovel.codigo}`;
-
-    const repasseMetadata = {
-      rentTransactionId: rentTx.id,
-      grossRentValue: rentValue,
-      grossTotalValue: grossTotal,
-      adminFeePercent,
-      adminFeeValue,
-      deductedMaintenanceIds: maintenanceIds,
-      deductedMaintenanceValue: maintenanceTotal,
-      competence,
-    };
-
-    await prisma.transacaoFinanceira.create({
-      data: {
-        descricao: `Repasse - ${ownerName} (${propertyTitle}) - Competência ${mesStr}/${ano}`,
-        valor: netValue < 0 ? 0 : netValue,
-        tipo: "DESPESA",
-        categoria: "REPASSE",
-        status: "PENDENTE",
-        dataVencimento: new Date(),
-        contratoId: contrato.id,
-        imovelId: contrato.imovelId,
-        metadata: repasseMetadata as any,
-      },
-    });
-
-    console.log(`[criarRepassePendente] Criou repasse pendente para aluguel ${rentTransactionId} com valor líquido de R$${netValue}`);
     
     revalidatePath("/pagamentos");
     revalidatePath("/financeiro");
   } catch (error) {
     console.error("[criarRepassePendente] Erro ao criar repasse automático:", error);
+    throw error;
   }
 }
 
@@ -409,4 +310,3 @@ export async function renegociarCobrancaAction(
     return { success: false, error: error.message || "Erro inesperado ao renegociar cobrança." };
   }
 }
-

@@ -383,6 +383,17 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     const codigoSolicitacao = postData.codigoSolicitacao;
     console.log(`[gerarBolePixAction] Cobrança criada. codigoSolicitacao: ${codigoSolicitacao}. Buscando detalhes...`);
 
+    // A Cobrança V3 é assíncrona. Persistimos os identificadores antes de
+    // consultar os detalhes para não perder o vínculo caso essa consulta falhe.
+    await prisma.transacaoFinanceira.update({
+      where: { id: transacaoId },
+      data: {
+        interCodigoSolicitacao: codigoSolicitacao,
+        interSeuNumero: payload.seuNumero,
+        interStatus: "EM_PROCESSAMENTO",
+      },
+    });
+
     // 4.5. Consulta os dados gerados (nossoNumero, pixCopiaECola, codigoBarras) com retry
     let getData: any = null;
     const getAttempts = 4;
@@ -454,6 +465,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       where: { id: transacaoId },
       data: {
         interNossoNumero: nossoNumero,
+        interCodigoSolicitacao: codigoSolicitacao,
+        interSeuNumero: payload.seuNumero,
         interPixCode: pixCopiaECola,
         interBarcode: codigoBarras,
         interPdfKey: pdfKey || null,
@@ -510,6 +523,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
               where: { id: transacaoId },
               data: {
                 interNossoNumero: nossoNumero,
+                interCodigoSolicitacao: codigoSolicitacao,
+                interSeuNumero: transacaoId.replace(/-/g, "").substring(0, 15),
                 interPixCode: pixCopiaECola,
                 interBarcode: codigoBarras,
                 interPdfKey: pdfKey || null,
@@ -559,7 +574,7 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Transação não encontrada." };
     }
 
-    if (!transacao.interNossoNumero) {
+    if (!transacao.interCodigoSolicitacao) {
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter associada." };
     }
 
@@ -575,8 +590,8 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
-    // Consulta a cobrança pelo nossoNumero
-    const response = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/${transacao.interNossoNumero}`, {
+    // A API Cobrança V3 identifica a solicitação pelo codigoSolicitacao.
+    const response = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}`, {
       headers: { Authorization: `Bearer ${token}` },
       httpsAgent,
     });
@@ -650,7 +665,7 @@ export async function simularPagamentoBolePixAction(transacaoId: string): Promis
       return { success: false, error: "Transação não encontrada." };
     }
 
-    if (!transacao.interNossoNumero) {
+    if (!transacao.interCodigoSolicitacao) {
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter associada." };
     }
 
@@ -671,7 +686,7 @@ export async function simularPagamentoBolePixAction(transacaoId: string): Promis
 
     // Endpoint de simulação de pagamento: POST /cobranca/v3/cobrancas/{codigoSolicitacao}/pagar
     await axios.post(
-      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interNossoNumero}/pagar`,
+      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}/pagar`,
       { pagarCom: "PIX" },
       {
         headers: {
@@ -714,7 +729,7 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Transação não encontrada." };
     }
 
-    if (!transacao.interNossoNumero) {
+    if (!transacao.interCodigoSolicitacao) {
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter ativa." };
     }
 
@@ -729,9 +744,9 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
-    // POST /cobranca/v3/cobrancas/{nossoNumero}/cancelar
+    // POST /cobranca/v3/cobrancas/{codigoSolicitacao}/cancelar
     await axios.post(
-      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interNossoNumero}/cancelar`,
+      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}/cancelar`,
       { motivoCancelamento: "APEDIDODOCLIENTE" },
       {
         headers: {
@@ -760,5 +775,3 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
     };
   }
 }
-
-

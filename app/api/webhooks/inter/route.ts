@@ -1,84 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import {
+  InterWebhookValidationError,
+  parseInterWebhookPayload,
+  webhookSecretMatches,
+} from "@/lib/inter-webhook";
+import { processInterWebhookEvent } from "@/lib/inter-webhook-processor";
 
-export async function POST(req: NextRequest) {
+const MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * Recebe callbacks da API Cobrança V3 do Banco Inter.
+ *
+ * A rota permanece protegida pelo Clerk nesta fase. Antes de torná-la pública no
+ * proxy.ts, o Traefik deve exigir mTLS e sobrescrever x-inter-webhook-secret.
+ */
+export async function POST(request: NextRequest) {
+  const expectedSecret = process.env.INTER_WEBHOOK_PROXY_SECRET;
+  if (!expectedSecret) {
+    console.error("[webhook-inter] INTER_WEBHOOK_PROXY_SECRET não configurado.");
+    return NextResponse.json({ error: "Webhook indisponível." }, { status: 503 });
+  }
+
+  if (!webhookSecretMatches(request.headers.get("x-inter-webhook-secret"), expectedSecret)) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Payload muito grande." }, { status: 413 });
+  }
+
   try {
-    const body = await req.json();
-
-    if (!Array.isArray(body)) {
-      console.warn("[webhook-inter] Payload recebido não é uma lista/array:", body);
-      return NextResponse.json({ success: false, error: "Payload inválido. Esperado um array." }, { status: 400 });
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Payload muito grande." }, { status: 413 });
     }
 
-    console.log(`[webhook-inter] Recebida notificação com ${body.length} eventos.`);
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(rawBody);
+    } catch {
+      throw new InterWebhookValidationError("JSON inválido.");
+    }
 
-    for (const evento of body) {
-      const {
-        codigoSolicitacao,
-        nossoNumero,
-        seuNumero,
-        situacao,
-        dataHoraSituacao,
-        valorTotalRecebido,
-      } = evento;
+    const events = parseInterWebhookPayload(decoded);
+    const account = request.headers.get("x-conta-corrente")?.trim() || null;
+    const results = [];
+    for (const event of events) {
+      results.push(await processInterWebhookEvent(event, account));
+    }
 
-      if (!codigoSolicitacao && !nossoNumero) {
-        console.warn("[webhook-inter] Evento ignorado por falta de identificador único:", evento);
-        continue;
-      }
-
-      // Procura a transação correspondente no banco de dados local
-      // Pode buscar pelo interNossoNumero (que é retornado como nossoNumero ou retornado ao criar)
-      const transacao = await prisma.transacaoFinanceira.findFirst({
-        where: {
-          OR: [
-            codigoSolicitacao ? { id: codigoSolicitacao } : undefined,
-            nossoNumero ? { interNossoNumero: nossoNumero } : undefined,
-            seuNumero ? { id: seuNumero } : undefined,
-          ].filter(Boolean) as any[],
-        },
-      });
-
-      if (!transacao) {
-        console.warn(`[webhook-inter] Transação não encontrada para evento:`, { codigoSolicitacao, nossoNumero, seuNumero });
-        continue;
-      }
-
-      let statusTransacao = transacao.status;
-      let dataPagamento = transacao.dataPagamento;
-
-      // Mapeia os status do Banco Inter
-      if (["RECEBIDO", "PAGO", "MARCADO_RECEBIDO"].includes(situacao)) {
-        statusTransacao = "LIQUIDADO";
-        dataPagamento = dataHoraSituacao ? new Date(dataHoraSituacao) : new Date();
-      } else if (["CANCELADO", "EXPIRADO", "FALHA_EMISSAO"].includes(situacao)) {
-        statusTransacao = "CANCELADO";
-      }
-
-      await prisma.transacaoFinanceira.update({
-        where: { id: transacao.id },
-        data: {
-          interStatus: situacao,
-          status: statusTransacao,
-          dataPagamento,
-        },
-      });
-
-      if (statusTransacao === "LIQUIDADO") {
-        try {
-          const { criarRepassePendente } = await import("@/app/actions/financeiroActions");
-          await criarRepassePendente(transacao.id);
-        } catch (repasseErr) {
-          console.error("[webhook-inter] Erro ao criar repasse automático:", repasseErr);
-        }
-      }
-
-      console.log(`[webhook-inter] Transação ${transacao.id} atualizada com sucesso para status: ${statusTransacao} (Inter: ${situacao})`);
+    const failures = results.filter((result) => result.outcome === "error");
+    if (failures.length > 0) {
+      console.error("[webhook-inter] Eventos não processados:", failures.map((item) => item.eventKey));
+      return NextResponse.json(
+        { error: "Um ou mais eventos não puderam ser processados." },
+        { status: 500 },
+      );
     }
 
     return new Response(null, { status: 204 });
-  } catch (error: any) {
-    console.error("[webhook-inter] Erro crítico no processamento do webhook:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erro interno do servidor." }, { status: 500 });
+  } catch (error) {
+    if (error instanceof InterWebhookValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    console.error("[webhook-inter] Falha inesperada no callback:", error);
+    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
   }
 }
