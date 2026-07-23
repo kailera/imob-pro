@@ -778,7 +778,7 @@ export default function FichaVistoriaPage() {
   const headerActionClass = "inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]/35 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[190px] sm:flex-none";
 
   return (
-    <div className="flex flex-col w-full max-w-[1600px] bg-white mx-auto gap-6 pb-20 md:pb-16 px-2 sm:px-0 h-[100dvh] md:h-auto overflow-hidden md:overflow-visible print:h-auto print:overflow-visible print:max-w-none print:p-0 print:gap-0">
+    <div className="inspection-mobile-shell flex min-h-0 w-full max-w-[1600px] flex-col gap-6 overflow-hidden bg-white mx-auto px-2 sm:px-0 h-[calc(100dvh-8rem)] md:h-[calc(100dvh-9rem)] lg:h-auto lg:overflow-visible print:h-auto print:overflow-visible print:max-w-none print:p-0 print:gap-0">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           /* Hide non-report layout elements */
@@ -905,7 +905,7 @@ export default function FichaVistoriaPage() {
       </header>
 
       {/* Split Screen Layout */}
-      <div className="flex flex-col lg:flex-row print:flex-col gap-8 items-start w-full flex-1 overflow-y-auto lg:overflow-visible pb-12 lg:pb-0 print:overflow-visible print:h-auto print:p-0 print:gap-0">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-start gap-8 overflow-y-auto overscroll-contain pb-12 lg:flex-row lg:overflow-visible lg:overscroll-auto lg:pb-0 print:flex-col print:overflow-visible print:h-auto print:p-0 print:gap-0">
 
         {/* Left Side: Visualizer, Composição & Details (Scrollable) */}
         <div className={`w-full lg:w-[60%] print:w-full print:block flex flex-col gap-10 lg:flex ${

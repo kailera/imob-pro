@@ -5,6 +5,20 @@
   --foreground: #171717;
 }
 
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.inspection-mobile-shell {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .inspection-mobile-shell {
+    padding-bottom: 4rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,6 +55,5 @@
     margin: 15mm;
   }
 }
-
 
 

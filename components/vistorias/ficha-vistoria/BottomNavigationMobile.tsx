@@ -34,7 +34,10 @@ export function BottomNavigationMobile({ activeTab, onChange }: BottomNavigation
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#EEEEF3] shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden safe-bottom">
+    <nav
+      aria-label="Navegação da ficha de vistoria"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-[#EEEEF3] bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)] lg:hidden"
+    >
       <div className="flex items-center justify-around h-16 max-w-md mx-auto px-4">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -42,8 +45,10 @@ export function BottomNavigationMobile({ activeTab, onChange }: BottomNavigation
 
           return (
             <button
+              type="button"
               key={tab.id}
               onClick={() => onChange(tab.id)}
+              aria-current={isActive ? "page" : undefined}
               className={`relative flex flex-col items-center justify-center flex-1 h-full py-1 text-[10px] font-bold transition-all duration-200 ${
                 isActive ? "text-[#004777]" : "text-gray-400 hover:text-[#280003]/80"
               }`}

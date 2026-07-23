@@ -99,8 +99,33 @@ async function preparePdfImageUrls(urls: string[], concurrency = 5) {
         objectUrls.push(objectUrl);
         urlMap.set(sourceUrl, objectUrl);
       } catch (error) {
-        console.warn("[PDF] Usando imagem original como fallback:", sourceUrl, error);
-        urlMap.set(sourceUrl, sourceUrl);
+        console.warn("[PDF] Variante do servidor indisponível; reduzindo no navegador:", sourceUrl, error);
+        try {
+          const response = await fetch(sourceUrl, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const bitmap = await createImageBitmap(await response.blob());
+          const scale = Math.min(1, 1000 / bitmap.width, 750 / bitmap.height);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+          canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+          const context = canvas.getContext("2d");
+          if (!context) throw new Error("Canvas indisponível.");
+          context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close();
+          const optimizedBlob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+              (blob) => blob ? resolve(blob) : reject(new Error("Falha ao comprimir imagem.")),
+              "image/jpeg",
+              0.74
+            );
+          });
+          const objectUrl = URL.createObjectURL(optimizedBlob);
+          objectUrls.push(objectUrl);
+          urlMap.set(sourceUrl, objectUrl);
+        } catch (fallbackError) {
+          console.warn("[PDF] Não foi possível reduzir a imagem:", sourceUrl, fallbackError);
+          urlMap.set(sourceUrl, sourceUrl);
+        }
       }
     }
   };
@@ -111,12 +136,20 @@ async function preparePdfImageUrls(urls: string[], concurrency = 5) {
   return { urlMap, objectUrls };
 }
 
+async function loadPdfImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Não foi possível carregar uma foto do relatório."));
+    image.src = src;
+  });
+}
+
 export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = false, pdfButtonClassName }: VistoriaDetailsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGeneratePDF = async () => {
     const generationStartedAt = Date.now();
-    const totalTimeoutMs = 180000;
     let preparedObjectUrls: string[] = [];
     setIsGenerating(true);
     try {
@@ -184,13 +217,9 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         .filter((attachment) => attachment.mimeType.startsWith("image/"))
         .map((attachment) => attachment.url);
       const imagePreparationStartedAt = Date.now();
-      const preparedImages = await withTimeout(
-        preparePdfImageUrls(
-          [...roomPhotos.map((photo: any) => photo.url), ...imageAttachmentUrls],
-          5
-        ),
-        90000,
-        "otimizar as imagens do relatório"
+      const preparedImages = await preparePdfImageUrls(
+        [...roomPhotos.map((photo: any) => photo.url), ...imageAttachmentUrls],
+        5
       );
       preparedObjectUrls = preparedImages.objectUrls;
       const preparedRoomPhotos = roomPhotos.map((photo: any) => ({
@@ -219,7 +248,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         (_, index) => preparedRoomPhotos.slice(index * photosPerPage, index * photosPerPage + photosPerPage)
       );
       const photoPagesHtml = photoChunks.map((photos, pageIndex) => `
-        <div data-pdf-kind="photo" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-kind="photo" data-photo-page-index="${pageIndex}" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
           </div>
@@ -546,14 +575,63 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         });
 
         for (let index = 0; index < pages.length; index += 1) {
-          const remainingTime = totalTimeoutMs - (Date.now() - generationStartedAt);
-          if (remainingTime <= 0) {
-            throw new Error("A geração ultrapassou o limite de segurança. Verifique as imagens anexadas e tente novamente.");
-          }
           const isPhotoPage = pages[index].dataset.pdfKind === "photo";
+          if (index > 0) pdf.addPage("a4", "portrait");
+
+          if (isPhotoPage) {
+            const photoPageIndex = Number(pages[index].dataset.photoPageIndex || 0);
+            const photos = photoChunks[photoPageIndex] || [];
+            const loadedImages = await Promise.all(
+              photos.map((photo) => loadPdfImage(photo.pdfUrl))
+            );
+
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, 210, 297, "F");
+            pdf.setDrawColor(0, 71, 119);
+            pdf.setLineWidth(0.6);
+            pdf.line(28, 35, 190, 35);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(13);
+            pdf.text("REGISTRO FOTOGRÁFICO", 28, 30);
+            pdf.setFontSize(8);
+            pdf.text(`Código: ${vistoria.codigo}`, 190, 30, { align: "right" });
+
+            loadedImages.forEach((image, photoIndex) => {
+              const column = photoIndex % 3;
+              const row = Math.floor(photoIndex / 3);
+              const x = 28 + column * 54;
+              const y = 42 + row * 57;
+              pdf.addImage(image, "JPEG", x, y, 50, 42, undefined, "FAST");
+              pdf.setTextColor(0, 71, 119);
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(7);
+              pdf.text(
+                String(photos[photoIndex].roomName || "Ambiente").slice(0, 34),
+                x,
+                y + 46
+              );
+            });
+
+            pdf.setDrawColor(220, 225, 230);
+            pdf.line(28, 282, 190, 282);
+            pdf.setTextColor(110, 110, 110);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+            pdf.text("Laudo de Vistoria Técnica | Registro fotográfico", 28, 287);
+            pdf.text(
+              `Fotos ${photoPageIndex * photosPerPage + 1}–${photoPageIndex * photosPerPage + photos.length}`,
+              190,
+              287,
+              { align: "right" }
+            );
+            pages[index].remove();
+            continue;
+          }
+
           const canvas = await withTimeout(
             html2canvas(pages[index], {
-              scale: isPhotoPage ? 1 : 1.4,
+              scale: 1.4,
               useCORS: true,
               allowTaint: false,
               logging: false,
@@ -561,7 +639,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               imageTimeout: 8000,
               removeContainer: true,
             }),
-            Math.min(isPhotoPage ? 20000 : 30000, remainingTime),
+            30000,
             `renderizar a página ${index + 1} de ${pages.length}`
           );
 
@@ -588,9 +666,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             throw new Error(`A captura da página ${index + 1} ficou em branco.`);
           }
 
-          if (index > 0) pdf.addPage("a4", "portrait");
           pdf.addImage(
-            canvas.toDataURL("image/jpeg", isPhotoPage ? 0.76 : 0.82),
+            canvas.toDataURL("image/jpeg", 0.82),
             "JPEG",
             0,
             0,
