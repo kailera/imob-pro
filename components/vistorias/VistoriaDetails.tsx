@@ -171,6 +171,29 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       }
 
       const dbData = res.data;
+      const primaryTenant =
+        dbData.locatario ||
+        dbData.locatariosAutorizados?.[0]?.locatario ||
+        dbData.imovel?.contratoImovelLocacaos?.flatMap((contrato: any) => contrato.locatarios || [])?.[0] ||
+        null;
+      const realEstate = dbData.operador?.imob || dbData.imovel?.imob || null;
+      const realEstateName = realEstate?.nomeFantasia || realEstate?.razaoSocial || "Scatolin Imóveis";
+      const realEstateDocument = realEstate?.cnpj || "CNPJ não informado";
+      const tenantName = primaryTenant?.nome || vistoria.inquilino || "Locatário não informado";
+      const tenantDocument = primaryTenant?.cpfCnpj || "CPF/CNPJ não informado";
+      const contractNumber = "Não informado";
+      const inspectionTerm = [
+        "Firmam por meio do presente o Termo de Vistoria e Entrega das Chaves ao locatário(a) para o início da vigência do contrato de locação firmado entre as partes.",
+        "O imóvel foi vistoriado na presença das partes, e as condições de conservação e funcionamento do mesmo foram registradas por meio de imagens, vídeos e comentários anexados ao presente termo.",
+        "As partes declaram que o imóvel se encontra em perfeito estado de conservação, com todos os itens pertencentes ao imóvel em pleno estado de funcionamento e conservação.",
+        "O locatário(a) compromete-se a devolver o imóvel nas mesmas condições em que o recebeu, ou seja, em perfeito estado de conservação, ao final do contrato de locação.",
+        "Ao término da locação e entrega do imóvel, o locatário(a) deverá: a) desligar a energia elétrica do imóvel somente após a realização da vistoria final, que será agendada entre as partes, para constatação do estado do imóvel; b) apresentar ao locador a certidão de quitação de débitos até a data da desocupação; c) apresentar o comprovante do pedido de desligamento da energia elétrica.",
+      ];
+      const finalTerm = [
+        `Qualquer impugnação ao presente laudo deverá ser comunicada para a administração do imóvel, por escrito, dentro de 07 (sete) dias a contar da data da assinatura deste, destinada ao e-mail ${realEstate?.emailContato || "da imobiliária administradora"}.`,
+        "A falta de comunicação implica em aceitação da vistoria realizada nos termos descritos acima.",
+        "E, por assim estarem justos e de acordo, firmam o presente instrumento em duas vias de igual teor e forma.",
+      ];
       const vistoriadorFormatted = dbData.vistoriador 
         ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ''}` 
         : vistoria.vistoriador;
@@ -195,9 +218,6 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           { id: "fallback-sala", name: "Sala", type: "Sala", visaoGeral: "Sem avarias detectadas.", comentarios: "" }
         ];
       }
-
-      const reportDesc = dbData.observacoes || "Nenhuma descrição detalhada informada.";
-      const reportObs = dbData.reparosNecessarios || "";
 
       // 3. Mapear termos, documentos e fotos, mantendo compatibilidade com fichas antigas
       const rawInfoGeral = dbData.infoGeral as any;
@@ -246,7 +266,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
 
       const normalizeRoomName = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
-      const photosPerRoomPage = 4;
+      const photosPerRoomPage = 12;
       const groupedRooms = Array.from(
         rooms.reduce((grouped: Map<string, any>, room: any) => {
           const key = normalizeRoomName(room.name || "Ambiente");
@@ -281,15 +301,27 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           .map((comment: any) => String(comment.texto || comment.text || "").trim())
           .filter(Boolean);
         const roomComments = Array.from(new Set([String(room.comentarios || "").trim(), ...linkedCommentTexts].filter(Boolean))).join("\n\n");
+        const overviewText = String(room.visaoGeral || "").trim() || "Não informado";
+        const commentsText = roomComments || "Sem comentários registrados.";
+        const overviewLines = textMeasurePdf.splitTextToSize(overviewText, 162) as string[];
+        const commentsLines = textMeasurePdf.splitTextToSize(commentsText, 162) as string[];
+        const canCombineWithPhotos = overviewLines.length + commentsLines.length <= 24;
+        const firstPhotoCount = canCombineWithPhotos
+          ? Math.min(photos.length, overviewLines.length + commentsLines.length <= 13 ? 8 : 4)
+          : 0;
         const textPages = [
-          ...splitTextForPdf(String(room.visaoGeral || ""), "Não informado").map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
-          ...splitTextForPdf(roomComments, "Sem comentários registrados.").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
+          ...splitTextForPdf(overviewText, "Não informado").map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
+          ...splitTextForPdf(commentsText, "Sem comentários registrados.").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
         ];
+        const combinedPage = canCombineWithPhotos
+          ? [{ room, kind: "combined", overviewText, commentsText, photos: photos.slice(0, firstPhotoCount), continuation: false }]
+          : textPages;
+        const remainingPhotos = photos.slice(firstPhotoCount);
         const photoPages = Array.from(
-          { length: Math.ceil(photos.length / photosPerRoomPage) },
-          (_, index) => ({ room, kind: "photos", photos: photos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage), continuation: index > 0 })
+          { length: Math.ceil(remainingPhotos.length / photosPerRoomPage) },
+          (_, index) => ({ room, kind: "photos", photos: remainingPhotos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage), continuation: firstPhotoCount > 0 || index > 0 })
         );
-        return [...textPages, ...photoPages];
+        return [...combinedPage, ...photoPages];
       });
       const roomPagesHtml = roomPdfPages.map((_, pageIndex) => `<div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; page-break-before: always;"></div>`).join("");
       const splitIntoChunks = <T,>(items: T[], size: number) =>
@@ -312,7 +344,38 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Anexos ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
-      const roomsP1: any[] = [];
+      const finalTermPageHtml = `
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background: #fff; overflow: hidden; page-break-before: always;">
+          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
+            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 16px;">
+              <span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Encerramento</span>
+              <h2 style="font-size: 16px; color: #004777; margin: 0;">Termo final da vistoria</h2>
+            </div>
+            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 14px; background: #fafafa;">
+              ${finalTerm.map((paragraph) => `<p style="font-size: 10px; line-height: 1.5; color: #280003; margin: 0 0 12px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
+            </div>
+            <div style="margin-top: 28px;">
+              <h3 style="font-size: 12px; color: #004777; border-bottom: 1px solid #004777; padding-bottom: 5px; margin: 0 0 55px;">Assinaturas</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 34px;">
+                <div style="text-align: center; border-top: 1px solid #777; padding-top: 7px;">
+                  <strong style="display: block; font-size: 10px; color: #280003;">${escapeHtml(tenantName)}</strong>
+                  <span style="display: block; font-size: 8px; color: #555; margin-top: 3px;">${escapeHtml(tenantDocument)}</span>
+                  <span style="display: block; font-size: 8px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 6px;">Locatário</span>
+                </div>
+                <div style="text-align: center; border-top: 1px solid #777; padding-top: 7px;">
+                  <strong style="display: block; font-size: 10px; color: #280003;">${escapeHtml(realEstateName)}</strong>
+                  <span style="display: block; font-size: 8px; color: #555; margin-top: 3px;">${escapeHtml(realEstateDocument)}</span>
+                  <span style="display: block; font-size: 8px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 6px;">Imobiliária / Administradora</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span>
+              <span>Termo final</span>
+            </div>
+          </div>
+        </div>`;
       const roomsP2: any[] = [];
       const roomsP3: any[] = [];
       const photosPerPage = 12;
@@ -361,7 +424,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           </div>
           
           <!-- Content -->
-          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
             <!-- Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #004777; padding-bottom: 8px; margin-bottom: 15px;">
               <div style="width: 150px;"></div> <!-- Spacer for background logo -->
@@ -385,8 +448,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
                     <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.tipo}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 2px 0; color: #666; font-weight: 600;">STATUS:</td>
-                    <td style="padding: 2px 0; color: #708D81; font-weight: bold;">${vistoria.statusLabel}</td>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">CONTRATO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${escapeHtml(contractNumber)}</td>
                   </tr>
                   <tr>
                     <td style="padding: 2px 0; color: #666; font-weight: 600;">DATA:</td>
@@ -395,6 +458,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
                   <tr>
                     <td style="padding: 2px 0; color: #666; font-weight: 600;">VISTORIADOR:</td>
                     <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoriadorFormatted}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 2px 0; color: #666; font-weight: 600;">LOCATÁRIO:</td>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${escapeHtml(tenantName)}</td>
                   </tr>
                 </table>
               </div>
@@ -421,43 +488,24 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               </div>
             </div>
 
-            <!-- Parecer Técnico -->
-            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; margin-bottom: 12px; background-color: #ffffff;">
-              <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #EEEEF3; padding-bottom: 4px; margin-top: 0; margin-bottom: 6px;">Parecer Técnico Geral</h2>
-              <div style="font-size: 9px; line-height: 1.45; color: #280003; white-space: pre-wrap; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(reportDesc)}</div>
-              ${reportObs ? `
-                <div style="margin-top: 6px; padding: 6px; background-color: rgba(240, 209, 138, 0.1); border: 1px solid rgba(240, 209, 138, 0.2); border-radius: 4px; font-size: 9px; color: #8c6d1f;">
-                  <strong>Observação técnica:</strong> ${escapeHtml(reportObs)}
-                </div>
-              ` : ''}
+            <!-- Termo de vistoria -->
+            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 9px; margin-bottom: 9px; background-color: #fafafa;">
+              <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #d9dee4; padding-bottom: 4px; margin: 0 0 6px;">Termo da Vistoria</h2>
+              ${inspectionTerm.map((paragraph) => `<p style="font-size: 7.4px; line-height: 1.3; color: #280003; margin: 0 0 5px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
             </div>
 
-            <!-- Estado dos Ambientes (P1) -->
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-              <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px; margin-top: 0;">Estado dos Ambientes</h2>
-              <p style="margin: 0; font-size: 9px; line-height: 1.4; color: #555;">O detalhamento técnico e o registro fotográfico de cada ambiente constam nas páginas seguintes.</p>
-              ${roomsP1.map((room: any) => `
-                <div style="background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px; padding: 8px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px;">
-                    <strong style="font-size: 10px; color: #280003;">${room.name}</strong>
-                    <span style="font-size: 8px; background-color: #EEEEF3; padding: 1px 3px; border-radius: 2px; font-weight: 600; color: #555;">${room.type}</span>
-                  </div>
-                  <div style="display: flex; gap: 10px; font-size: 9px;">
-                    <div style="flex: 1;">
-                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Visão Geral</span>
-                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
-                        ${room.visaoGeral || '<span style="color: #999; font-style: italic;">Não informado</span>'}
-                      </div>
-                    </div>
-                    <div style="flex: 1;">
-                      <span style="color: #777; font-weight: 600; display: block; margin-bottom: 1px; text-transform: uppercase; font-size: 7px;">Comentários</span>
-                      <div style="padding: 3px; background-color: #fff; border: 1px solid #EEEEF3; border-radius: 2px; color: #333; min-height: 16px;">
-                        ${room.comentarios || '<span style="color: #999; font-style: italic;">Não informado</span>'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+              <div style="border-top: 1px solid #004777; padding-top: 5px;">
+                <strong style="display: block; color: #004777; font-size: 8px; text-transform: uppercase; margin-bottom: 3px;">Chaves</strong>
+                <span style="font-size: 8px; color: #333;">${dbData.chavesQuantidade || dbData.chavesObservacao
+                  ? `${dbData.chavesQuantidade || 0} chave(s)${dbData.chavesObservacao ? ` — ${escapeHtml(dbData.chavesObservacao)}` : ""}`
+                  : "Nenhuma chave registrada"}</span>
+              </div>
+              <div style="border-top: 1px solid #004777; padding-top: 5px;">
+                <strong style="display: block; color: #004777; font-size: 8px; text-transform: uppercase; margin-bottom: 3px;">Medidores</strong>
+                <span style="display: block; font-size: 8px; color: #333;">Água: ${escapeHtml([dbData.medidorAguaNumero, dbData.medidorAguaLeitura].filter(Boolean).join(" — ") || "não informado")}</span>
+                <span style="display: block; font-size: 8px; color: #333; margin-top: 2px;">Energia: ${escapeHtml([dbData.medidorLuzNumero, dbData.medidorLuzLeitura].filter(Boolean).join(" — ") || "não informado")}</span>
+              </div>
             </div>
 
             <!-- Footer indicator -->
@@ -609,7 +657,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             </div>
           </div>
         </div>
-        ${roomPagesHtml}${termsPagesHtml}${attachmentPagesHtml}${photoPagesHtml}
+        ${roomPagesHtml}${termsPagesHtml}${attachmentPagesHtml}${finalTermPageHtml}${photoPagesHtml}
       `;
 
       const wrapper = document.createElement("div");
@@ -663,7 +711,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             const roomPage: any = roomPdfPages[roomPageIndex];
             if (!roomPage) throw new Error("Não foi possível localizar os dados do ambiente para o PDF.");
 
-            const roomPhotos = roomPage.kind === "photos" ? roomPage.photos : [];
+            const roomPhotos = roomPage.kind === "photos" || roomPage.kind === "combined" ? roomPage.photos : [];
             const loadedPhotos = await Promise.allSettled(
               roomPhotos.map((photo: any) => loadPdfImage(photo.pdfUrl))
             );
@@ -701,32 +749,40 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setFontSize(8);
             pdf.text(String(roomPage.room.type || "Ambiente"), 190, 37, { align: "right" });
 
+            let photoStartY = 54;
             if (roomPage.kind === "text") {
               writeParagraph(
                 `${roomPage.label}${roomPage.continuation ? " (continuação)" : ""}`,
                 String(roomPage.text),
                 52
               );
-            } else {
-              const contentY = 54;
+            } else if (roomPage.kind === "combined") {
+              let contentY = writeParagraph("Visão geral", String(roomPage.overviewText), 52);
+              contentY = writeParagraph("Comentários", String(roomPage.commentsText), contentY + 5);
+              photoStartY = contentY + 7;
+            }
+
+            if (roomPage.kind === "photos" || roomPage.kind === "combined") {
               pdf.setTextColor(0, 71, 119);
               pdf.setFont("helvetica", "bold");
               pdf.setFontSize(8);
-              pdf.text(`REGISTRO FOTOGRÁFICO${roomPage.continuation ? " — CONTINUAÇÃO" : ""}`, 28, contentY);
-              const columns = 2;
+              pdf.text(`REGISTRO FOTOGRÁFICO${roomPage.continuation ? " — CONTINUAÇÃO" : ""}`, 28, photoStartY);
+              const columns = 4;
               const rows = Math.ceil(photos.length / columns);
-              const imageHeight = Math.max(32, Math.min(78, (264 - (contentY + 7) - rows * 8) / rows));
+              const imageWidth = 37;
+              const imageHeight = rows > 0
+                ? Math.max(28, Math.min(56, (270 - (photoStartY + 7) - rows * 6) / rows))
+                : 0;
               photos.forEach(({ image, photo }: { image: HTMLImageElement; photo: any }, photoIndex: number) => {
                 const column = photoIndex % columns;
                 const row = Math.floor(photoIndex / columns);
-                const x = 28 + column * 82;
-                const y = contentY + 7 + row * (imageHeight + 8);
-                pdf.addImage(image, "JPEG", x, y, 76, imageHeight, undefined, "FAST");
+                const x = 28 + column * 41.5;
+                const y = photoStartY + 7 + row * (imageHeight + 6);
+                pdf.addImage(image, "JPEG", x, y, imageWidth, imageHeight, undefined, "FAST");
                 pdf.setTextColor(85, 85, 85);
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(6.5);
-                const caption = `Foto ${photoIndex + 1}${photo.description ? ` — ${String(photo.description)}` : ""}`;
-                pdf.text(pdf.splitTextToSize(caption, 76), x, y + imageHeight + 3, { lineHeightFactor: 1.2 });
+                pdf.text(`Foto ${photoIndex + 1}`, x, y + imageHeight + 3);
               });
             }
 

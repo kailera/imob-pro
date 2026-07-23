@@ -105,9 +105,19 @@ export async function getVistoriaById(id: string) {
         const vistoria = await prisma.vistoria.findUnique({
             where: { id },
             include: {
-                imovel: true,
+                imovel: {
+                    include: {
+                        imob: true,
+                        contratoImovelLocacaos: {
+                            include: { locatarios: true },
+                        },
+                    },
+                },
                 vistoriador: true,
-                operador: true,
+                operador: {
+                    include: { imob: true },
+                },
+                locatario: true,
                 ambienteVistorias: {
                     orderBy: { ordem: "asc" },
                 },
