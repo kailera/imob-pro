@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { adicionarDiasUTC, calcularFaixaPeriodo, normalizarDataUTC } from "@/lib/locacao/periodos";
+import { calcularMesesContrato, converterMesesParaPercentual } from "@/lib/locacao/financeiro";
 
 // Interface para entrada do Locatário (Inquilino)
 export interface LocatarioInput {
@@ -351,10 +352,15 @@ export async function createContratoLocacao(input: {
   taxaIntermediacao?: number | null;
   irrfResponsabilidade?: string | null;
   carenciaRepasse?: number | null;
+  diaVencimento?: number | null;
   periodicidadeReajuste?: number | null;
   indiceReajuste?: string | null;
   multaQuebraContrato?: number | null;
   tipoMultaQuebra?: string | null;
+  honorariosAdvPercentual?: number | null;
+  carenciaHonorariosDias?: number | null;
+  periodoGarantido?: string | null;
+  abrangenciaGarantia?: string | null;
   vencimentoQuebra?: string | null;
   descontoPontualidade?: number | null;
   tipoDesconto?: string | null;
@@ -369,6 +375,24 @@ export async function createContratoLocacao(input: {
   dataFimPeriodo?: string | null;
 }) {
   try {
+    if (normalizarDataUTC(input.dataInicio) > normalizarDataUTC(input.dataFim)) {
+      return { success: false, error: "O início do contrato não pode ser posterior ao término." };
+    }
+    if (input.diaVencimento != null && (input.diaVencimento < 1 || input.diaVencimento > 31)) {
+      return { success: false, error: "O dia de vencimento deve estar entre 1 e 31." };
+    }
+    const prazoTotalMeses = calcularMesesContrato(input.dataInicio, input.dataFim);
+    const multaQuebraPercentual = input.multaQuebraContrato == null
+      ? null
+      : input.tipoMultaQuebra === "MESES"
+        ? converterMesesParaPercentual(input.multaQuebraContrato, prazoTotalMeses)
+        : input.multaQuebraContrato;
+    if (multaQuebraPercentual != null && multaQuebraPercentual < 0) {
+      return { success: false, error: "A multa por quebra não pode ser negativa." };
+    }
+    if (input.descontoPontualidade != null && input.descontoPontualidade < 0) {
+      return { success: false, error: "O desconto de pontualidade não pode ser negativo." };
+    }
     const imobId = await getOrCreateDefaultImobId();
 
     const contrato = await prisma.$transaction(async (tx) => {
@@ -389,12 +413,19 @@ export async function createContratoLocacao(input: {
           taxaIntermediacao: input.taxaIntermediacao,
           irrfResponsabilidade: input.irrfResponsabilidade,
           carenciaRepasse: input.carenciaRepasse,
+          diaVencimento: input.diaVencimento,
+          vencimentoOrigem: input.diaVencimento ? "MANUAL" : "NAO_DEFINIDO",
+          honorariosAdvPercentual: input.honorariosAdvPercentual,
+          carenciaHonorariosDias: input.carenciaHonorariosDias,
+          periodoGarantido: input.periodoGarantido,
+          abrangenciaGarantia: input.abrangenciaGarantia,
 
           periodicidadeReajuste: input.periodicidadeReajuste,
           indiceReajuste: input.indiceReajuste,
           historicoPeriodosStatus: "COMPLETO",
           historicoRevisadoEm: new Date(),
           multaQuebraContrato: input.multaQuebraContrato,
+          multaQuebraPercentual,
           tipoMultaQuebra: input.tipoMultaQuebra || "PERCENTUAL",
           vencimentoQuebra: input.vencimentoQuebra ? new Date(input.vencimentoQuebra) : null,
 
@@ -434,6 +465,7 @@ export async function createContratoLocacao(input: {
           jurosAtrasoPercentual: input.jurosAtrasoPercentual,
           diasCarenciaJuros: input.diasCarenciaJuros,
           indiceReajuste: input.indiceReajuste,
+          diaVencimento: input.diaVencimento,
           tipoPeriodo: "BASE",
           origemPeriodo: "MANUAL",
         },

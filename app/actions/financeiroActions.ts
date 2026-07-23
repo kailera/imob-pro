@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
+import { criarDataVencimento } from "@/lib/locacao/financeiro";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -50,7 +51,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const locacao = contrato.imovelLocacao;
         
         // Encontrar período vigente se houver sub-períodos cadastrados
-        const targetDate = new Date(ano, mes - 1, 15);
+        const targetDate = new Date(Date.UTC(ano, mes - 1, 15));
         const periodoAtivo = locacao.periodos.find((p) => {
           const start = new Date(p.dataInicio);
           const end = new Date(p.dataFim);
@@ -67,13 +68,19 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const valorTotal = valorAluguel + (hasCondominio ? valorCondominio : 0) + (hasIPTU ? valorIPTU : 0);
 
         const inquilinoNome = contrato.locatarios[0]?.nome || "Inquilino";
-        const dataVencimento = new Date(ano, mes - 1, 10); // Vencimento padrão todo dia 10
+        const diaVencimento = periodoAtivo?.diaVencimento ?? locacao.diaVencimento;
+        if (!diaVencimento) {
+          throw new Error("Dia de vencimento não configurado. Edite o controle locatício antes de gerar a cobrança.");
+        }
+        const dataVencimento = criarDataVencimento(ano, mes, diaVencimento);
 
         const metadata = {
           competence,
           rentValue: valorAluguel,
           condominiumValue: hasCondominio ? valorCondominio : 0,
           iptuValue: hasIPTU ? valorIPTU : 0,
+          dueDay: diaVencimento,
+          periodId: periodoAtivo?.id ?? null,
         };
 
         await prisma.transacaoFinanceira.create({

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput';
 import { Building, Search, Info } from 'lucide-react';
 
 interface ImovelSearchSectionProps {
@@ -169,28 +170,28 @@ export function ImovelSearchSection({
           <div className="bg-white p-4 rounded-xl border border-zinc-200 text-xs grid grid-cols-1 gap-4">
             <div>
               <span className="text-[10px] uppercase font-bold text-gray-400 block">Aluguel do Imóvel (R$)</span>
-              <input
-                type="number"
+              <FormattedNumberInput
+                format="currency"
                 value={customAluguel}
-                onChange={e => setCustomAluguel(e.target.value)}
+                onValueChange={setCustomAluguel}
                 className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-xs mt-1 bg-white"
               />
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-gray-400 block">Taxa Condomínio (R$)</span>
-              <input
-                type="number"
+              <FormattedNumberInput
+                format="currency"
                 value={customCondominio}
-                onChange={e => setCustomCondominio(e.target.value)}
+                onValueChange={setCustomCondominio}
                 className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-xs mt-1 bg-white"
               />
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-gray-400 block">Taxa IPTU (R$)</span>
-              <input
-                type="number"
+              <FormattedNumberInput
+                format="currency"
                 value={customIptu}
-                onChange={e => setCustomIptu(e.target.value)}
+                onValueChange={setCustomIptu}
                 className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-xs mt-1 bg-white"
               />
             </div>

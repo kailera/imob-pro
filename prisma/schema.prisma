@@ -132,11 +132,17 @@ model ImovelLocacao {
   hasIPTU       Boolean
   valorTotal    Float
 
-  taxaAdministracao    Float? // Taxa de administração (ex: 10.00)
-  taxaMultasEncargos   Float? // Taxa sobre multas e encargos (ex: 50.00)
-  taxaIntermediacao    Float? // Taxa de intermediação (ex: 100.00)
-  irrfResponsabilidade String? // "LOCADOR" ou "LOCATARIO"
-  carenciaRepasse      Int? // Carência para repasse do aluguel (ex: 10)
+  taxaAdministracao       Float? // Taxa de administração (ex: 10.00)
+  taxaMultasEncargos      Float? // Taxa sobre multas e encargos (ex: 50.00)
+  taxaIntermediacao       Float? // Taxa de intermediação (ex: 100.00)
+  irrfResponsabilidade    String? // "LOCADOR" ou "LOCATARIO"
+  carenciaRepasse         Int? // Carência para repasse do aluguel (ex: 10)
+  honorariosAdvPercentual Float?
+  carenciaHonorariosDias  Int?
+  periodoGarantido        String?
+  abrangenciaGarantia     String?
+  diaVencimento           Int?
+  vencimentoOrigem        String  @default("NAO_DEFINIDO")
 
   // Relação com múltiplos períodos vigentes e históricos
   periodos PeriodoContratoLocacao[]
@@ -151,9 +157,11 @@ model ImovelLocacao {
   historicoRevisadoEm     DateTime?
 
   // --- QUEBRA DE CONTRATO ---
-  multaQuebraContrato Float? // Valor ou percentual (ex: 8.33)
-  tipoMultaQuebra     String? // "PERCENTUAL", "MESES" ou "VALOR"
-  vencimentoQuebra    DateTime? // "Quebra do contrato vence em"
+  multaQuebraContrato     Float? // Valor ou percentual (ex: 8.33)
+  tipoMultaQuebra         String? // "PERCENTUAL", "MESES" ou "VALOR"
+  multaQuebraPercentual   Float?
+  multaQuebraProporcional Boolean   @default(true)
+  vencimentoQuebra        DateTime? // "Quebra do contrato vence em"
 
   // --- PONTUALIDADE (Mantido opcional na tabela pai) ---
   descontoPontualidade Float? // Ex: 5.11
@@ -169,6 +177,7 @@ model ImovelLocacao {
   imovel                 Imovel                  @relation(fields: [imovelId], references: [id], onDelete: Cascade)
   locadors               Locador[]
   contratoImovelLocacaos ContratoImovelLocacao[]
+  parcelasIntermediacao  ParcelaIntermediacao[]
 
   @@map("imovel_locacao")
 }
@@ -204,6 +213,7 @@ model PeriodoContratoLocacao {
   dataCalculoReajuste   DateTime?
   tipoPeriodo           String    @default("REAJUSTE") // BASE ou REAJUSTE
   origemPeriodo         String    @default("MANUAL") // MANUAL, SICADI_PROVISORIO ou CALCULO_SISTEMA
+  diaVencimento         Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -211,6 +221,22 @@ model PeriodoContratoLocacao {
   @@index([dataFim])
   @@index([imovelLocacaoId, dataInicio, dataFim])
   @@map("periodo_contrato_locacao")
+}
+
+model ParcelaIntermediacao {
+  id              String        @id @default(uuid())
+  imovelLocacaoId String
+  imovelLocacao   ImovelLocacao @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+  ordem           Int
+  dataVencimento  DateTime
+  valor           Float
+  observacao      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([imovelLocacaoId, ordem])
+  @@index([imovelLocacaoId, dataVencimento])
+  @@map("parcela_intermediacao")
 }
 
 model Locador {

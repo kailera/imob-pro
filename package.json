@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:locacao": "tsx --test tests/locacao-periodos.test.ts",
+    "test:locacao": "tsx --test tests/locacao-periodos.test.ts tests/locacao-financeiro.test.ts",
     "test:inter-webhook": "tsx --test tests/inter-webhook.test.ts"
   },
   "dependencies": {

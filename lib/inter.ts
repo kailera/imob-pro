@@ -3,6 +3,8 @@ import https from "https";
 import axios from "axios";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, bucketName } from "@/lib/storage";
+import { calcularDataLimiteDesconto } from "@/lib/locacao/financeiro";
+import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
@@ -229,7 +231,11 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
           include: {
             imovel: true,
             locatarios: true,
-            imovelLocacao: true,
+            imovelLocacao: {
+              include: {
+                periodos: { orderBy: { dataInicio: "asc" } },
+              },
+            },
           },
         },
       },
@@ -381,8 +387,15 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
     const imovelLocacao = transacao.contrato?.imovelLocacao;
     if (imovelLocacao) {
+      const periodoCobranca = resolverPeriodoDaCobranca(
+        imovelLocacao.periodos,
+        transacao.metadata,
+        transacao.dataVencimento,
+      );
+
       // 1. Multa
-      const multaAtraso = imovelLocacao.multaAtrasoPercentual;
+      const multaAtraso = periodoCobranca?.multaAtrasoPercentual
+        ?? imovelLocacao.multaAtrasoPercentual;
       if (multaAtraso && multaAtraso > 0) {
         payload.multa = {
           codigo: "PERCENTUAL",
@@ -391,7 +404,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
 
       // 2. Juros/Mora (pro-rata mensal)
-      const jurosAtraso = imovelLocacao.jurosAtrasoPercentual;
+      const jurosAtraso = periodoCobranca?.jurosAtrasoPercentual
+        ?? imovelLocacao.jurosAtrasoPercentual;
       if (jurosAtraso && jurosAtraso > 0) {
         payload.mora = {
           codigo: "TAXAMENSAL",
@@ -400,22 +414,24 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
 
       // 3. Bonificação (Desconto de Pontualidade)
-      const descPontualidade = imovelLocacao.descontoPontualidade;
+      const descPontualidade = periodoCobranca?.descontoPontualidade
+        ?? imovelLocacao.descontoPontualidade;
       if (descPontualidade && descPontualidade > 0) {
-        let limiteDate = new Date(dataVencimentoStr);
-        if (imovelLocacao.diasAntecedenciaDesc && imovelLocacao.diasAntecedenciaDesc > 0) {
-          limiteDate.setDate(limiteDate.getDate() - imovelLocacao.diasAntecedenciaDesc);
-        }
-        
+        const diasAntecedencia = periodoCobranca?.diasAntecedenciaDesc
+          ?? imovelLocacao.diasAntecedenciaDesc
+          ?? 0;
+        const tipoDesconto = periodoCobranca?.tipoDesconto
+          ?? imovelLocacao.tipoDesconto;
+        const limiteDate = calcularDataLimiteDesconto(dataVencimentoStr, diasAntecedencia);
         const limiteStr = limiteDate.toISOString().split("T")[0];
         
-        if (imovelLocacao.tipoDesconto === "VALOR") {
+        if (tipoDesconto === "VALOR") {
           payload.desconto = {
             codigo: "VALORFIXODATAINFORMAR",
             valor: descPontualidade,
             dataLimite: limiteStr,
           };
-        } else if (imovelLocacao.tipoDesconto === "PERCENTUAL") {
+        } else if (tipoDesconto === "PERCENTUAL") {
           payload.desconto = {
             codigo: "PERCENTUALDATAINFORMAR",
             taxa: descPontualidade,

@@ -1,5 +1,14 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput';
+import {
+  calcularDescontoPontualidade,
+  converterMesesParaPercentual,
+  converterPercentualParaMeses,
+  formatarMoeda,
+  formatarPercentual,
+  parseNumeroFlexivel,
+} from '@/lib/locacao/financeiro';
 
 interface CondicoesContratuaisSectionProps {
   selectedFiadorIndex: string;
@@ -7,6 +16,7 @@ interface CondicoesContratuaisSectionProps {
   pendingFiadorData: any | null;
   fiadores: any[];
   leasePrazo: string;
+  customAluguel: string;
   setLeasePrazo: (val: string) => void;
   leaseVencimento: string;
   setLeaseVencimento: (val: string) => void;
@@ -20,6 +30,10 @@ interface CondicoesContratuaisSectionProps {
   setValidadeDescontoPontualidade: (val: string) => void;
   multaQuebraContrato: string;
   setMultaQuebraContrato: (val: string) => void;
+  tipoMultaQuebra: 'PERCENTUAL' | 'MESES';
+  setTipoMultaQuebra: (val: 'PERCENTUAL' | 'MESES') => void;
+  tipoDescontoPontualidade: 'PERCENTUAL' | 'VALOR';
+  setTipoDescontoPontualidade: (val: 'PERCENTUAL' | 'VALOR') => void;
   quebraContratoVenceEm: string;
   setQuebraContratoVenceEm: (val: string) => void;
   multaAtraso: string;
@@ -68,6 +82,7 @@ export function CondicoesContratuaisSection({
   pendingFiadorData,
   fiadores,
   leasePrazo,
+  customAluguel,
   setLeasePrazo,
   leaseVencimento,
   setLeaseVencimento,
@@ -81,6 +96,10 @@ export function CondicoesContratuaisSection({
   setValidadeDescontoPontualidade,
   multaQuebraContrato,
   setMultaQuebraContrato,
+  tipoMultaQuebra,
+  setTipoMultaQuebra,
+  tipoDescontoPontualidade,
+  setTipoDescontoPontualidade,
   quebraContratoVenceEm,
   setQuebraContratoVenceEm,
   multaAtraso,
@@ -122,6 +141,23 @@ export function CondicoesContratuaisSection({
   vencimentoPrimeiroPeriodo,
   setVencimentoPrimeiroPeriodo
 }: CondicoesContratuaisSectionProps) {
+  const prazoMeses = parseNumeroFlexivel(leasePrazo) || 0;
+  const aluguel = parseNumeroFlexivel(customAluguel) || 0;
+  const multaInformada = parseNumeroFlexivel(multaQuebraContrato) || 0;
+  const multaPercentual = tipoMultaQuebra === 'MESES'
+    ? converterMesesParaPercentual(multaInformada, prazoMeses)
+    : multaInformada;
+  const multaMeses = tipoMultaQuebra === 'MESES'
+    ? multaInformada
+    : converterPercentualParaMeses(multaInformada, prazoMeses);
+  const multaMaxima = aluguel * multaMeses;
+  const descontoInformado = parseNumeroFlexivel(descontoPontualidade) || 0;
+  const descontoEmReais = calcularDescontoPontualidade(
+    aluguel,
+    descontoInformado,
+    tipoDescontoPontualidade,
+  );
+
   return (
     <div id="section-condicoes" className="bg-[#EEEEF3]/10 p-4 rounded-xl border border-zinc-100 space-y-3 md:col-span-2 scroll-mt-2">
       <div className="flex items-center gap-2 text-sm font-bold text-[#004777]">
@@ -170,7 +206,9 @@ export function CondicoesContratuaisSection({
           <input
             type="number"
             value={leaseVencimento}
-            onChange={e => setLeaseVencimento(e.target.value)}
+              onChange={e => setLeaseVencimento(e.target.value)}
+              min={1}
+              max={31}
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -252,13 +290,25 @@ export function CondicoesContratuaisSection({
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Desconto de Pontualidade</label>
-          <input
-            type="text"
+          <div className="flex gap-2">
+          <FormattedNumberInput
             value={descontoPontualidade}
-            onChange={e => setDescontoPontualidade(e.target.value)}
+            onValueChange={setDescontoPontualidade}
+            format={tipoDescontoPontualidade === 'VALOR' ? 'currency' : 'percentage'}
             required
-            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+            className="block min-w-0 flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
+          <select
+            aria-label="Unidade do desconto de pontualidade"
+            value={tipoDescontoPontualidade}
+            onChange={e => setTipoDescontoPontualidade(e.target.value as 'PERCENTUAL' | 'VALOR')}
+            className="border border-zinc-200 rounded-lg px-2 text-xs bg-white"
+          >
+            <option value="PERCENTUAL">%</option>
+            <option value="VALOR">R$</option>
+          </select>
+          </div>
+          <p className="mt-1 text-[10px] text-gray-500">Desconto atual: {formatarMoeda(descontoEmReais)}</p>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1"> Válido por quantos dias  </label>
@@ -273,13 +323,28 @@ export function CondicoesContratuaisSection({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1"> Multa por Quebra de Contrato</label>
-          <input
-            type="text"
+          <div className="flex gap-2">
+          <FormattedNumberInput
             value={multaQuebraContrato}
-            onChange={e => setMultaQuebraContrato(e.target.value)}
+            onValueChange={setMultaQuebraContrato}
+            format={tipoMultaQuebra === 'PERCENTUAL' ? 'percentage' : 'number'}
             required
-            className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
+            className="block min-w-0 flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
+          <select
+            aria-label="Unidade da multa por quebra"
+            value={tipoMultaQuebra}
+            onChange={e => setTipoMultaQuebra(e.target.value as 'PERCENTUAL' | 'MESES')}
+            className="border border-zinc-200 rounded-lg px-2 text-xs bg-white"
+          >
+            <option value="PERCENTUAL">%</option>
+            <option value="MESES">Meses</option>
+          </select>
+          </div>
+          <p className="mt-1 text-[10px] text-gray-500">
+            Equivale a {multaMeses.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} meses
+            ({formatarPercentual(multaPercentual)}) — multa máxima {formatarMoeda(multaMaxima)}.
+          </p>
         </div>
 
         <div>
@@ -299,10 +364,10 @@ export function CondicoesContratuaisSection({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Multa por Atraso </label>
-          <input
-            type="text"
+          <FormattedNumberInput
             value={multaAtraso}
-            onChange={e => setMultaAtraso(e.target.value)}
+            onValueChange={setMultaAtraso}
+            format="percentage"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -321,10 +386,10 @@ export function CondicoesContratuaisSection({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Juros Mensal (pró rata) *</label>
-          <input
-            type="text"
+          <FormattedNumberInput
             value={multaJurosMensal}
-            onChange={e => setMultaJurosMensal(e.target.value)}
+            onValueChange={setMultaJurosMensal}
+            format="percentage"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -343,10 +408,10 @@ export function CondicoesContratuaisSection({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Honorários Advocatícios</label>
-          <input
-            type="text"
+          <FormattedNumberInput
             value={honorarios}
-            onChange={e => setHonorarios(e.target.value)}
+            onValueChange={setHonorarios}
+            format="percentage"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -422,30 +487,30 @@ export function CondicoesContratuaisSection({
 
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa de Administração (%) *</label>
-          <input
-            type="text"
+          <FormattedNumberInput
             value={taxaAdministracao}
-            onChange={e => setTaxaAdministracao(e.target.value)}
+            onValueChange={setTaxaAdministracao}
+            format="percentage"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa sobre Multas e Encargos (%) *</label>
-          <input
-            type="text"
+          <FormattedNumberInput
             value={taxaMultasEncargos}
-            onChange={e => setTaxaMultasEncargos(e.target.value)}
+            onValueChange={setTaxaMultasEncargos}
+            format="percentage"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa de Intermediação (%) *</label>
-          <input
-            type="text"
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Taxa de Intermediação (R$) *</label>
+          <FormattedNumberInput
             value={taxaIntermediacao}
-            onChange={e => setTaxaIntermediacao(e.target.value)}
+            onValueChange={setTaxaIntermediacao}
+            format="currency"
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           />
@@ -460,6 +525,7 @@ export function CondicoesContratuaisSection({
           >
             <option value="LOCADOR">LOCADOR</option>
             <option value="LOCATARIO">LOCATARIO</option>
+            <option value="ADMINISTRADORA">ADMINISTRADORA</option>
             <option value="ISENTO">ISENTO</option>
           </select>
         </div>

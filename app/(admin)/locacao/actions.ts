@@ -12,6 +12,7 @@ import {
     normalizarDataUTC,
     proximoMesUTC,
 } from "@/lib/locacao/periodos";
+import { calcularMesesContrato, converterMesesParaPercentual, formatarDataLocalISO } from "@/lib/locacao/financeiro";
 
 const SERIES_REAJUSTE: Record<string, number> = {
     IPCA: 433, INPC: 188, IGPM: 189, IGP: 190, IPC: 193, "IPC-DI": 191,
@@ -396,6 +397,9 @@ export const getCompleteContratoLocacao = async (id: string) => {
                             dataInicio: "asc",
                         },
                     },
+                    parcelasIntermediacao: {
+                        orderBy: { ordem: "asc" },
+                    },
                 },
             },
             // 3. Trazemos as outras relações normalmente
@@ -494,6 +498,7 @@ export const addPeriodoContratoLocacao = async (input: {
     reajusteAutomatico?: boolean;
     manterValorDeflacao?: boolean;
     tipoPeriodo?: "BASE" | "REAJUSTE";
+    diaVencimento?: number | null;
 }) => {
     try {
         const dataInicioObj = normalizarDataUTC(input.dataInicio);
@@ -556,6 +561,7 @@ export const addPeriodoContratoLocacao = async (input: {
                 dataCalculoReajuste: percentualInformado != null ? new Date() : null,
                 tipoPeriodo: periodosExistentes.length === 0 ? "BASE" : (input.tipoPeriodo || "REAJUSTE"),
                 origemPeriodo: "MANUAL",
+                diaVencimento: input.diaVencimento,
             } });
             await sincronizarHistoricoLocacao(tx, input.imovelLocacaoId);
             return criado;
@@ -591,6 +597,7 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
     reajusteAutomatico?: boolean;
     manterValorDeflacao?: boolean;
     tipoPeriodo?: "BASE" | "REAJUSTE";
+    diaVencimento?: number | null;
 }) => {
     try {
         const dataInicioObj = normalizarDataUTC(input.dataInicio);
@@ -664,6 +671,7 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
                 dataCalculoReajuste: percentualInformado != null ? new Date() : null,
                 tipoPeriodo: input.tipoPeriodo || periodoAtual.tipoPeriodo,
                 origemPeriodo: "MANUAL",
+                diaVencimento: input.diaVencimento,
             } });
             await sincronizarHistoricoLocacao(tx, periodoAtual.imovelLocacaoId);
             return atualizado;
@@ -702,12 +710,63 @@ export const updateImovelLocacao = async (id: string, input: {
     taxaIntermediacao?: number | null;
     irrfResponsabilidade?: string | null;
     carenciaRepasse?: number | null;
+    diaVencimento?: number | null;
+    periodicidadeReajuste?: number | null;
+    indiceReajuste?: string | null;
+    multaQuebraContrato?: number | null;
+    tipoMultaQuebra?: string | null;
+    multaQuebraProporcional?: boolean;
+    vencimentoQuebra?: string | null;
+    descontoPontualidade?: number | null;
+    tipoDesconto?: string | null;
+    diasAntecedenciaDesc?: number | null;
+    multaAtrasoPercentual?: number | null;
+    diasCarenciaMulta?: number | null;
+    jurosAtrasoPercentual?: number | null;
+    diasCarenciaJuros?: number | null;
+    honorariosAdvPercentual?: number | null;
+    carenciaHonorariosDias?: number | null;
+    periodoGarantido?: string | null;
+    abrangenciaGarantia?: string | null;
+    parcelasIntermediacao?: Array<{
+        dataVencimento: string;
+        valor: number;
+        observacao?: string | null;
+    }>;
 }) => {
     try {
         const dataInicio = normalizarDataUTC(input.dataInicio);
         const dataFim = normalizarDataUTC(input.dataFim);
         if (dataInicio > dataFim) {
             return { success: false, error: "O início do contrato não pode ser posterior ao término." };
+        }
+        if (input.diaVencimento != null && (input.diaVencimento < 1 || input.diaVencimento > 31)) {
+            return { success: false, error: "O dia de vencimento deve estar entre 1 e 31." };
+        }
+        const camposPercentuais = [
+            input.taxaAdministracao,
+            input.taxaMultasEncargos,
+            input.multaAtrasoPercentual,
+            input.jurosAtrasoPercentual,
+            input.honorariosAdvPercentual,
+        ];
+        if (camposPercentuais.some((valor) => valor != null && valor < 0)) {
+            return { success: false, error: "Percentuais não podem ser negativos." };
+        }
+        const prazoTotalMeses = calcularMesesContrato(dataInicio, dataFim);
+        const multaQuebraPercentual = input.multaQuebraContrato == null
+            ? null
+            : input.tipoMultaQuebra === "MESES"
+                ? converterMesesParaPercentual(input.multaQuebraContrato, prazoTotalMeses)
+                : input.multaQuebraContrato;
+        if (multaQuebraPercentual != null && multaQuebraPercentual < 0) {
+            return { success: false, error: "A multa por quebra não pode ser negativa." };
+        }
+        if (input.descontoPontualidade != null && input.descontoPontualidade < 0) {
+            return { success: false, error: "O desconto de pontualidade não pode ser negativo." };
+        }
+        if (input.parcelasIntermediacao?.some((parcela) => parcela.valor < 0 || !parcela.dataVencimento)) {
+            return { success: false, error: "As parcelas de intermediação precisam de vencimento e valor não negativo." };
         }
         const periodoForaDaVigencia = await prisma.periodoContratoLocacao.findFirst({
             where: {
@@ -730,7 +789,47 @@ export const updateImovelLocacao = async (id: string, input: {
                 taxaIntermediacao: input.taxaIntermediacao,
                 irrfResponsabilidade: input.irrfResponsabilidade,
                 carenciaRepasse: input.carenciaRepasse,
+                diaVencimento: input.diaVencimento,
+                vencimentoOrigem: input.diaVencimento ? "MANUAL" : "NAO_DEFINIDO",
+                periodicidadeReajuste: input.periodicidadeReajuste,
+                indiceReajuste: input.indiceReajuste,
+                multaQuebraContrato: input.multaQuebraContrato,
+                multaQuebraPercentual,
+                tipoMultaQuebra: input.tipoMultaQuebra,
+                multaQuebraProporcional: input.multaQuebraProporcional ?? true,
+                vencimentoQuebra: input.vencimentoQuebra ? normalizarDataUTC(input.vencimentoQuebra) : null,
+                descontoPontualidade: input.descontoPontualidade,
+                tipoDesconto: input.tipoDesconto,
+                diasAntecedenciaDesc: input.diasAntecedenciaDesc,
+                multaAtrasoPercentual: input.multaAtrasoPercentual,
+                diasCarenciaMulta: input.diasCarenciaMulta,
+                jurosAtrasoPercentual: input.jurosAtrasoPercentual,
+                diasCarenciaJuros: input.diasCarenciaJuros,
+                honorariosAdvPercentual: input.honorariosAdvPercentual,
+                carenciaHonorariosDias: input.carenciaHonorariosDias,
+                periodoGarantido: input.periodoGarantido,
+                abrangenciaGarantia: input.abrangenciaGarantia,
             } });
+            if (input.diaVencimento != null) {
+                await tx.periodoContratoLocacao.updateMany({
+                    where: { imovelLocacaoId: id, dataFim: { gte: normalizarDataUTC(formatarDataLocalISO()) } },
+                    data: { diaVencimento: input.diaVencimento },
+                });
+            }
+            if (input.parcelasIntermediacao) {
+                await tx.parcelaIntermediacao.deleteMany({ where: { imovelLocacaoId: id } });
+                if (input.parcelasIntermediacao.length > 0) {
+                    await tx.parcelaIntermediacao.createMany({
+                        data: input.parcelasIntermediacao.map((parcela, indice) => ({
+                            imovelLocacaoId: id,
+                            ordem: indice + 1,
+                            dataVencimento: normalizarDataUTC(parcela.dataVencimento),
+                            valor: parcela.valor,
+                            observacao: parcela.observacao,
+                        })),
+                    });
+                }
+            }
             await sincronizarHistoricoLocacao(tx, id);
             return locacaoAtualizada;
         });

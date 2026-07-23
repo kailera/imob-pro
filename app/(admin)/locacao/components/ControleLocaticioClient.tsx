@@ -9,6 +9,8 @@ import {
   calcularIndiceReajuste,
 } from "../actions";
 import { adicionarDiasUTC, calcularFaixaPeriodo, formatarDataInput } from "@/lib/locacao/periodos";
+import { FormattedNumberInput } from "@/components/shared/FormattedNumberInput";
+import { parseNumeroFlexivel } from "@/lib/locacao/financeiro";
 
 interface Periodo {
   id: string;
@@ -35,6 +37,7 @@ interface Periodo {
   dataCalculoReajuste?: string | Date | null;
   tipoPeriodo?: "BASE" | "REAJUSTE" | string;
   origemPeriodo?: "MANUAL" | "SICADI_PROVISORIO" | "CALCULO_SISTEMA" | string;
+  diaVencimento?: number | null;
 }
 
 interface ControleLocaticioClientProps {
@@ -46,6 +49,7 @@ interface ControleLocaticioClientProps {
   proximoReajuste?: string | Date | null;
   periodicidadeReajuste?: number | null;
   historicoStatus?: string | null;
+  diaVencimento?: number | null;
   onAddPeriodo?: () => void;
   onEditPeriodo?: (periodo: Periodo) => void;
 }
@@ -58,6 +62,7 @@ export default function ControleLocaticioClient({
   proximoReajuste,
   periodicidadeReajuste = 12,
   historicoStatus = "NAO_INICIADO",
+  diaVencimento,
   onAddPeriodo,
   onEditPeriodo,
 }: ControleLocaticioClientProps) {
@@ -95,6 +100,7 @@ export default function ControleLocaticioClient({
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculoInfo, setCalculoInfo] = useState("");
   const [tipoPeriodo, setTipoPeriodo] = useState<"BASE" | "REAJUSTE">("REAJUSTE");
+  const [diaVencimentoPeriodo, setDiaVencimentoPeriodo] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -150,6 +156,7 @@ export default function ControleLocaticioClient({
     setManterValorDeflacao(true);
     setCalculoInfo("");
     setTipoPeriodo(ultimoPeriodo ? "REAJUSTE" : "BASE");
+    setDiaVencimentoPeriodo(String(ultimoPeriodo?.diaVencimento ?? diaVencimento ?? ""));
     setIsModalOpen(true);
   };
 
@@ -177,6 +184,7 @@ export default function ControleLocaticioClient({
     setManterValorDeflacao(p.manterValorDeflacao ?? true);
     setCalculoInfo("");
     setTipoPeriodo(p.tipoPeriodo === "BASE" ? "BASE" : "REAJUSTE");
+    setDiaVencimentoPeriodo(String(p.diaVencimento ?? diaVencimento ?? ""));
     setIsModalOpen(true);
   };
 
@@ -193,24 +201,25 @@ export default function ControleLocaticioClient({
         imovelLocacaoId,
         dataInicio,
         dataFim,
-        valorAluguel: parseFloat(valorAluguel),
+        valorAluguel: parseNumeroFlexivel(valorAluguel) || 0,
         hasCondominio: hasCondominioState,
-        valorCondominio: hasCondominioState ? parseFloat(valorCondominio) || 0 : 0,
+        valorCondominio: hasCondominioState ? parseNumeroFlexivel(valorCondominio) || 0 : 0,
         hasIPTU: hasIPTUState,
-        valorIPTU: hasIPTUState ? parseFloat(valorIPTU) || 0 : 0,
-        descontoPontualidade: parseFloat(descontoPontualidade) || null,
+        valorIPTU: hasIPTUState ? parseNumeroFlexivel(valorIPTU) || 0 : 0,
+        descontoPontualidade: parseNumeroFlexivel(descontoPontualidade),
         tipoDesconto: descontoPontualidade ? tipoDesconto : null,
         diasAntecedenciaDesc: parseInt(diasAntecedenciaDesc) || null,
-        multaAtrasoPercentual: parseFloat(multaAtrasoPercentual) || null,
+        multaAtrasoPercentual: parseNumeroFlexivel(multaAtrasoPercentual),
         diasCarenciaMulta: parseInt(diasCarenciaMulta) || null,
-        jurosAtrasoPercentual: parseFloat(jurosAtrasoPercentual) || null,
+        jurosAtrasoPercentual: parseNumeroFlexivel(jurosAtrasoPercentual),
         diasCarenciaJuros: parseInt(diasCarenciaJuros) || null,
         indiceReajuste: indiceReajuste || null,
-        valorAluguelAnterior: tipoPeriodo === "BASE" ? null : parseFloat(valorAluguelAnterior) || null,
-        percentualReajuste: tipoPeriodo === "BASE" || percentualReajuste === "" ? null : parseFloat(percentualReajuste),
+        valorAluguelAnterior: tipoPeriodo === "BASE" ? null : parseNumeroFlexivel(valorAluguelAnterior),
+        percentualReajuste: tipoPeriodo === "BASE" || percentualReajuste === "" ? null : parseNumeroFlexivel(percentualReajuste),
         reajusteAutomatico: tipoPeriodo === "BASE" ? false : reajusteAutomatico,
         manterValorDeflacao,
         tipoPeriodo,
+        diaVencimento: diaVencimentoPeriodo ? Number(diaVencimentoPeriodo) : null,
       };
 
       let res;
@@ -235,9 +244,9 @@ export default function ControleLocaticioClient({
   };
 
   const aplicarPercentual = (percentual: string, base = valorAluguelAnterior, manterDeflacao = manterValorDeflacao) => {
-    const baseNumerica = Number(base);
-    const percentualNumerico = Number(percentual);
-    if (Number.isFinite(baseNumerica) && Number.isFinite(percentualNumerico)) {
+    const baseNumerica = parseNumeroFlexivel(base);
+    const percentualNumerico = parseNumeroFlexivel(percentual);
+    if (baseNumerica !== null && percentualNumerico !== null) {
       const novoValor = percentualNumerico < 0 && manterDeflacao
         ? baseNumerica
         : baseNumerica * (1 + percentualNumerico / 100);
@@ -395,6 +404,10 @@ export default function ControleLocaticioClient({
                   )}
                 </div>
               </div>
+              <div className="flex justify-between items-center pb-2 border-b border-gray-50">
+                <span className="text-gray-400 text-[10px] uppercase font-bold">Vencimento no período</span>
+                <span className="font-bold text-[#004777]">{activePeriodo.diaVencimento ? `Todo dia ${activePeriodo.diaVencimento}` : "Herdado do contrato"}</span>
+              </div>
 
               {/* Bloco: Pontualidade */}
               <div className="space-y-1.5 pb-3 border-b border-gray-50">
@@ -547,6 +560,21 @@ export default function ControleLocaticioClient({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Dia de vencimento neste período
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={diaVencimentoPeriodo}
+                  onChange={(e) => setDiaVencimentoPeriodo(e.target.value)}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
+                  placeholder={diaVencimento ? `Herdado: dia ${diaVencimento}` : "1 a 31"}
+                />
+              </div>
+
               {tipoPeriodo === "BASE" && (
                 <div className="rounded-2xl border border-[#004777]/15 bg-[#004777]/5 p-4 space-y-3">
                   <div className="flex items-center gap-2 text-[#004777] font-bold">
@@ -555,7 +583,7 @@ export default function ControleLocaticioClient({
                   <p className="text-[10px] text-gray-600">O período inicial é a referência histórica. Ele não possui percentual de reajuste nem aluguel anterior.</p>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Valor do aluguel-base *</label>
-                    <input type="number" min="0.01" step="0.01" required value={valorAluguel} onChange={(e) => setValorAluguel(e.target.value)} className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />
+                    <FormattedNumberInput required value={valorAluguel} onValueChange={setValorAluguel} format="currency" className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />
                   </div>
                 </div>
               )}
@@ -567,11 +595,11 @@ export default function ControleLocaticioClient({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Aluguel anterior</label>
-                    <input type="number" step="0.01" value={valorAluguelAnterior} onChange={(e) => { setValorAluguelAnterior(e.target.value); aplicarPercentual(percentualReajuste, e.target.value); setReajusteAutomatico(false); }} className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
+                    <FormattedNumberInput value={valorAluguelAnterior} onValueChange={(value) => { setValorAluguelAnterior(value); aplicarPercentual(percentualReajuste, value); setReajusteAutomatico(false); }} format="currency" className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Variação (%)</label>
-                    <input type="number" step="0.0001" value={percentualReajuste} onChange={(e) => { setPercentualReajuste(e.target.value); aplicarPercentual(e.target.value); setReajusteAutomatico(false); }} className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
+                    <FormattedNumberInput value={percentualReajuste} onValueChange={(value) => { setPercentualReajuste(value); aplicarPercentual(value); setReajusteAutomatico(false); }} format="percentage" decimals={4} className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
                   </div>
                 </div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
@@ -594,7 +622,7 @@ export default function ControleLocaticioClient({
                   {isCalculating ? "Consultando índice..." : "Atualizar pelo índice oficial"}
                 </button>
                 {calculoInfo && <p className={`text-[10px] ${reajusteAutomatico ? "text-emerald-700" : "text-amber-700"}`}>{calculoInfo}</p>}
-                {Number(percentualReajuste) < 0 && (
+                {(parseNumeroFlexivel(percentualReajuste) ?? 0) < 0 && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2 text-amber-900">
                     <p className="font-bold">O índice apurado foi negativo.</p>
                     <p className="text-[10px]">Aplicá-lo reduzirá o aluguel. Escolha como este contrato deve tratar a deflação:</p>
@@ -612,14 +640,14 @@ export default function ControleLocaticioClient({
                     </label>
                     <p className="text-[10px] font-semibold">
                       {manterValorDeflacao
-                        ? `O aluguel permanecerá em ${formatCurrency(Number(valorAluguelAnterior))}.`
-                        : `A redução será aplicada e o aluguel passará para ${formatCurrency(Number(valorAluguel))}.`}
+                        ? `O aluguel permanecerá em ${formatCurrency(parseNumeroFlexivel(valorAluguelAnterior))}.`
+                        : `A redução será aplicada e o aluguel passará para ${formatCurrency(parseNumeroFlexivel(valorAluguel))}.`}
                     </p>
                   </div>
                 )}
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Novo aluguel *</label>
-                  <input type="number" step="0.01" required value={valorAluguel} onChange={(e) => setValorAluguel(e.target.value)} className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />
+                  <FormattedNumberInput required value={valorAluguel} onValueChange={setValorAluguel} format="currency" className="w-full px-3 py-2 border border-[#004777]/30 rounded-xl font-black text-sm text-[#280003] bg-white" />
                 </div>
               </div>
 
@@ -635,12 +663,11 @@ export default function ControleLocaticioClient({
                   <span>Possui taxas adicionais de Condomínio?</span>
                 </label>
                 {hasCondominioState && (
-                  <input
-                    type="number"
-                    step="0.01"
+                  <FormattedNumberInput
+                    format="currency"
                     placeholder="Valor do Condomínio"
                     value={valorCondominio}
-                    onChange={(e) => setValorCondominio(e.target.value)}
+                    onValueChange={setValorCondominio}
                     className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
                   />
                 )}
@@ -658,12 +685,11 @@ export default function ControleLocaticioClient({
                   <span>Possui taxas adicionais de IPTU?</span>
                 </label>
                 {hasIPTUState && (
-                  <input
-                    type="number"
-                    step="0.01"
+                  <FormattedNumberInput
+                    format="currency"
                     placeholder="Valor do IPTU"
                     value={valorIPTU}
-                    onChange={(e) => setValorIPTU(e.target.value)}
+                    onValueChange={setValorIPTU}
                     className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
                   />
                 )}
@@ -677,12 +703,11 @@ export default function ControleLocaticioClient({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-zinc-500 mb-1 font-semibold">Valor do Desconto</label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <FormattedNumberInput
+                      format={tipoDesconto === "VALOR" ? "currency" : "percentage"}
                       placeholder="0.00"
                       value={descontoPontualidade}
-                      onChange={(e) => setDescontoPontualidade(e.target.value)}
+                      onValueChange={setDescontoPontualidade}
                       className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
                     />
                   </div>
@@ -720,12 +745,11 @@ export default function ControleLocaticioClient({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-zinc-500 mb-1 font-semibold">Multa (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <FormattedNumberInput
+                      format="percentage"
                       placeholder="Ex: 10"
                       value={multaAtrasoPercentual}
-                      onChange={(e) => setMultaAtrasoPercentual(e.target.value)}
+                      onValueChange={setMultaAtrasoPercentual}
                       className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
                     />
                   </div>
@@ -743,12 +767,11 @@ export default function ControleLocaticioClient({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-zinc-500 mb-1 font-semibold">Juros Mensal (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <FormattedNumberInput
+                      format="percentage"
                       placeholder="Ex: 1"
                       value={jurosAtrasoPercentual}
-                      onChange={(e) => setJurosAtrasoPercentual(e.target.value)}
+                      onValueChange={setJurosAtrasoPercentual}
                       className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold"
                     />
                   </div>

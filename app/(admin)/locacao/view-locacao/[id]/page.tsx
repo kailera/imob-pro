@@ -121,9 +121,9 @@ export default async function ViewLocacao({
 
     // Encontrar o dia de vencimento com base nas cobranças existentes
     const aluguelTxs = transacaoFinanceiras.filter(tx => tx.categoria === "ALUGUEL")
-    const vencimentoDia = aluguelTxs.length > 0 
-        ? new Date(aluguelTxs[0].dataVencimento).getUTCDate() 
-        : null
+    const vencimentoDia = imovelLocacao?.diaVencimento ?? (aluguelTxs.length > 0
+        ? new Date(aluguelTxs[0].dataVencimento).getUTCDate()
+        : null)
 
     const formatCurrency = (val: number | null | undefined) => {
         if (val === null || val === undefined) return "R$ 0,00"
@@ -541,6 +541,7 @@ export default async function ViewLocacao({
                             proximoReajuste={imovelLocacao?.proximoReajuste}
                             periodicidadeReajuste={imovelLocacao?.periodicidadeReajuste}
                             historicoStatus={imovelLocacao?.historicoPeriodosStatus}
+                            diaVencimento={imovelLocacao?.diaVencimento}
                         />
 
                         {/* Histórico de Vistorias */}

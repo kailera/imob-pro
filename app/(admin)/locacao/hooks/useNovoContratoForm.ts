@@ -9,6 +9,14 @@ import {
   serializeTelefoneLegacy,
   valorPorExtenso
 } from '../utils/formatters';
+import {
+  calcularDataLimiteDesconto,
+  calcularDescontoPontualidade,
+  criarDataVencimento,
+  formatarMoeda,
+  formatarPercentual,
+  parseNumeroFlexivel,
+} from '@/lib/locacao/financeiro';
 
 interface UseNovoContratoFormProps {
   isOpen: boolean;
@@ -172,6 +180,8 @@ export function useNovoContratoForm({
   const [descontoPontualidade, setDescontoPontualidade] = useState<string>('');
   const [validadeDescontoPontualidade, setValidadeDescontoPontualidade] = useState<string>('');
   const [multaQuebraContrato, setMultaQuebraContrato] = useState<string>('');
+  const [tipoMultaQuebra, setTipoMultaQuebra] = useState<'PERCENTUAL' | 'MESES'>('PERCENTUAL');
+  const [tipoDescontoPontualidade, setTipoDescontoPontualidade] = useState<'PERCENTUAL' | 'VALOR'>('PERCENTUAL');
   const [quebraContratoVenceEm, setQuebraContratoVenceEm] = useState<string>('');
   const [multaAtraso, setMultaAtraso] = useState<string>('');
   const [cobrancaAposDias, setCobrancaAposDias] = useState<string>('');
@@ -651,9 +661,27 @@ export function useNovoContratoForm({
     const dataInicioStr = start.toLocaleDateString('pt-BR');
     const dataFimStr = end.toLocaleDateString('pt-BR');
 
-    const aluguelNum = Number(customAluguel) || 0;
-    const bonificacaoNum = 100;
+    const aluguelNum = parseNumeroFlexivel(customAluguel) || 0;
+    const descontoInformado = parseNumeroFlexivel(descontoPontualidade) || 0;
+    const bonificacaoNum = calcularDescontoPontualidade(
+      aluguelNum,
+      descontoInformado,
+      tipoDescontoPontualidade,
+    );
     const aluguelBonificadoNum = Math.max(0, aluguelNum - bonificacaoNum);
+
+    const vencimentoReferencia = vencimentoPrimeiroPeriodo
+      ? new Date(`${vencimentoPrimeiroPeriodo}T00:00:00Z`)
+      : criarDataVencimento(
+          start.getFullYear(),
+          start.getMonth() + 2,
+          Number(leaseVencimento) || 1,
+        );
+    const dataLimiteBonificacao = calcularDataLimiteDesconto(
+      vencimentoReferencia,
+      Number(validadeDescontoPontualidade) || 0,
+    );
+    const diaPagamentoBonificado = String(dataLimiteBonificacao.getUTCDate());
 
     const aluguelExtenso = valorPorExtenso(aluguelNum);
     const aluguelBonificadoExtenso = valorPorExtenso(aluguelBonificadoNum);
@@ -711,27 +739,34 @@ export function useNovoContratoForm({
         dataInicio: leaseDataInicio,
         dataFim: end.toISOString().split('T')[0],
         valorAluguel: aluguelNum,
-        valorCondominio: Number(customCondominio) || 0,
-        valorIPTU: Number(customIptu) || 0,
+        valorCondominio: parseNumeroFlexivel(customCondominio) || 0,
+        valorIPTU: parseNumeroFlexivel(customIptu) || 0,
         documentoUrl: contractUploadedDocs,
         tenantUploadedDocs: tenantUploadedDocs,
 
         // Novos campos
-        taxaAdministracao: taxaAdministracao ? parseFloat(taxaAdministracao.replace(/[^\d,]/g, "").replace(",", ".")) : null,
-        taxaMultasEncargos: taxaMultasEncargos ? parseFloat(taxaMultasEncargos.replace(/[^\d,]/g, "").replace(",", ".")) : null,
-        taxaIntermediacao: taxaIntermediacao ? parseFloat(taxaIntermediacao.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        taxaAdministracao: parseNumeroFlexivel(taxaAdministracao),
+        taxaMultasEncargos: parseNumeroFlexivel(taxaMultasEncargos),
+        taxaIntermediacao: parseNumeroFlexivel(taxaIntermediacao),
         irrfResponsabilidade: irrfResponsabilidade || null,
         carenciaRepasse: carenciaRepasse ? parseInt(carenciaRepasse) : null,
+        diaVencimento: leaseVencimento ? parseInt(leaseVencimento, 10) : null,
         periodicidadeReajuste: periodicidadeReajuste ? parseInt(periodicidadeReajuste) : null,
         indiceReajuste: indiceReajuste || null,
-        multaQuebraContrato: multaQuebraContrato ? parseFloat(multaQuebraContrato.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        multaQuebraContrato: parseNumeroFlexivel(multaQuebraContrato),
+        tipoMultaQuebra,
         vencimentoQuebra: quebraContratoVenceEm || null,
-        descontoPontualidade: descontoPontualidade ? parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        descontoPontualidade: parseNumeroFlexivel(descontoPontualidade),
+        tipoDesconto: tipoDescontoPontualidade,
         diasAntecedenciaDesc: validadeDescontoPontualidade ? parseInt(validadeDescontoPontualidade) : null,
-        multaAtrasoPercentual: multaAtraso ? parseFloat(multaAtraso.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        multaAtrasoPercentual: parseNumeroFlexivel(multaAtraso),
         diasCarenciaMulta: cobrancaAposDias ? parseInt(cobrancaAposDias) : null,
-        jurosAtrasoPercentual: multaJurosMensal ? parseFloat(multaJurosMensal.replace(/[^\d,]/g, "").replace(",", ".")) : null,
+        jurosAtrasoPercentual: parseNumeroFlexivel(multaJurosMensal),
         diasCarenciaJuros: cobrancaAposDiasJuros ? parseInt(cobrancaAposDiasJuros) : null,
+        honorariosAdvPercentual: parseNumeroFlexivel(honorarios),
+        carenciaHonorariosDias: carenciaHonorarios ? parseInt(carenciaHonorarios, 10) : null,
+        periodoGarantido: periodoCarencia || null,
+        abrangenciaGarantia: abrangenciaGarantia || null,
 
         // Primeiro período de cobrança (Vencimento em aberto)
         dataInicioPeriodo: inicioPrimeiroPeriodo || null,
@@ -819,11 +854,11 @@ export function useNovoContratoForm({
       VALOR_ALUGUEL_BONIFICADO: aluguelBonificadoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
       VALOR_ALUGUEL_BONIFICADO_EXTENSO: aluguelBonificadoExtenso,
       DIA_VENCIMENTO: leaseVencimento,
-      DIA_PAGAMENTO_BONIFICADO: '10',
+      DIA_PAGAMENTO_BONIFICADO: diaPagamentoBonificado,
 
-      VALOR_CONDOMINIO: (Number(customCondominio) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      VALOR_CONDOMINIO_EXTENSO: valorPorExtenso(Number(customCondominio) || 0),
-      VALOR_IPTU: (Number(customIptu) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      VALOR_CONDOMINIO: (parseNumeroFlexivel(customCondominio) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      VALOR_CONDOMINIO_EXTENSO: valorPorExtenso(parseNumeroFlexivel(customCondominio) || 0),
+      VALOR_IPTU: (parseNumeroFlexivel(customIptu) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
       VALOR_ALUGUEL_APOS_MESES: aluguelNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
       VALOR_ALUGUEL_APOS_MESES_EXTENSO: aluguelExtenso,
 
@@ -841,7 +876,9 @@ export function useNovoContratoForm({
       PROPRIETARIO_IMOVEL: proprietario?.nome || '_______________________',
       DADOS_IMOVEL_CAUCAO: fiador ? `Imóvel situado em Santa Fé do Sul-SP de propriedade do fiador ${fiador.nome}` : 'Imóvel residencial oferecido em garantia pelo inquilino',
 
-      DESCONTO_PONTUALIDADE: sanitizePercent(descontoPontualidade),
+      DESCONTO_PONTUALIDADE: tipoDescontoPontualidade === 'VALOR'
+        ? formatarMoeda(descontoInformado)
+        : formatarPercentual(descontoInformado),
       VALIDADE_DESCONTO_PONTUALIDADE: validadeDescontoPontualidade,
       MULTA_QUEBRA_CONTRATO: sanitizePercent(multaQuebraContrato),
       QUEBRA_CONTRATO_VENCE_EM: quebraContratoVenceEm ? new Date(quebraContratoVenceEm + 'T12:00:00').toLocaleDateString('pt-BR') : '',
@@ -1025,6 +1062,10 @@ export function useNovoContratoForm({
     setValidadeDescontoPontualidade,
     multaQuebraContrato,
     setMultaQuebraContrato,
+    tipoMultaQuebra,
+    setTipoMultaQuebra,
+    tipoDescontoPontualidade,
+    setTipoDescontoPontualidade,
     quebraContratoVenceEm,
     setQuebraContratoVenceEm,
     multaAtraso,

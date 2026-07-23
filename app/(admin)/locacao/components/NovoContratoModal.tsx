@@ -193,6 +193,7 @@ export default function NovoContratoModal({
                                         pendingFiadorData={form.pendingFiadorData}
                                         fiadores={form.fiadores}
                                         leasePrazo={form.leasePrazo}
+                                        customAluguel={form.customAluguel}
                                         setLeasePrazo={form.setLeasePrazo}
                                         leaseVencimento={form.leaseVencimento}
                                         setLeaseVencimento={form.setLeaseVencimento}
@@ -206,6 +207,10 @@ export default function NovoContratoModal({
                                         setValidadeDescontoPontualidade={form.setValidadeDescontoPontualidade}
                                         multaQuebraContrato={form.multaQuebraContrato}
                                         setMultaQuebraContrato={form.setMultaQuebraContrato}
+                                        tipoMultaQuebra={form.tipoMultaQuebra}
+                                        setTipoMultaQuebra={form.setTipoMultaQuebra}
+                                        tipoDescontoPontualidade={form.tipoDescontoPontualidade}
+                                        setTipoDescontoPontualidade={form.setTipoDescontoPontualidade}
                                         quebraContratoVenceEm={form.quebraContratoVenceEm}
                                         setQuebraContratoVenceEm={form.setQuebraContratoVenceEm}
                                         multaAtraso={form.multaAtraso}
