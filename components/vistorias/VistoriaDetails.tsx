@@ -209,6 +209,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           .filter((media: any) => media?.type === "image" && typeof media.url === "string")
           .map((media: any) => ({
             url: media.url as string,
+            roomId: comment.roomId || "",
             roomName: comment.roomName || rooms.find((room: any) => room.id === comment.roomId)?.name || "Ambiente",
             description: comment.texto || comment.text || ""
           }))
@@ -238,21 +239,82 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
 
-      // Split rooms dynamically across pages
-      const roomsP1 = rooms.slice(0, 3);
-      const roomsP2 = rooms.slice(3, 7);
-      const roomsP3 = rooms.slice(7);
+      const normalizeRoomName = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
+      const photosPerRoomPage = 4;
+      const roomPhotoPages = rooms.flatMap((room: any) => {
+        const photos = preparedRoomPhotos.filter((photo: any) =>
+          photo.roomId === room.id || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
+        );
+        const chunks = Array.from(
+          { length: Math.max(1, Math.ceil(photos.length / photosPerRoomPage)) },
+          (_, index) => photos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage)
+        );
+        return chunks.map((photos, index) => ({ room, photos, continuation: index > 0 }));
+      });
+      const roomPagesHtml = roomPhotoPages.map(({ room, photos, continuation }, pageIndex) => `
+        <div data-pdf-kind="room" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
+            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
+          </div>
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;">
+              <div>
+                <span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px;">Estado do ambiente</span>
+                <h2 style="font-size: 16px; color: #004777; margin: 0; line-height: 1.1;">${escapeHtml(room.name)}${continuation ? " — continuação" : ""}</h2>
+              </div>
+              <span style="font-size: 8px; background: #EEEEF3; color: #555; border-radius: 10px; padding: 4px 8px; font-weight: bold;">${escapeHtml(room.type || "Ambiente")}</span>
+            </div>
+            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background: #ffffff; margin-bottom: 10px;">
+              <div style="font-size: 8px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Visão geral</div>
+              <p style="font-size: 9px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(room.visaoGeral || "Não informado")}</p>
+              ${room.comentarios ? `<div style="border-top: 1px solid #EEEEF3; margin-top: 8px; padding-top: 8px;"><div style="font-size: 8px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Comentários</div><p style="font-size: 9px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(room.comentarios)}</p></div>` : ""}
+            </div>
+            <div style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin: 4px 0 7px;">Registro fotográfico ${photos.length ? `(${photos.length})` : ""}</div>
+            ${photos.length ? `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-content: start;">${photos.map((photo: any, photoIndex: number) => `
+              <figure style="margin: 0; border: 1px solid #EEEEF3; border-radius: 5px; padding: 5px; background: #fafafa;">
+                <img src="${escapeHtml(photo.pdfUrl)}" alt="Foto ${photoIndex + 1} de ${escapeHtml(room.name)}" style="display: block; width: 100%; height: 150px; object-fit: cover; border-radius: 3px; background: #eee;" />
+                <figcaption style="font-size: 7px; line-height: 1.3; color: #555; margin-top: 4px; text-align: justify;">Foto ${pageIndex * photosPerRoomPage + photoIndex + 1}${photo.description ? ` — ${escapeHtml(photo.description)}` : ""}</figcaption>
+              </figure>`).join("")}</div>` : `<div style="border: 1px dashed #cbd5e1; border-radius: 5px; padding: 14px; color: #777; font-size: 9px; font-style: italic; text-align: center;">Não há fotos registradas para este ambiente.</div>`}
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span>
+              <span>Ambiente ${pageIndex + 1} de ${roomPhotoPages.length}</span>
+            </div>
+          </div>
+        </div>`).join("");
+      const splitIntoChunks = <T,>(items: T[], size: number) =>
+        Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+      const termsPagesHtml = splitIntoChunks(infoGeralItems, 6).map((terms, pageIndex) => `
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
+            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Complemento do laudo</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Condições gerais</h2></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 9px; background: #ffffff;"><h3 style="font-size: 8px; color: #004777; text-transform: uppercase; margin: 0 0 5px; line-height: 1.25;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 8px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Condições ${pageIndex + 1}</span></div>
+          </div>
+        </div>`).join("");
+      const attachmentPagesHtml = splitIntoChunks(preparedAttachments, 4).map((attachmentsPage, pageIndex) => `
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
+            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Anexos</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Documentos complementares</h2></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${attachmentsPage.map((attachment: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 6px; background: #fafafa;">${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.pdfUrl)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 145px; object-fit: cover; border-radius: 4px; background: #eee; margin-bottom: 6px;" />` : ""}<h3 style="font-size: 8px; color: #004777; margin: 0 0 4px; overflow-wrap: anywhere;">${escapeHtml(attachment.name)}</h3>${attachment.description ? `<p style="font-size: 8px; line-height: 1.4; color: #555; margin: 0; text-align: justify;">${escapeHtml(attachment.description)}</p>` : ""}</section>`).join("")}</div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Anexos ${pageIndex + 1}</span></div>
+          </div>
+        </div>`).join("");
+      const roomsP1: any[] = [];
+      const roomsP2: any[] = [];
+      const roomsP3: any[] = [];
       const photosPerPage = 12;
-      const photoChunks = Array.from(
-        { length: Math.ceil(preparedRoomPhotos.length / photosPerPage) },
-        (_, index) => preparedRoomPhotos.slice(index * photosPerPage, index * photosPerPage + photosPerPage)
-      );
-      const photoPagesHtml = photoChunks.map((photos, pageIndex) => `
+      const photoChunks: any[][] = [];
+      const photoPagesHtml = "";
+      /* Legacy photo-page layout kept out of the generated document. */
+      /*
+      const unusedPhotoPagesHtml = photoChunks.map((photos, pageIndex) => `
         <div data-pdf-kind="photo" data-photo-page-index="${pageIndex}" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
           </div>
-          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #004777; padding-bottom: 6px; margin-bottom: 12px;">
               <h2 style="font-size: 12px; color: #004777; text-transform: uppercase; margin: 0;">Registro Fotográfico</h2>
               <span style="font-size: 9px; color: #888; font-weight: bold;">Código: ${escapeHtml(vistoria.codigo)}</span>
@@ -273,6 +335,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           </div>
         </div>
       `).join("");
+      */
 
       // Build the temporary container for PDF generation
       const tempDiv = document.createElement("div");
@@ -350,10 +413,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <!-- Parecer Técnico -->
             <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; margin-bottom: 12px; background-color: #ffffff;">
               <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #EEEEF3; padding-bottom: 4px; margin-top: 0; margin-bottom: 6px;">Parecer Técnico Geral</h2>
-              <div style="font-size: 10px; line-height: 1.4; color: #280003; white-space: pre-wrap;">${reportDesc}</div>
+              <div style="font-size: 9px; line-height: 1.45; color: #280003; white-space: pre-wrap; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(reportDesc)}</div>
               ${reportObs ? `
                 <div style="margin-top: 6px; padding: 6px; background-color: rgba(240, 209, 138, 0.1); border: 1px solid rgba(240, 209, 138, 0.2); border-radius: 4px; font-size: 9px; color: #8c6d1f;">
-                  <strong>Observação técnica:</strong> ${reportObs}
+                  <strong>Observação técnica:</strong> ${escapeHtml(reportObs)}
                 </div>
               ` : ''}
             </div>
@@ -361,6 +424,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <!-- Estado dos Ambientes (P1) -->
             <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
               <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px; margin-top: 0;">Estado dos Ambientes</h2>
+              <p style="margin: 0; font-size: 9px; line-height: 1.4; color: #555;">O detalhamento técnico e o registro fotográfico de cada ambiente constam nas páginas seguintes.</p>
               ${roomsP1.map((room: any) => `
                 <div style="background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px; padding: 8px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 4px;">
@@ -394,7 +458,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         </div>
 
         <!-- PAGE 2 -->
-        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-skip="true" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <!-- Background Frame -->
           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
@@ -440,7 +504,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         </div>
 
         <!-- PAGE 3 -->
-        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-skip="true" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <!-- Background Frame -->
           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
@@ -534,7 +598,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             </div>
           </div>
         </div>
-        ${photoPagesHtml}
+        ${roomPagesHtml}${termsPagesHtml}${attachmentPagesHtml}${photoPagesHtml}
       `;
 
       const wrapper = document.createElement("div");
@@ -561,7 +625,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         await new Promise((resolve) => setTimeout(resolve, 300));
 
         const pages = Array.from(tempDiv.children).filter(
-          (child): child is HTMLElement => child instanceof HTMLElement
+          (child): child is HTMLElement => child instanceof HTMLElement && child.dataset.pdfSkip !== "true"
         );
         if (pages.length === 0) {
           throw new Error("Nenhuma página foi montada para o PDF.");

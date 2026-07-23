@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit3, Map, Grid2X2, Save, Loader2, Share2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Edit3, Map, Grid2X2, Save, Loader2, Share2, Copy, Check, Menu, X } from "lucide-react";
 import { RoomBuilderForm } from "@/components/vistorias/ficha-vistoria/RoomBuilderForm";
 import { FloorPlanVisualizer, Room, RoomType } from "@/components/vistorias/ficha-vistoria/FloorPlanVisualizer";
 import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSections";
@@ -75,6 +75,7 @@ export default function FichaVistoriaPage() {
   const [assinatura, setAssinatura] = useState<string | null>(null);
   const [tokenAcesso, setTokenAcesso] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isGeneratingToken, setIsGeneratingToken] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [contestations, setContestations] = useState<any[]>([]);
@@ -776,6 +777,48 @@ export default function FichaVistoriaPage() {
   const isBrokerOrAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "CORRETOR";
   const canEdit = vistoriaStatus === "NAO_INICIADA" || vistoriaStatus === "EM_ANDAMENTO" || vistoriaStatus === "CONTESTADA" || isBrokerOrAdmin;
   const headerActionClass = "inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]/35 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[190px] sm:flex-none";
+  const headerActions = (
+    <>
+      {["NAO_INICIADA", "EM_ANDAMENTO", "CONTESTADA"].includes(vistoriaStatus) && (
+        <button onClick={() => handleUpdateStatus("AGUARDANDO_APROVACAO")} disabled={isSaving} className={`${headerActionClass} border-amber-500 bg-amber-500 text-white hover:border-amber-600 hover:bg-amber-600`}>
+          Enviar para Aprovação
+        </button>
+      )}
+      {vistoriaStatus === "AGUARDANDO_APROVACAO" && (
+        isBrokerOrAdmin ? (
+          <>
+            <button onClick={() => handleUpdateStatus("CONCLUIDA")} disabled={isSaving} className={`${headerActionClass} border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700`}>
+              Aprovar Vistoria
+            </button>
+            <button onClick={() => handleUpdateStatus("EM_ANDAMENTO")} disabled={isSaving} className={`${headerActionClass} border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700`}>
+              Reprovar Vistoria
+            </button>
+          </>
+        ) : (
+          <span className={`${headerActionClass} border-amber-200 bg-amber-50 text-amber-700 shadow-none`}>
+            Aguardando Aprovação
+          </span>
+        )
+      )}
+      <button onClick={handleOpenShare} className={`${headerActionClass} border-[#004777] bg-[#004777] text-white hover:border-[#00365a] hover:bg-[#00365a]`}>
+        <Share2 className="w-4 h-4" />
+        <span>Enviar p/ Inquilino</span>
+      </button>
+      {vistoriaStatus !== "CONCLUIDA" && (
+        <button onClick={handleSaveDatabase} disabled={isSaving} className={`${headerActionClass} border-[#708D81] bg-[#708D81] text-white hover:border-[#5b756b] hover:bg-[#5b756b]`}>
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          <span>Salvar no Banco</span>
+        </button>
+      )}
+      {pdfVistoria && (
+        <VistoriaDetails
+          vistoria={pdfVistoria}
+          pdfButtonOnly
+          pdfButtonClassName={`${headerActionClass} border-slate-200 bg-slate-100 text-gray-700 hover:border-slate-300 hover:bg-slate-200`}
+        />
+      )}
+    </>
+  );
 
   return (
     <div className="inspection-mobile-shell flex min-h-0 w-full max-w-[1600px] flex-col gap-6 overflow-hidden bg-white mx-auto px-2 sm:px-0 h-[calc(100dvh-8rem)] md:h-[calc(100dvh-9rem)] lg:h-auto lg:overflow-visible print:h-auto print:overflow-visible print:max-w-none print:p-0 print:gap-0">
@@ -808,8 +851,30 @@ export default function FichaVistoriaPage() {
         }
       `}} />
 
+      {/* Compact header for mobile */}
+      <header className="flex flex-col gap-3 rounded-2xl border border-[#EEEEF3] bg-white p-3 shadow-sm lg:hidden print:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <button type="button" onClick={() => router.push('/vistorias')} aria-label="Voltar para vistorias" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-[#EEEEF3] hover:text-[#004777]">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-extrabold tracking-tight text-[#280003]">Ficha de Vistoria</h1>
+            <div className="mt-0.5"><ConnectionStatus /></div>
+          </div>
+          <button type="button" onClick={() => setIsHeaderMenuOpen((open) => !open)} aria-expanded={isHeaderMenuOpen} aria-controls="vistoria-actions" className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-[#EEEEF3] px-3 text-sm font-bold text-[#004777] transition-colors hover:bg-[#EEEEF3]">
+            {isHeaderMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span>Ações</span>
+          </button>
+        </div>
+        {isHeaderMenuOpen && (
+          <div id="vistoria-actions" className="grid gap-2 border-t border-[#EEEEF3] pt-3 [&>*]:!w-full">
+            {headerActions}
+          </div>
+        )}
+      </header>
+
       {/* Top Header / Breadcrumb */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between bg-white p-4 sm:p-6 rounded-2xl border border-[#EEEEF3] shadow-sm gap-4 flex-shrink-0 print:hidden">
+      <header className="hidden flex-col justify-between gap-4 rounded-2xl border border-[#EEEEF3] bg-white p-4 shadow-sm md:flex-row md:items-center sm:p-6 lg:flex flex-shrink-0 print:hidden">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/vistorias')}
@@ -833,74 +898,7 @@ export default function FichaVistoriaPage() {
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end print:hidden">
-          {/* Botão Enviar para Aprovação */}
-          {["NAO_INICIADA", "EM_ANDAMENTO", "CONTESTADA"].includes(vistoriaStatus) && (
-            <button
-              onClick={() => handleUpdateStatus("AGUARDANDO_APROVACAO")}
-              disabled={isSaving}
-              className={`${headerActionClass} border-amber-500 bg-amber-500 text-white hover:border-amber-600 hover:bg-amber-600`}
-            >
-              Enviar para Aprovação
-            </button>
-          )}
-
-          {/* Botões de Aprovar e Reprovar para ADMIN e CORRETOR */}
-          {vistoriaStatus === "AGUARDANDO_APROVACAO" && (
-            isBrokerOrAdmin ? (
-              <>
-                <button
-                  onClick={() => handleUpdateStatus("CONCLUIDA")}
-                  disabled={isSaving}
-                  className={`${headerActionClass} border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700`}
-                >
-                  Aprovar Vistoria
-                </button>
-                <button
-                  onClick={() => handleUpdateStatus("EM_ANDAMENTO")}
-                  disabled={isSaving}
-                  className={`${headerActionClass} border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700`}
-                >
-                  Reprovar Vistoria
-                </button>
-              </>
-            ) : (
-              <span className={`${headerActionClass} border-amber-200 bg-amber-50 text-amber-700 shadow-none`}>
-                Aguardando Aprovação
-              </span>
-            )
-          )}
-
-          <button
-            onClick={handleOpenShare}
-            className={`${headerActionClass} border-[#004777] bg-[#004777] text-white hover:border-[#00365a] hover:bg-[#00365a]`}
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Enviar p/ Inquilino</span>
-          </button>
-
-          {/* Salvar no Banco - Apenas se não concluída e se editável */}
-          {vistoriaStatus !== "CONCLUIDA" && (
-            <button
-              onClick={handleSaveDatabase}
-              disabled={isSaving}
-              className={`${headerActionClass} border-[#708D81] bg-[#708D81] text-white hover:border-[#5b756b] hover:bg-[#5b756b]`}
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Salvar no Banco</span>
-            </button>
-          )}
-
-          {pdfVistoria && (
-            <VistoriaDetails
-              vistoria={pdfVistoria}
-              pdfButtonOnly
-              pdfButtonClassName={`${headerActionClass} hidden border-slate-200 bg-slate-100 text-gray-700 hover:border-slate-300 hover:bg-slate-200 sm:inline-flex`}
-            />
-          )}
+          {headerActions}
         </div>
       </header>
 
