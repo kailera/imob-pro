@@ -385,12 +385,15 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       `;
 
       const wrapper = document.createElement("div");
-      wrapper.style.height = "0";
-      wrapper.style.overflow = "hidden";
-      wrapper.style.position = "fixed";
+      wrapper.setAttribute("aria-hidden", "true");
+      wrapper.style.position = "absolute";
       wrapper.style.top = "0";
-      wrapper.style.left = "0";
-      wrapper.style.zIndex = "-9999";
+      wrapper.style.left = "-10000px";
+      wrapper.style.width = "210mm";
+      wrapper.style.height = "auto";
+      wrapper.style.overflow = "visible";
+      wrapper.style.backgroundColor = "#ffffff";
+      wrapper.style.pointerEvents = "none";
       wrapper.appendChild(tempDiv);
       document.body.appendChild(wrapper);
 
@@ -414,8 +417,11 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
       };
 
-      await html2pdf().from(tempDiv).set(opt).save();
-      document.body.removeChild(wrapper);
+      try {
+        await html2pdf().from(tempDiv).set(opt).save();
+      } finally {
+        wrapper.remove();
+      }
     } catch (error) {
       console.error("Erro ao gerar relatório em PDF:", error);
     } finally {
