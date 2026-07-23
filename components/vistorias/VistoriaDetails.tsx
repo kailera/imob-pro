@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Download, Loader2 } from "lucide-react";
 import { getVistoriaById } from "@/app/(admin)/vistorias/actions";
+import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 
 export interface Vistoria {
   id: string;
@@ -177,23 +178,18 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         dbData.imovel?.contratoImovelLocacaos?.flatMap((contrato: any) => contrato.locatarios || [])?.[0] ||
         null;
       const realEstate = dbData.operador?.imob || dbData.imovel?.imob || null;
+      const tenantContract = dbData.imovel?.contratoImovelLocacaos?.find((contrato: any) =>
+        contrato.locatarios?.some((locatario: any) => locatario.id === primaryTenant?.id)
+      );
       const realEstateName = realEstate?.nomeFantasia || realEstate?.razaoSocial || "Scatolin Imóveis";
       const realEstateDocument = realEstate?.cnpj || "CNPJ não informado";
       const tenantName = primaryTenant?.nome || vistoria.inquilino || "Locatário não informado";
       const tenantDocument = primaryTenant?.cpfCnpj || "CPF/CNPJ não informado";
-      const contractNumber = "Não informado";
-      const inspectionTerm = [
-        "Firmam por meio do presente o Termo de Vistoria e Entrega das Chaves ao locatário(a) para o início da vigência do contrato de locação firmado entre as partes.",
-        "O imóvel foi vistoriado na presença das partes, e as condições de conservação e funcionamento do mesmo foram registradas por meio de imagens, vídeos e comentários anexados ao presente termo.",
-        "As partes declaram que o imóvel se encontra em perfeito estado de conservação, com todos os itens pertencentes ao imóvel em pleno estado de funcionamento e conservação.",
-        "O locatário(a) compromete-se a devolver o imóvel nas mesmas condições em que o recebeu, ou seja, em perfeito estado de conservação, ao final do contrato de locação.",
-        "Ao término da locação e entrega do imóvel, o locatário(a) deverá: a) desligar a energia elétrica do imóvel somente após a realização da vistoria final, que será agendada entre as partes, para constatação do estado do imóvel; b) apresentar ao locador a certidão de quitação de débitos até a data da desocupação; c) apresentar o comprovante do pedido de desligamento da energia elétrica.",
-      ];
-      const finalTerm = [
-        `Qualquer impugnação ao presente laudo deverá ser comunicada para a administração do imóvel, por escrito, dentro de 07 (sete) dias a contar da data da assinatura deste, destinada ao e-mail ${realEstate?.emailContato || "da imobiliária administradora"}.`,
-        "A falta de comunicação implica em aceitação da vistoria realizada nos termos descritos acima.",
-        "E, por assim estarem justos e de acordo, firmam o presente instrumento em duas vias de igual teor e forma.",
-      ];
+      const contractCode = tenantContract?.id ? tenantContract.id.slice(0, 8).toUpperCase() : null;
+      const inspectionTermText = dbData.observacoes?.trim() || DEFAULT_INITIAL_INSPECTION_TERM;
+      const finalTermText = dbData.reparosNecessarios?.trim() || DEFAULT_FINAL_INSPECTION_TERM;
+      const inspectionTerm = inspectionTermText.split(/\n\s*\n/);
+      const finalTerm = finalTermText.split(/\n\s*\n/);
       const vistoriadorFormatted = dbData.vistoriador 
         ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ''}` 
         : vistoria.vistoriador;
@@ -345,7 +341,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           </div>
         </div>`).join("");
       const finalTermPageHtml = `
-        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background: #fff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-kind="closing" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background: #fff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
             <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 16px;">
@@ -417,7 +413,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       tempDiv.style.backgroundColor = "#ffffff";
       tempDiv.innerHTML = `
         <!-- PAGE 1 -->
-        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden;">
+        <div data-pdf-kind="opening" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden;">
           <!-- Background Frame -->
           <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
@@ -447,10 +443,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
                     <td style="padding: 2px 0; color: #666; font-weight: 600; width: 40%;">TIPO:</td>
                     <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.tipo}</td>
                   </tr>
-                  <tr>
+                  ${contractCode ? `<tr>
                     <td style="padding: 2px 0; color: #666; font-weight: 600;">CONTRATO:</td>
-                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${escapeHtml(contractNumber)}</td>
-                  </tr>
+                    <td style="padding: 2px 0; color: #280003; font-weight: bold;">${escapeHtml(contractCode)}</td>
+                  </tr>` : ""}
                   <tr>
                     <td style="padding: 2px 0; color: #666; font-weight: 600;">DATA:</td>
                     <td style="padding: 2px 0; color: #280003; font-weight: bold;">${vistoria.dataVistoria || "Não definida"}</td>
@@ -702,9 +698,145 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
         const renderingStartedAt = Date.now();
         for (let index = 0; index < pages.length; index += 1) {
+          const pageKind = pages[index].dataset.pdfKind;
           const isPhotoPage = pages[index].dataset.pdfKind === "photo";
           const isRoomPage = pages[index].dataset.pdfKind === "room";
           if (index > 0) pdf.addPage("a4", "portrait");
+
+          if (pageKind === "opening") {
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, 210, 297, "F");
+            pdf.setDrawColor(0, 71, 119);
+            pdf.setLineWidth(0.6);
+            pdf.line(22, 35, 188, 35);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(15);
+            pdf.text("TERMO DE VISTORIA", 22, 29);
+            pdf.setFontSize(8);
+            pdf.text(`Código: ${vistoria.codigo}`, 188, 29, { align: "right" });
+
+            const drawInfo = (label: string, value: string, x: number, y: number, width: number) => {
+              pdf.setFillColor(247, 248, 249);
+              pdf.roundedRect(x, y, width, 13, 1.5, 1.5, "F");
+              pdf.setTextColor(120, 120, 120);
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(6.5);
+              pdf.text(label.toUpperCase(), x + 3, y + 4);
+              pdf.setTextColor(40, 40, 40);
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(8);
+              pdf.text(pdf.splitTextToSize(value, width - 6), x + 3, y + 9);
+            };
+            drawInfo("Tipo de vistoria", vistoria.tipo, 22, 42, 52);
+            drawInfo("Tipo de imóvel", vistoria.tipoImovel, 78, 42, 52);
+            drawInfo("Data", vistoria.dataVistoria || "Não definida", 134, 42, 54);
+            drawInfo("Locatário", tenantName, 22, 59, 80);
+            drawInfo("Vistoriador", vistoriadorFormatted, 106, 59, 82);
+            if (contractCode) drawInfo("Código do contrato", contractCode, 22, 76, 52);
+            drawInfo("Imóvel", vistoria.endereco, contractCode ? 78 : 22, 76, contractCode ? 110 : 166);
+
+            let termY = 98;
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(10);
+            pdf.text("TERMO DA VISTORIA", 22, termY);
+            pdf.setDrawColor(210, 217, 223);
+            pdf.line(22, termY + 3, 188, termY + 3);
+            termY += 10;
+            pdf.setTextColor(40, 40, 40);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(8);
+            inspectionTerm.forEach((paragraph) => {
+              const lines = pdf.splitTextToSize(paragraph, 166);
+              pdf.text(lines, 22, termY, { lineHeightFactor: 1.3, align: "justify", maxWidth: 166 });
+              termY += lines.length * 3.5 + 4;
+            });
+
+            const detailsY = Math.min(Math.max(termY + 2, 220), 251);
+            pdf.setDrawColor(0, 71, 119);
+            pdf.line(22, detailsY, 102, detailsY);
+            pdf.line(108, detailsY, 188, detailsY);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(8);
+            pdf.text("CHAVES", 22, detailsY + 6);
+            pdf.text("MEDIDORES", 108, detailsY + 6);
+            pdf.setTextColor(50, 50, 50);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7.5);
+            const keysText = dbData.chavesQuantidade || dbData.chavesObservacao
+              ? `${dbData.chavesQuantidade || 0} chave(s)${dbData.chavesObservacao ? ` — ${dbData.chavesObservacao}` : ""}`
+              : "Nenhuma chave registrada";
+            pdf.text(pdf.splitTextToSize(keysText, 80), 22, detailsY + 12);
+            pdf.text(`Água: ${[dbData.medidorAguaNumero, dbData.medidorAguaLeitura].filter(Boolean).join(" — ") || "não informado"}`, 108, detailsY + 12);
+            pdf.text(`Energia: ${[dbData.medidorLuzNumero, dbData.medidorLuzLeitura].filter(Boolean).join(" — ") || "não informado"}`, 108, detailsY + 17);
+
+            pdf.setDrawColor(220, 225, 230);
+            pdf.line(22, 282, 188, 282);
+            pdf.setTextColor(110, 110, 110);
+            pdf.setFontSize(7);
+            pdf.text(`${realEstateName} | ${vistoria.codigo}`, 22, 287);
+            pdf.text("Termo inicial", 188, 287, { align: "right" });
+            pages[index].remove();
+            continue;
+          }
+
+          if (pageKind === "closing") {
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, 210, 297, "F");
+            pdf.setDrawColor(0, 71, 119);
+            pdf.setLineWidth(0.6);
+            pdf.line(22, 35, 188, 35);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(15);
+            pdf.text("TERMO FINAL DA VISTORIA", 22, 29);
+            let finalY = 52;
+            pdf.setTextColor(40, 40, 40);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(9);
+            finalTerm.forEach((paragraph) => {
+              const paragraphWithEmail = paragraph.includes("administração do imóvel") && realEstate?.emailContato
+                ? `${paragraph} E-mail: ${realEstate.emailContato}.`
+                : paragraph;
+              const lines = pdf.splitTextToSize(paragraphWithEmail, 166);
+              pdf.text(lines, 22, finalY, { lineHeightFactor: 1.4, align: "justify", maxWidth: 166 });
+              finalY += lines.length * 4.1 + 7;
+            });
+
+            const signatureY = Math.max(finalY + 42, 180);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(11);
+            pdf.text("ASSINATURAS", 22, signatureY - 18);
+            pdf.setDrawColor(120, 120, 120);
+            pdf.line(28, signatureY + 20, 96, signatureY + 20);
+            pdf.line(114, signatureY + 20, 182, signatureY + 20);
+            pdf.setTextColor(40, 40, 40);
+            pdf.setFontSize(9);
+            pdf.text(tenantName, 62, signatureY + 27, { align: "center" });
+            pdf.text(realEstateName, 148, signatureY + 27, { align: "center" });
+            pdf.setTextColor(90, 90, 90);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7.5);
+            pdf.text(tenantDocument, 62, signatureY + 32, { align: "center" });
+            pdf.text(realEstateDocument, 148, signatureY + 32, { align: "center" });
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("LOCATÁRIO", 62, signatureY + 38, { align: "center" });
+            pdf.text("IMOBILIÁRIA / ADMINISTRADORA", 148, signatureY + 38, { align: "center" });
+
+            pdf.setDrawColor(220, 225, 230);
+            pdf.line(22, 282, 188, 282);
+            pdf.setTextColor(110, 110, 110);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+            pdf.text(`${realEstateName} | ${vistoria.codigo}`, 22, 287);
+            pdf.text("Termo final", 188, 287, { align: "right" });
+            pages[index].remove();
+            continue;
+          }
 
           if (isRoomPage) {
             const roomPageIndex = Number(pages[index].dataset.roomPageIndex || 0);

@@ -14,6 +14,7 @@ import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/Bo
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
+import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 
 interface InfoGeralItem {
   id: number;
@@ -27,8 +28,8 @@ export default function FichaVistoriaPage() {
   const params = useParams();
   const vistoriaId = params?.id as string;
 
-  const defaultReportDesc = "";
-  const defaultReportObs = "";
+  const defaultReportDesc = DEFAULT_INITIAL_INSPECTION_TERM;
+  const defaultReportObs = DEFAULT_FINAL_INSPECTION_TERM;
 
   const defaultInfoGeralItems: InfoGeralItem[] = [
     { id: 1, titulo: "Visão Geral", conteudo: "" },

@@ -103,20 +103,15 @@ export function DetailSections({
 
         <div className="border border-[#EEEEF3] rounded-xl p-5 bg-slate-50/50 flex flex-col gap-6 print:border-none print:bg-white print:p-0">
           
-          {/* Parecer Técnico Geral */}
+          {/* Termo inicial */}
           <div>
             <h4 className="text-xs font-bold text-[#004777] uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <FileText className="w-4 h-4" />
-              Parecer Técnico Geral
+              Termo Inicial da Vistoria
             </h4>
             <div className="bg-white p-4 rounded-lg border border-[#EEEEF3] text-sm text-gray-700 leading-relaxed white-space-pre-wrap print:border-none print:p-0">
-              {reportDescription || <span className="text-gray-400 italic">Nenhum parecer geral cadastrado.</span>}
+              {reportDescription || <span className="text-gray-400 italic">Nenhum termo inicial cadastrado.</span>}
             </div>
-            {reportObservation && (
-              <div className="mt-3 p-3 bg-[#F0D18A]/10 border border-[#F0D18A]/20 rounded-lg text-xs text-[#8c6d1f] font-semibold leading-relaxed">
-                <strong>Pontos de Atenção:</strong> {reportObservation}
-              </div>
-            )}
           </div>
 
           <div className="h-px bg-[#EEEEF3]" />
@@ -182,6 +177,19 @@ export function DetailSections({
                   );
                 })
               )}
+            </div>
+          </div>
+
+          <div className="h-px bg-[#EEEEF3]" />
+
+          {/* Termo final, depois dos ambientes */}
+          <div>
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#004777]">
+              <FileText className="h-4 w-4" />
+              Termo Final da Vistoria
+            </h4>
+            <div className="whitespace-pre-wrap rounded-lg border border-[#EEEEF3] bg-white p-4 text-sm leading-relaxed text-gray-700 print:border-none print:p-0">
+              {reportObservation || <span className="italic text-gray-400">Nenhum termo final cadastrado.</span>}
             </div>
           </div>
 

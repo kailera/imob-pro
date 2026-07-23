@@ -183,7 +183,7 @@ export function InspectionEditorPanel({
             : 'border-transparent text-gray-500 hover:text-[#280003] hover:bg-gray-100/50'
             }`}
         >
-          Relatório Geral
+          Termos do Laudo
         </button>
         <button
           onClick={() => setActiveTab('contestations')}
@@ -217,7 +217,7 @@ export function InspectionEditorPanel({
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-[#004777]" />
-              Descrição Geral do Relatório
+              Termo Inicial da Vistoria
             </label>
             <textarea
               value={tempDesc}
@@ -226,7 +226,7 @@ export function InspectionEditorPanel({
                 setTempDesc(e.target.value);
                 onUpdateReport(e.target.value, tempObs);
               }}
-              placeholder="Descreva o estado geral do imóvel..."
+              placeholder="Informe o termo de abertura da vistoria..."
               className="w-full min-h-[140px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
             />
           </div>
@@ -234,7 +234,7 @@ export function InspectionEditorPanel({
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-[#8c6d1f]" />
-              Observações Técnicas / Pontos de Atenção
+              Termo Final da Vistoria
             </label>
             <textarea
               value={tempObs}
@@ -243,7 +243,7 @@ export function InspectionEditorPanel({
                 setTempObs(e.target.value);
                 onUpdateReport(tempDesc, e.target.value);
               }}
-              placeholder="Informe observações técnicas específicas, se houver..."
+              placeholder="Informe o termo de encerramento e aceite da vistoria..."
               className="w-full min-h-[90px] p-3 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
             />
           </div>
