@@ -155,12 +155,13 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const roomsP1 = rooms.slice(0, 3);
       const roomsP2 = rooms.slice(3, 7);
       const roomsP3 = rooms.slice(7);
+      const photosPerPage = 12;
       const photoChunks = Array.from(
-        { length: Math.ceil(roomPhotos.length / 6) },
-        (_, index) => roomPhotos.slice(index * 6, index * 6 + 6)
+        { length: Math.ceil(roomPhotos.length / photosPerPage) },
+        (_, index) => roomPhotos.slice(index * photosPerPage, index * photosPerPage + photosPerPage)
       );
       const photoPagesHtml = photoChunks.map((photos, pageIndex) => `
-        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-kind="photo" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
           </div>
@@ -169,18 +170,18 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               <h2 style="font-size: 12px; color: #004777; text-transform: uppercase; margin: 0;">Registro Fotográfico</h2>
               <span style="font-size: 9px; color: #888; font-weight: bold;">Código: ${escapeHtml(vistoria.codigo)}</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; align-content: start;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; flex: 1; align-content: start;">
               ${photos.map((photo) => `
-                <div style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 5px; background: #fafafa; break-inside: avoid;">
-                  <img src="${escapeHtml(photo.url)}" alt="Foto de ${escapeHtml(photo.roomName)}" crossorigin="anonymous" style="display: block; width: 100%; height: 190px; object-fit: cover; border-radius: 3px; background: #eee;" />
-                  <strong style="display: block; color: #004777; font-size: 8px; margin-top: 4px;">${escapeHtml(photo.roomName)}</strong>
-                  ${photo.description ? `<p style="font-size: 7px; line-height: 1.25; color: #555; margin: 2px 0 0;">${escapeHtml(photo.description)}</p>` : ""}
+                <div style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 4px; background: #fafafa; break-inside: avoid; overflow: hidden;">
+                  <img src="${escapeHtml(photo.url)}" alt="Foto de ${escapeHtml(photo.roomName)}" crossorigin="anonymous" style="display: block; width: 100%; height: 128px; object-fit: cover; border-radius: 3px; background: #eee;" />
+                  <strong style="display: block; color: #004777; font-size: 7px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(photo.roomName)}</strong>
+                  ${photo.description ? `<p style="font-size: 6px; line-height: 1.2; color: #555; margin: 1px 0 0; height: 15px; overflow: hidden;">${escapeHtml(photo.description)}</p>` : ""}
                 </div>
               `).join("")}
             </div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; font-size: 8px; color: #888; font-weight: bold;">
               <span>Laudo de Vistoria Técnica | Registro fotográfico</span>
-              <span>Fotos ${pageIndex * 6 + 1}–${pageIndex * 6 + photos.length}</span>
+              <span>Fotos ${pageIndex * photosPerPage + 1}–${pageIndex * photosPerPage + photos.length}</span>
             </div>
           </div>
         </div>
@@ -491,9 +492,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           if (remainingTime <= 0) {
             throw new Error("A geração ultrapassou 90 segundos. Verifique as imagens anexadas e tente novamente.");
           }
+          const isPhotoPage = pages[index].dataset.pdfKind === "photo";
           const canvas = await withTimeout(
             html2canvas(pages[index], {
-              scale: 1.5,
+              scale: isPhotoPage ? 1 : 1.4,
               useCORS: true,
               allowTaint: false,
               logging: false,
@@ -501,7 +503,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               imageTimeout: 8000,
               removeContainer: true,
             }),
-            Math.min(30000, remainingTime),
+            Math.min(isPhotoPage ? 20000 : 30000, remainingTime),
             `renderizar a página ${index + 1} de ${pages.length}`
           );
 
@@ -530,7 +532,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
           if (index > 0) pdf.addPage("a4", "portrait");
           pdf.addImage(
-            canvas.toDataURL("image/jpeg", 0.82),
+            canvas.toDataURL("image/jpeg", isPhotoPage ? 0.76 : 0.82),
             "JPEG",
             0,
             0,
@@ -539,6 +541,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             undefined,
             "FAST"
           );
+          // Evita que o html2canvas clone novamente todas as páginas já processadas.
+          pages[index].remove();
         }
 
         pdf.save(`Relatorio_Vistoria_${vistoria.codigo}.pdf`);
