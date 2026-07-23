@@ -45,14 +45,54 @@ const escapeHtml = (value: string) =>
     "'": "&#039;",
   })[character] || character);
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, step: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error(`Tempo limite excedido ao ${step}.`)),
+      timeoutMs
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
+}
+
+function waitForImage(image: HTMLImageElement, timeoutMs = 8000): Promise<void> {
+  if (image.complete) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      window.clearTimeout(timeoutId);
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+    const timeoutId = window.setTimeout(finish, timeoutMs);
+    image.onload = finish;
+    image.onerror = finish;
+  });
+}
+
 export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = false, pdfButtonClassName }: VistoriaDetailsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGeneratePDF = async () => {
+    const generationStartedAt = Date.now();
+    const totalTimeoutMs = 90000;
     setIsGenerating(true);
     try {
       // 1. Carrega dados completos da vistoria diretamente do Banco de Dados
-      const res = await getVistoriaById(vistoria.id);
+      const res = await withTimeout(
+        getVistoriaById(vistoria.id),
+        20000,
+        "carregar os dados da vistoria"
+      );
       if (!res.success || !res.data) {
         alert("Erro ao buscar dados completos da vistoria para geração do PDF.");
         setIsGenerating(false);
@@ -63,10 +103,11 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const vistoriadorFormatted = dbData.vistoriador 
         ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ''}` 
         : vistoria.vistoriador;
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
+      const [{ default: html2canvas }, { jsPDF }] = await withTimeout(
+        Promise.all([import("html2canvas"), import("jspdf")]),
+        15000,
+        "carregar o gerador de PDF"
+      );
 
       // 2. Mapear ambientes
       let rooms = dbData.ambienteVistorias.map((r: any) => ({
@@ -87,8 +128,11 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const reportDesc = dbData.observacoes || "Nenhuma descrição detalhada informada.";
       const reportObs = dbData.reparosNecessarios || "";
 
-      // 3. Mapear Informações Gerais
-      let infoGeralItems = (dbData.infoGeral as any) || [];
+      // 3. Mapear termos, documentos e fotos, mantendo compatibilidade com fichas antigas
+      const rawInfoGeral = dbData.infoGeral as any;
+      let infoGeralItems = Array.isArray(rawInfoGeral) ? rawInfoGeral : rawInfoGeral?.terms || [];
+      const attachments: Array<{ id: string; name: string; url: string; mimeType: string; description?: string }> =
+        !Array.isArray(rawInfoGeral) && Array.isArray(rawInfoGeral?.attachments) ? rawInfoGeral.attachments : [];
       if (!Array.isArray(infoGeralItems) || infoGeralItems.length === 0) {
         infoGeralItems = [
           { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições de habitação." }
@@ -164,7 +208,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
                 <p style="font-size: 9px; color: #666; margin: 2px 0 0 0; font-weight: bold;">Código: <span style="color: #280003;">${vistoria.codigo}</span></p>
               </div>
               <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; width: 120px;">
-                <img src="${qrCodeUrl}" alt="QR Code" style="height: 42px; width: 42px; border: 1px solid #EEEEF3; padding: 2px; border-radius: 4px; background-color: #fff;" />
+                <img src="${qrCodeUrl}" alt="QR Code" crossorigin="anonymous" style="height: 42px; width: 42px; border: 1px solid #EEEEF3; padding: 2px; border-radius: 4px; background-color: #fff;" />
                 <span style="font-size: 6px; color: #888; font-weight: bold; text-transform: uppercase; text-align: right; line-height: 1.1;">Acesse a vistoria online</span>
               </div>
             </div>
@@ -363,6 +407,21 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               </div>
             ` : ''}
 
+            ${attachments.length > 0 ? `
+              <div style="margin-bottom: 15px;">
+                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Documentos e Fotos</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8px; line-height: 1.3;">
+                  ${attachments.map((attachment) => `
+                    <div style="padding: 5px; background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px;">
+                      ${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.name)}" crossorigin="anonymous" style="display: block; width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;" />` : ""}
+                      <strong style="display: block; color: #004777; font-size: 7px; margin-bottom: 1px;">${escapeHtml(attachment.name)}</strong>
+                      ${attachment.description ? `<p style="margin: 0; color: #333;">${escapeHtml(attachment.description)}</p>` : ""}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
             <!-- Assinaturas (Removido Inquilino conforme feedback) -->
             <div style="margin-top: auto; border-top: 1px solid #EEEEF3; padding-top: 12px;">
               <div style="display: flex; justify-content: space-around; gap: 32px; font-size: 9px;">
@@ -405,15 +464,12 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
       try {
         // Wait for all images inside tempDiv to load
-        const images = tempDiv.getElementsByTagName("img");
-        const promises = Array.from(images).map((img) => {
-          if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          });
-        });
-        await Promise.all(promises);
+        const images = Array.from(tempDiv.getElementsByTagName("img"));
+        await withTimeout(
+          Promise.all(images.map((image) => waitForImage(image))),
+          10000,
+          "preparar as imagens do relatório"
+        );
         await new Promise((resolve) => setTimeout(resolve, 300));
 
         const pages = Array.from(tempDiv.children).filter(
@@ -431,14 +487,23 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         });
 
         for (let index = 0; index < pages.length; index += 1) {
-          const canvas = await html2canvas(pages[index], {
-            scale: 1.5,
-            useCORS: true,
-            allowTaint: false,
-            logging: false,
-            backgroundColor: "#ffffff",
-            imageTimeout: 15000,
-          });
+          const remainingTime = totalTimeoutMs - (Date.now() - generationStartedAt);
+          if (remainingTime <= 0) {
+            throw new Error("A geração ultrapassou 90 segundos. Verifique as imagens anexadas e tente novamente.");
+          }
+          const canvas = await withTimeout(
+            html2canvas(pages[index], {
+              scale: 1.5,
+              useCORS: true,
+              allowTaint: false,
+              logging: false,
+              backgroundColor: "#ffffff",
+              imageTimeout: 8000,
+              removeContainer: true,
+            }),
+            Math.min(30000, remainingTime),
+            `renderizar a página ${index + 1} de ${pages.length}`
+          );
 
           const context = canvas.getContext("2d", { willReadFrequently: true });
           if (!context) {
@@ -482,6 +547,9 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       }
     } catch (error) {
       console.error("Erro ao gerar relatório em PDF:", error);
+      alert(error instanceof Error
+        ? `Não foi possível gerar o PDF. ${error.message}`
+        : "Não foi possível gerar o PDF. Tente novamente.");
     } finally {
       setIsGenerating(false);
     }

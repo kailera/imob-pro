@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
-import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon } from "lucide-react";
+import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
 import { CommentData } from "./CommentsTimeline";
 import { PreviewableImage } from "./PreviewableImage";
+import type { InspectionAttachment } from "./DocumentsPhotosSection";
 
 interface InfoGeralItem {
   id: number;
@@ -20,6 +21,7 @@ interface DetailSectionsProps {
   solicitante?: string;
   infoGeralItems?: InfoGeralItem[];
   onUpdateInfoGeralItem?: (id: number, newConteudo: string) => void;
+  attachments?: InspectionAttachment[];
   chavesQuantidade?: number;
   chavesObservacao?: string;
   vistoriaStatus?: string;
@@ -36,6 +38,7 @@ export function DetailSections({
   solicitante = "",
   infoGeralItems = [],
   onUpdateInfoGeralItem,
+  attachments = [],
   chavesQuantidade = 0,
   chavesObservacao = "",
   vistoriaStatus = "",
@@ -202,6 +205,30 @@ export function DetailSections({
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="h-px bg-[#EEEEF3]" />
+
+          <div>
+            <h4 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#004777]">
+              <FileText className="h-4 w-4" /> Documentos e Fotos
+            </h4>
+            {attachments.length === 0 ? <p className="text-sm italic text-gray-400">Nenhum documento ou foto anexado.</p> : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {attachments.map((attachment) => (
+                  <div key={attachment.id} className="overflow-hidden rounded-lg border border-[#EEEEF3] bg-white">
+                    {attachment.mimeType.startsWith("image/") ? <div className="aspect-video bg-slate-50"><PreviewableImage src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" /></div> : <div className="flex h-24 items-center justify-center bg-slate-50 text-[#004777]"><File className="h-8 w-8" /></div>}
+                    <div className="p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="truncate text-xs text-[#280003]">{attachment.name}</strong>
+                        <a href={attachment.url} download={attachment.name} target="_blank" rel="noopener noreferrer" className="rounded p-1 text-[#004777] hover:bg-slate-100" title="Baixar arquivo"><Download className="h-4 w-4" /></a>
+                      </div>
+                      {attachment.description && <p className="mt-2 whitespace-pre-wrap text-xs text-gray-600">{attachment.description}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

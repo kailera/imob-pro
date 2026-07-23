@@ -13,6 +13,7 @@ import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComm
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
+import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
 
 interface InfoGeralItem {
   id: number;
@@ -48,6 +49,7 @@ export default function FichaVistoriaPage() {
   const [reportDescription, setReportDescription] = useState("");
   const [reportObservation, setReportObservation] = useState("");
   const [infoGeralItems, setInfoGeralItems] = useState<InfoGeralItem[]>([]);
+  const [attachments, setAttachments] = useState<InspectionAttachment[]>([]);
   const [solicitante, setSolicitante] = useState("Não informado");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -218,10 +220,15 @@ export default function FichaVistoriaPage() {
         setReportObservation(dbData.reparosNecessarios || defaultReportObs);
 
         // 4. Mapear info geral JSON
-        if (dbData.infoGeral && Array.isArray(dbData.infoGeral)) {
+        if (Array.isArray(dbData.infoGeral)) {
           setInfoGeralItems(dbData.infoGeral as InfoGeralItem[]);
+          setAttachments([]);
+        } else if (dbData.infoGeral && typeof dbData.infoGeral === "object") {
+          setInfoGeralItems(Array.isArray(dbData.infoGeral.terms) ? dbData.infoGeral.terms : defaultInfoGeralItems);
+          setAttachments(Array.isArray(dbData.infoGeral.attachments) ? dbData.infoGeral.attachments : []);
         } else {
           setInfoGeralItems(defaultInfoGeralItems);
+          setAttachments([]);
         }
 
         // 5. Mapear solicitante/operador e outros campos
@@ -630,7 +637,7 @@ export default function FichaVistoriaPage() {
       status: nextStatus as any,
       observacoes: reportDescription,
       reparosNecessarios: reportObservation,
-      infoGeral: infoGeralItems,
+      infoGeral: { terms: infoGeralItems, attachments },
       chavesQuantidade,
       chavesObservacao,
       rooms: rooms.map(r => ({
@@ -656,7 +663,7 @@ export default function FichaVistoriaPage() {
             status: nextStatus,
             observacoes: reportDescription,
             reparosNecessarios: reportObservation,
-            infoGeral: infoGeralItems,
+            infoGeral: { terms: infoGeralItems, attachments },
             chavesQuantidade,
             chavesObservacao,
             ambienteVistorias: rooms.map(r => ({
@@ -684,7 +691,7 @@ export default function FichaVistoriaPage() {
           status: nextStatus,
           observacoes: reportDescription,
           reparosNecessarios: reportObservation,
-          infoGeral: infoGeralItems,
+          infoGeral: { terms: infoGeralItems, attachments },
           chavesQuantidade,
           chavesObservacao,
           ambienteVistorias: rooms.map(r => ({
@@ -964,6 +971,7 @@ export default function FichaVistoriaPage() {
               solicitante={solicitante}
               infoGeralItems={infoGeralItems}
               onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
+              attachments={attachments}
               chavesQuantidade={chavesQuantidade}
               chavesObservacao={chavesObservacao}
               vistoriaStatus={vistoriaStatus}
@@ -999,6 +1007,8 @@ export default function FichaVistoriaPage() {
             }}
             infoGeralItems={infoGeralItems}
             onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
+            attachments={attachments}
+            onUpdateAttachments={setAttachments}
             activeTab={activeEditorTab}
             onTabChange={setActiveEditorTab}
             contestations={contestations}
