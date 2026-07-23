@@ -1,6 +1,8 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || "http://localhost:9000";
+// Operações servidor-servidor devem preferir o endpoint interno. A URL pública
+// continua sendo usada pelos chamadores que montam URLs acessíveis no navegador.
+const endpoint = process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_ENDPOINT_URL || process.env.RUSTFS_PUBLIC_URL || "http://localhost:9000";
 const accessKeyId = process.env.RUSTFS_ACCESS_KEY_ID || process.env.RUSTFS_ACCESS_KEY || "minioadmin";
 const secretAccessKey = process.env.RUSTFS_SECRET_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY || "minioadmin";
 

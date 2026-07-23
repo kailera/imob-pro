@@ -79,12 +79,45 @@ function waitForImage(image: HTMLImageElement, timeoutMs = 8000): Promise<void> 
   });
 }
 
+async function preparePdfImageUrls(urls: string[], concurrency = 5) {
+  const uniqueUrls = Array.from(new Set(urls.filter(Boolean)));
+  const urlMap = new Map<string, string>();
+  const objectUrls: string[] = [];
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < uniqueUrls.length) {
+      const sourceUrl = uniqueUrls[cursor];
+      cursor += 1;
+      try {
+        const response = await fetch(
+          `/api/vistorias/pdf-image?url=${encodeURIComponent(sourceUrl)}`,
+          { cache: "force-cache" }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const objectUrl = URL.createObjectURL(await response.blob());
+        objectUrls.push(objectUrl);
+        urlMap.set(sourceUrl, objectUrl);
+      } catch (error) {
+        console.warn("[PDF] Usando imagem original como fallback:", sourceUrl, error);
+        urlMap.set(sourceUrl, sourceUrl);
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, uniqueUrls.length) }, () => worker())
+  );
+  return { urlMap, objectUrls };
+}
+
 export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = false, pdfButtonClassName }: VistoriaDetailsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGeneratePDF = async () => {
     const generationStartedAt = Date.now();
-    const totalTimeoutMs = 90000;
+    const totalTimeoutMs = 180000;
+    let preparedObjectUrls: string[] = [];
     setIsGenerating(true);
     try {
       // 1. Carrega dados completos da vistoria diretamente do Banco de Dados
@@ -147,6 +180,31 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             description: comment.texto || comment.text || ""
           }))
       );
+      const imageAttachmentUrls = attachments
+        .filter((attachment) => attachment.mimeType.startsWith("image/"))
+        .map((attachment) => attachment.url);
+      const imagePreparationStartedAt = Date.now();
+      const preparedImages = await withTimeout(
+        preparePdfImageUrls(
+          [...roomPhotos.map((photo: any) => photo.url), ...imageAttachmentUrls],
+          5
+        ),
+        90000,
+        "otimizar as imagens do relatório"
+      );
+      preparedObjectUrls = preparedImages.objectUrls;
+      const preparedRoomPhotos = roomPhotos.map((photo: any) => ({
+        ...photo,
+        pdfUrl: preparedImages.urlMap.get(photo.url) || photo.url,
+      }));
+      const preparedAttachments = attachments.map((attachment) => ({
+        ...attachment,
+        pdfUrl: preparedImages.urlMap.get(attachment.url) || attachment.url,
+      }));
+      console.info("[PDF] Imagens preparadas", {
+        count: preparedImages.urlMap.size,
+        elapsedMs: Date.now() - imagePreparationStartedAt,
+      });
 
       const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
@@ -157,8 +215,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const roomsP3 = rooms.slice(7);
       const photosPerPage = 12;
       const photoChunks = Array.from(
-        { length: Math.ceil(roomPhotos.length / photosPerPage) },
-        (_, index) => roomPhotos.slice(index * photosPerPage, index * photosPerPage + photosPerPage)
+        { length: Math.ceil(preparedRoomPhotos.length / photosPerPage) },
+        (_, index) => preparedRoomPhotos.slice(index * photosPerPage, index * photosPerPage + photosPerPage)
       );
       const photoPagesHtml = photoChunks.map((photos, pageIndex) => `
         <div data-pdf-kind="photo" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
@@ -173,7 +231,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; flex: 1; align-content: start;">
               ${photos.map((photo) => `
                 <div style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 4px; background: #fafafa; break-inside: avoid; overflow: hidden;">
-                  <img src="${escapeHtml(photo.url)}" alt="Foto de ${escapeHtml(photo.roomName)}" crossorigin="anonymous" style="display: block; width: 100%; height: 128px; object-fit: cover; border-radius: 3px; background: #eee;" />
+                  <img src="${escapeHtml(photo.pdfUrl)}" alt="Foto de ${escapeHtml(photo.roomName)}" style="display: block; width: 100%; height: 128px; object-fit: cover; border-radius: 3px; background: #eee;" />
                   <strong style="display: block; color: #004777; font-size: 7px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(photo.roomName)}</strong>
                   ${photo.description ? `<p style="font-size: 6px; line-height: 1.2; color: #555; margin: 1px 0 0; height: 15px; overflow: hidden;">${escapeHtml(photo.description)}</p>` : ""}
                 </div>
@@ -408,13 +466,13 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               </div>
             ` : ''}
 
-            ${attachments.length > 0 ? `
+            ${preparedAttachments.length > 0 ? `
               <div style="margin-bottom: 15px;">
                 <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Documentos e Fotos</h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8px; line-height: 1.3;">
-                  ${attachments.map((attachment) => `
+                  ${preparedAttachments.map((attachment) => `
                     <div style="padding: 5px; background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px;">
-                      ${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.name)}" crossorigin="anonymous" style="display: block; width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;" />` : ""}
+                      ${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.pdfUrl)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;" />` : ""}
                       <strong style="display: block; color: #004777; font-size: 7px; margin-bottom: 1px;">${escapeHtml(attachment.name)}</strong>
                       ${attachment.description ? `<p style="margin: 0; color: #333;">${escapeHtml(attachment.description)}</p>` : ""}
                     </div>
@@ -490,7 +548,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         for (let index = 0; index < pages.length; index += 1) {
           const remainingTime = totalTimeoutMs - (Date.now() - generationStartedAt);
           if (remainingTime <= 0) {
-            throw new Error("A geração ultrapassou 90 segundos. Verifique as imagens anexadas e tente novamente.");
+            throw new Error("A geração ultrapassou o limite de segurança. Verifique as imagens anexadas e tente novamente.");
           }
           const isPhotoPage = pages[index].dataset.pdfKind === "photo";
           const canvas = await withTimeout(
@@ -546,6 +604,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         }
 
         pdf.save(`Relatorio_Vistoria_${vistoria.codigo}.pdf`);
+        console.info("[PDF] Relatório concluído", {
+          pages: pages.length,
+          elapsedMs: Date.now() - generationStartedAt,
+        });
       } finally {
         wrapper.remove();
       }
@@ -555,6 +617,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         ? `Não foi possível gerar o PDF. ${error.message}`
         : "Não foi possível gerar o PDF. Tente novamente.");
     } finally {
+      preparedObjectUrls.forEach((url) => URL.revokeObjectURL(url));
       setIsGenerating(false);
     }
   };
