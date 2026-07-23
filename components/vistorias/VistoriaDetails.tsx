@@ -246,46 +246,45 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
       const normalizeRoomName = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
       const photosPerRoomPage = 4;
-      const roomPhotoPages = rooms.flatMap((room: any) => {
+      const groupedRooms = Array.from(
+        rooms.reduce((grouped: Map<string, any>, room: any) => {
+          const key = normalizeRoomName(room.name || "Ambiente");
+          const existing = grouped.get(key);
+          if (existing) {
+            existing.sourceIds.push(room.id);
+            if (!existing.visaoGeral && room.visaoGeral) existing.visaoGeral = room.visaoGeral;
+            if (!existing.comentarios && room.comentarios) existing.comentarios = room.comentarios;
+          } else {
+            grouped.set(key, { ...room, sourceIds: [room.id] });
+          }
+          return grouped;
+        }, new Map<string, any>()).values()
+      );
+      const splitTextForPdf = (value: string, maxLength = 1250) => {
+        const words = value.trim().split(/\s+/).filter(Boolean);
+        if (words.length === 0) return ["Não informado"];
+        return words.reduce<string[]>((chunks, word) => {
+          const current = chunks[chunks.length - 1] || "";
+          if (current && `${current} ${word}`.length > maxLength) chunks.push(word);
+          else chunks[chunks.length - 1] = current ? `${current} ${word}` : word;
+          return chunks;
+        }, []);
+      };
+      const roomPdfPages = groupedRooms.flatMap((room: any) => {
         const photos = preparedRoomPhotos.filter((photo: any) =>
-          photo.roomId === room.id || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
+          room.sourceIds.includes(photo.roomId) || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
         );
-        const chunks = Array.from(
-          { length: Math.max(1, Math.ceil(photos.length / photosPerRoomPage)) },
-          (_, index) => photos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage)
+        const textPages = [
+          ...splitTextForPdf(String(room.visaoGeral || "")).map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
+          ...splitTextForPdf(String(room.comentarios || "")).filter((text) => text !== "Não informado").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
+        ];
+        const photoPages = Array.from(
+          { length: Math.ceil(photos.length / photosPerRoomPage) },
+          (_, index) => ({ room, kind: "photos", photos: photos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage), continuation: index > 0 })
         );
-        return chunks.map((photos, index) => ({ room, photos, continuation: index > 0 }));
+        return [...textPages, ...photoPages];
       });
-      const roomPagesHtml = roomPhotoPages.map(({ room, photos, continuation }, pageIndex) => `
-        <div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
-          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
-            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
-          </div>
-          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;">
-              <div>
-                <span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px;">Estado do ambiente</span>
-                <h2 style="font-size: 16px; color: #004777; margin: 0; line-height: 1.1;">${escapeHtml(room.name)}${continuation ? " — continuação" : ""}</h2>
-              </div>
-              <span style="font-size: 8px; background: #EEEEF3; color: #555; border-radius: 10px; padding: 4px 8px; font-weight: bold;">${escapeHtml(room.type || "Ambiente")}</span>
-            </div>
-            <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background: #ffffff; margin-bottom: 10px;">
-              <div style="font-size: 8px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Visão geral</div>
-              <p style="font-size: 9px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(room.visaoGeral || "Não informado")}</p>
-              ${room.comentarios ? `<div style="border-top: 1px solid #EEEEF3; margin-top: 8px; padding-top: 8px;"><div style="font-size: 8px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Comentários</div><p style="font-size: 9px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(room.comentarios)}</p></div>` : ""}
-            </div>
-            <div style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.06em; margin: 4px 0 7px;">Registro fotográfico ${photos.length ? `(${photos.length})` : ""}</div>
-            ${photos.length ? `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-content: start;">${photos.map((photo: any, photoIndex: number) => `
-              <figure style="margin: 0; border: 1px solid #EEEEF3; border-radius: 5px; padding: 5px; background: #fafafa;">
-                <img src="${escapeHtml(photo.pdfUrl)}" alt="Foto ${photoIndex + 1} de ${escapeHtml(room.name)}" style="display: block; width: 100%; height: 150px; object-fit: cover; border-radius: 3px; background: #eee;" />
-                <figcaption style="font-size: 7px; line-height: 1.3; color: #555; margin-top: 4px; text-align: justify;">Foto ${pageIndex * photosPerRoomPage + photoIndex + 1}${photo.description ? ` — ${escapeHtml(photo.description)}` : ""}</figcaption>
-              </figure>`).join("")}</div>` : `<div style="border: 1px dashed #cbd5e1; border-radius: 5px; padding: 14px; color: #777; font-size: 9px; font-style: italic; text-align: center;">Não há fotos registradas para este ambiente.</div>`}
-            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;">
-              <span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span>
-              <span>Ambiente ${pageIndex + 1} de ${roomPhotoPages.length}</span>
-            </div>
-          </div>
-        </div>`).join("");
+      const roomPagesHtml = roomPdfPages.map((_, pageIndex) => `<div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; page-break-before: always;"></div>`).join("");
       const splitIntoChunks = <T,>(items: T[], size: number) =>
         Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
       const termsPagesHtml = splitIntoChunks(infoGeralItems, 6).map((terms, pageIndex) => `
@@ -654,15 +653,16 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
           if (isRoomPage) {
             const roomPageIndex = Number(pages[index].dataset.roomPageIndex || 0);
-            const roomPage = roomPhotoPages[roomPageIndex];
+            const roomPage: any = roomPdfPages[roomPageIndex];
             if (!roomPage) throw new Error("Não foi possível localizar os dados do ambiente para o PDF.");
 
+            const roomPhotos = roomPage.kind === "photos" ? roomPage.photos : [];
             const loadedPhotos = await Promise.allSettled(
-              roomPage.photos.map((photo: any) => loadPdfImage(photo.pdfUrl))
+              roomPhotos.map((photo: any) => loadPdfImage(photo.pdfUrl))
             );
-            const photos = loadedPhotos.flatMap((result, photoIndex) =>
+            const photos = loadedPhotos.flatMap((result: PromiseSettledResult<HTMLImageElement>, photoIndex: number) =>
               result.status === "fulfilled"
-                ? [{ image: result.value, photo: roomPage.photos[photoIndex] }]
+                ? [{ image: result.value, photo: roomPhotos[photoIndex] }]
                 : []
             );
             const writeParagraph = (label: string, value: string, y: number) => {
@@ -694,26 +694,22 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setFontSize(8);
             pdf.text(String(roomPage.room.type || "Ambiente"), 190, 37, { align: "right" });
 
-            let contentY = writeParagraph("Visão geral", String(roomPage.room.visaoGeral || ""), 52);
-            if (roomPage.room.comentarios) {
-              contentY = writeParagraph("Comentários", String(roomPage.room.comentarios), contentY + 5);
-            }
-            contentY += 8;
-            pdf.setTextColor(0, 71, 119);
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(8);
-            pdf.text("REGISTRO FOTOGRÁFICO", 28, contentY);
-
-            if (photos.length === 0) {
-              pdf.setTextColor(110, 110, 110);
-              pdf.setFont("helvetica", "italic");
-              pdf.setFontSize(9);
-              pdf.text("Não há fotos registradas para este ambiente.", 28, contentY + 8);
+            if (roomPage.kind === "text") {
+              writeParagraph(
+                `${roomPage.label}${roomPage.continuation ? " (continuação)" : ""}`,
+                String(roomPage.text),
+                52
+              );
             } else {
+              const contentY = 54;
+              pdf.setTextColor(0, 71, 119);
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(8);
+              pdf.text(`REGISTRO FOTOGRÁFICO${roomPage.continuation ? " — CONTINUAÇÃO" : ""}`, 28, contentY);
               const columns = 2;
               const rows = Math.ceil(photos.length / columns);
-              const imageHeight = Math.max(32, Math.min(58, (264 - (contentY + 7) - rows * 8) / rows));
-              photos.forEach(({ image, photo }: { image: HTMLImageElement; photo: any }, photoIndex) => {
+              const imageHeight = Math.max(32, Math.min(78, (264 - (contentY + 7) - rows * 8) / rows));
+              photos.forEach(({ image, photo }: { image: HTMLImageElement; photo: any }, photoIndex: number) => {
                 const column = photoIndex % columns;
                 const row = Math.floor(photoIndex / columns);
                 const x = 28 + column * 82;
@@ -733,7 +729,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(7);
             pdf.text(`Laudo de Vistoria Técnica | Código: ${vistoria.codigo}`, 28, 287);
-            pdf.text(`Ambiente ${roomPageIndex + 1} de ${roomPhotoPages.length}`, 190, 287, { align: "right" });
+            pdf.text(`Página ${roomPageIndex + 2}`, 190, 287, { align: "right" });
             pages[index].remove();
             continue;
           }
