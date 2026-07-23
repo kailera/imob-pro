@@ -90,9 +90,10 @@ async function preparePdfImageUrls(urls: string[], concurrency = 5) {
       const sourceUrl = uniqueUrls[cursor];
       cursor += 1;
       try {
-        const response = await fetch(
-          `/api/vistorias/pdf-image?url=${encodeURIComponent(sourceUrl)}`,
-          { cache: "force-cache" }
+        const response = await withTimeout(
+          fetch(`/api/vistorias/pdf-image?url=${encodeURIComponent(sourceUrl)}`, { cache: "force-cache" }),
+          12000,
+          "preparar uma imagem do relatório"
         );
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const objectUrl = URL.createObjectURL(await response.blob());
@@ -101,7 +102,11 @@ async function preparePdfImageUrls(urls: string[], concurrency = 5) {
       } catch (error) {
         console.warn("[PDF] Variante do servidor indisponível; reduzindo no navegador:", sourceUrl, error);
         try {
-          const response = await fetch(sourceUrl, { cache: "force-cache" });
+          const response = await withTimeout(
+            fetch(sourceUrl, { cache: "force-cache" }),
+            12000,
+            "baixar uma imagem do relatório"
+          );
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const bitmap = await createImageBitmap(await response.blob());
           const scale = Math.min(1, 1000 / bitmap.width, 750 / bitmap.height);
@@ -252,7 +257,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         return chunks.map((photos, index) => ({ room, photos, continuation: index > 0 }));
       });
       const roomPagesHtml = roomPhotoPages.map(({ room, photos, continuation }, pageIndex) => `
-        <div data-pdf-kind="room" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+        <div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
             <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
           </div>
@@ -615,21 +620,24 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       document.body.appendChild(wrapper);
 
       try {
-        // Wait for all images inside tempDiv to load
-        const images = Array.from(tempDiv.getElementsByTagName("img"));
+        // Descarta os antigos layouts fixos antes de carregar imagens ou renderizar páginas.
+        // Assim, imagens dos blocos substituídos não consomem rede, memória ou tempo de decodificação.
+        tempDiv.querySelectorAll<HTMLElement>('[data-pdf-skip="true"]').forEach((page) => page.remove());
+        const pages = Array.from(tempDiv.children).filter(
+          (child): child is HTMLElement => child instanceof HTMLElement
+        );
+        if (pages.length === 0) {
+          throw new Error("Nenhuma página foi montada para o PDF.");
+        }
+
+        // Espera somente pelas imagens que realmente entrarão no documento final.
+        const images = pages.flatMap((page) => Array.from(page.getElementsByTagName("img")));
         await withTimeout(
           Promise.all(images.map((image) => waitForImage(image))),
           10000,
           "preparar as imagens do relatório"
         );
         await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const pages = Array.from(tempDiv.children).filter(
-          (child): child is HTMLElement => child instanceof HTMLElement && child.dataset.pdfSkip !== "true"
-        );
-        if (pages.length === 0) {
-          throw new Error("Nenhuma página foi montada para o PDF.");
-        }
 
         const pdf = new jsPDF({
           unit: "mm",
@@ -638,9 +646,97 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           compress: true,
         });
 
+        const renderingStartedAt = Date.now();
         for (let index = 0; index < pages.length; index += 1) {
           const isPhotoPage = pages[index].dataset.pdfKind === "photo";
+          const isRoomPage = pages[index].dataset.pdfKind === "room";
           if (index > 0) pdf.addPage("a4", "portrait");
+
+          if (isRoomPage) {
+            const roomPageIndex = Number(pages[index].dataset.roomPageIndex || 0);
+            const roomPage = roomPhotoPages[roomPageIndex];
+            if (!roomPage) throw new Error("Não foi possível localizar os dados do ambiente para o PDF.");
+
+            const loadedPhotos = await Promise.allSettled(
+              roomPage.photos.map((photo: any) => loadPdfImage(photo.pdfUrl))
+            );
+            const photos = loadedPhotos.flatMap((result, photoIndex) =>
+              result.status === "fulfilled"
+                ? [{ image: result.value, photo: roomPage.photos[photoIndex] }]
+                : []
+            );
+            const writeParagraph = (label: string, value: string, y: number) => {
+              pdf.setTextColor(0, 71, 119);
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(8);
+              pdf.text(label.toUpperCase(), 28, y);
+              pdf.setTextColor(51, 51, 51);
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(8.5);
+              const lines = pdf.splitTextToSize(value || "Não informado", 162);
+              pdf.text(lines, 28, y + 5, { lineHeightFactor: 1.35 });
+              return y + 5 + lines.length * 3.8;
+            };
+
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, 210, 297, "F");
+            pdf.setDrawColor(0, 71, 119);
+            pdf.setLineWidth(0.6);
+            pdf.line(28, 42, 190, 42);
+            pdf.setTextColor(112, 141, 129);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(8);
+            pdf.text("ESTADO DO AMBIENTE", 28, 30);
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFontSize(15);
+            pdf.text(String(roomPage.room.name), 28, 37);
+            pdf.setTextColor(85, 85, 85);
+            pdf.setFontSize(8);
+            pdf.text(String(roomPage.room.type || "Ambiente"), 190, 37, { align: "right" });
+
+            let contentY = writeParagraph("Visão geral", String(roomPage.room.visaoGeral || ""), 52);
+            if (roomPage.room.comentarios) {
+              contentY = writeParagraph("Comentários", String(roomPage.room.comentarios), contentY + 5);
+            }
+            contentY += 8;
+            pdf.setTextColor(0, 71, 119);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(8);
+            pdf.text("REGISTRO FOTOGRÁFICO", 28, contentY);
+
+            if (photos.length === 0) {
+              pdf.setTextColor(110, 110, 110);
+              pdf.setFont("helvetica", "italic");
+              pdf.setFontSize(9);
+              pdf.text("Não há fotos registradas para este ambiente.", 28, contentY + 8);
+            } else {
+              const columns = 2;
+              const rows = Math.ceil(photos.length / columns);
+              const imageHeight = Math.max(32, Math.min(58, (264 - (contentY + 7) - rows * 8) / rows));
+              photos.forEach(({ image, photo }: { image: HTMLImageElement; photo: any }, photoIndex) => {
+                const column = photoIndex % columns;
+                const row = Math.floor(photoIndex / columns);
+                const x = 28 + column * 82;
+                const y = contentY + 7 + row * (imageHeight + 8);
+                pdf.addImage(image, "JPEG", x, y, 76, imageHeight, undefined, "FAST");
+                pdf.setTextColor(85, 85, 85);
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(6.5);
+                const caption = `Foto ${photoIndex + 1}${photo.description ? ` — ${String(photo.description)}` : ""}`;
+                pdf.text(pdf.splitTextToSize(caption, 76), x, y + imageHeight + 3, { lineHeightFactor: 1.2 });
+              });
+            }
+
+            pdf.setDrawColor(220, 225, 230);
+            pdf.line(28, 282, 190, 282);
+            pdf.setTextColor(110, 110, 110);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+            pdf.text(`Laudo de Vistoria Técnica | Código: ${vistoria.codigo}`, 28, 287);
+            pdf.text(`Ambiente ${roomPageIndex + 1} de ${roomPhotoPages.length}`, 190, 287, { align: "right" });
+            pages[index].remove();
+            continue;
+          }
 
           if (isPhotoPage) {
             const photoPageIndex = Number(pages[index].dataset.photoPageIndex || 0);
@@ -747,6 +843,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         pdf.save(`Relatorio_Vistoria_${vistoria.codigo}.pdf`);
         console.info("[PDF] Relatório concluído", {
           pages: pages.length,
+          renderingElapsedMs: Date.now() - renderingStartedAt,
           elapsedMs: Date.now() - generationStartedAt,
         });
       } finally {
