@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Eye, Download, Loader2 } from "lucide-react";
+import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Download, Loader2 } from "lucide-react";
 import { getVistoriaById } from "@/app/(admin)/vistorias/actions";
 
 export interface Vistoria {
@@ -24,6 +24,8 @@ export interface Vistoria {
 interface VistoriaDetailsProps {
   vistoria: Vistoria;
   onViewFullReport?: (id: string) => void;
+  pdfButtonOnly?: boolean;
+  pdfButtonClassName?: string;
 }
 
 const statusBadgeClasses = {
@@ -43,7 +45,7 @@ const escapeHtml = (value: string) =>
     "'": "&#039;",
   })[character] || character);
 
-export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsProps) {
+export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = false, pdfButtonClassName }: VistoriaDetailsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGeneratePDF = async () => {
@@ -65,6 +67,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
 
       // 2. Mapear ambientes
       let rooms = dbData.ambienteVistorias.map((r: any) => ({
+        id: r.id,
         name: r.nome,
         type: r.tipo,
         visaoGeral: r.visaoGeral,
@@ -73,8 +76,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
 
       if (rooms.length === 0) {
         rooms = [
-          { name: "Fachada", type: "Fachada", visaoGeral: "Em bom estado.", comentarios: "" },
-          { name: "Sala", type: "Sala", visaoGeral: "Sem avarias detectadas.", comentarios: "" }
+          { id: "fallback-fachada", name: "Fachada", type: "Fachada", visaoGeral: "Em bom estado.", comentarios: "" },
+          { id: "fallback-sala", name: "Sala", type: "Sala", visaoGeral: "Sem avarias detectadas.", comentarios: "" }
         ];
       }
 
@@ -84,6 +87,15 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       // 3. Mapear documentos e fotos (fichas antigas podem conter o formato de termos)
       const infoGeral = dbData.infoGeral as { attachments?: Array<{ id: string; name: string; url: string; mimeType: string; description?: string }> } | null;
       const attachments = Array.isArray(infoGeral?.attachments) ? infoGeral.attachments : [];
+      const roomPhotos = (dbData.comentariosVistoria || []).flatMap((comment: any) =>
+        (Array.isArray(comment.midias) ? comment.midias : Array.isArray(comment.media) ? comment.media : [])
+          .filter((media: any) => media?.type === "image" && typeof media.url === "string")
+          .map((media: any) => ({
+            url: media.url as string,
+            roomName: comment.roomName || rooms.find((room: any) => room.id === comment.roomId)?.name || "Ambiente",
+            description: comment.texto || comment.text || ""
+          }))
+      );
 
       const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
@@ -92,6 +104,36 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       const roomsP1 = rooms.slice(0, 3);
       const roomsP2 = rooms.slice(3, 7);
       const roomsP3 = rooms.slice(7);
+      const photoChunks = Array.from(
+        { length: Math.ceil(roomPhotos.length / 6) },
+        (_, index) => roomPhotos.slice(index * 6, index * 6 + 6)
+      );
+      const photoPagesHtml = photoChunks.map((photos, pageIndex) => `
+        <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
+          <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">
+            <img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" />
+          </div>
+          <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 3.5cm 2cm 2cm 3cm; box-sizing: border-box;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #004777; padding-bottom: 6px; margin-bottom: 12px;">
+              <h2 style="font-size: 12px; color: #004777; text-transform: uppercase; margin: 0;">Registro Fotográfico</h2>
+              <span style="font-size: 9px; color: #888; font-weight: bold;">Código: ${escapeHtml(vistoria.codigo)}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; align-content: start;">
+              ${photos.map((photo) => `
+                <div style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 5px; background: #fafafa; break-inside: avoid;">
+                  <img src="${escapeHtml(photo.url)}" alt="Foto de ${escapeHtml(photo.roomName)}" crossorigin="anonymous" style="display: block; width: 100%; height: 190px; object-fit: cover; border-radius: 3px; background: #eee;" />
+                  <strong style="display: block; color: #004777; font-size: 8px; margin-top: 4px;">${escapeHtml(photo.roomName)}</strong>
+                  ${photo.description ? `<p style="font-size: 7px; line-height: 1.25; color: #555; margin: 2px 0 0;">${escapeHtml(photo.description)}</p>` : ""}
+                </div>
+              `).join("")}
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; font-size: 8px; color: #888; font-weight: bold;">
+              <span>Laudo de Vistoria Técnica | Registro fotográfico</span>
+              <span>Fotos ${pageIndex * 6 + 1}–${pageIndex * 6 + photos.length}</span>
+            </div>
+          </div>
+        </div>
+      `).join("");
 
       // Build the temporary container for PDF generation
       const tempDiv = document.createElement("div");
@@ -335,10 +377,11 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
 
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: 10px; font-size: 8px; color: #888; font-weight: bold;">
               <span>Laudo de Vistoria Técnica | Código: ${vistoria.codigo}</span>
-              <span>Página 3 de 3</span>
+              <span>Página 3</span>
             </div>
           </div>
         </div>
+        ${photoPagesHtml}
       `;
 
       const wrapper = document.createElement("div");
@@ -366,8 +409,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       const opt = {
         margin: 0,
         filename: `Relatorio_Vistoria_${vistoria.codigo}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        image: { type: 'jpeg' as const, quality: 0.82 },
+        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false, logging: false },
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
       };
 
@@ -379,6 +422,19 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       setIsGenerating(false);
     }
   };
+
+  if (pdfButtonOnly) {
+    return (
+      <button
+        onClick={handleGeneratePDF}
+        disabled={isGenerating}
+        className={pdfButtonClassName || "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-200 disabled:opacity-50"}
+      >
+        {isGenerating ? <Loader2 className="h-4 w-4 animate-spin text-[#004777]" /> : <Download className="h-4 w-4 text-[#004777]" />}
+        <span>{isGenerating ? "Gerando PDF..." : "Gerar PDF Oficial"}</span>
+      </button>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-[#EEEEF3] p-6 sm:p-8 flex flex-col gap-6 relative overflow-hidden transition-all duration-300">

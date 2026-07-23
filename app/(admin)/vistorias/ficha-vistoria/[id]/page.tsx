@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit3, Map, Grid2X2, Save, FileText, Loader2, Share2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Edit3, Map, Grid2X2, Save, Loader2, Share2, Copy, Check } from "lucide-react";
 import { RoomBuilderForm } from "@/components/vistorias/ficha-vistoria/RoomBuilderForm";
 import { FloorPlanVisualizer, Room, RoomType } from "@/components/vistorias/ficha-vistoria/FloorPlanVisualizer";
 import { DetailSections } from "@/components/vistorias/ficha-vistoria/DetailSections";
@@ -14,6 +14,7 @@ import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/Bo
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
+import { VistoriaDetails, type Vistoria } from "@/components/vistorias/VistoriaDetails";
 
 export default function FichaVistoriaPage() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function FichaVistoriaPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [contestations, setContestations] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [pdfVistoria, setPdfVistoria] = useState<Vistoria | null>(null);
 
   // Estados para associação de Inquilino
   const [associatedLocatarioId, setAssociatedLocatarioId] = useState<string | null>(null);
@@ -137,6 +139,39 @@ export default function FichaVistoriaPage() {
       }
 
       if (dbData) {
+        const tipoLabels: Record<string, Vistoria["tipo"]> = {
+          ENTRADA: "Entrada",
+          SAIDA: "Saída",
+          PERIODICA: "Periódica",
+        };
+        const statusLabels: Record<string, string> = {
+          NAO_INICIADA: "NÃ£o iniciada",
+          EM_ANDAMENTO: "Em andamento",
+          AGUARDANDO_APROVACAO: "Aguardando aprovaÃ§Ã£o",
+          CONCLUIDA: "ConcluÃ­da",
+          CONTESTADA: "Contestada",
+          CANCELADA: "Cancelada",
+        };
+        const inspectionDate = new Date(dbData.data);
+        setPdfVistoria({
+          id: dbData.id,
+          codigo: dbData.codigo || dbData.id,
+          tipo: tipoLabels[dbData.tipo] || "Entrada",
+          status: (dbData.status || "NAO_INICIADA").toLowerCase(),
+          statusLabel: statusLabels[dbData.status] || dbData.status || "NÃ£o iniciada",
+          solicitadaPor: dbData.operador ? `${dbData.operador.firstName} ${dbData.operador.lastName}` : "Sistema",
+          dataSolicitacao: Number.isNaN(inspectionDate.getTime()) ? "" : inspectionDate.toLocaleDateString("pt-BR"),
+          dataVistoria: Number.isNaN(inspectionDate.getTime()) ? undefined : inspectionDate.toLocaleDateString("pt-BR"),
+          vistoriador: dbData.vistoriador
+            ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ""}`
+            : "Vistoriador ResponsÃ¡vel",
+          imovelCodigo: dbData.imovel?.codigo || "",
+          endereco: dbData.imovel ? `${dbData.imovel.bairro || ""}, ${dbData.imovel.cidade || ""}/${dbData.imovel.uf || ""}` : "",
+          proprietario: dbData.proprietario || "ProprietÃ¡rio",
+          inquilino: "NÃ£o vinculado",
+          tipoImovel: dbData.imovel?.tipo === "CASA" ? "Casa" : dbData.imovel?.tipo === "APARTAMENTO" ? "Apartamento" : "Outro",
+        });
+
         // 1. Mapear ambientes/rooms
         const mappedRooms: Room[] = dbData.ambienteVistorias.map((r: any) => ({
           id: r.id,
@@ -829,13 +864,13 @@ export default function FichaVistoriaPage() {
             </button>
           )}
 
-          <button
-            onClick={() => window.print()}
-            className={`${headerActionClass} hidden border-slate-200 bg-slate-100 text-gray-700 hover:border-slate-300 hover:bg-slate-200 sm:inline-flex`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Gerar PDF Oficial</span>
-          </button>
+          {pdfVistoria && (
+            <VistoriaDetails
+              vistoria={pdfVistoria}
+              pdfButtonOnly
+              pdfButtonClassName={`${headerActionClass} hidden border-slate-200 bg-slate-100 text-gray-700 hover:border-slate-300 hover:bg-slate-200 sm:inline-flex`}
+            />
+          )}
         </div>
       </header>
 
