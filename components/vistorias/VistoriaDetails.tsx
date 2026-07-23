@@ -209,7 +209,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições de habitação." }
         ];
       }
-      const roomPhotos = (dbData.comentariosVistoria || []).flatMap((comment: any) =>
+      const inspectionComments = dbData.comentariosVistoria || [];
+      const roomPhotos = inspectionComments.flatMap((comment: any) =>
         (Array.isArray(comment.midias) ? comment.midias : Array.isArray(comment.media) ? comment.media : [])
           .filter((media: any) => media?.type === "image" && typeof media.url === "string")
           .map((media: any) => ({
@@ -260,23 +261,29 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           return grouped;
         }, new Map<string, any>()).values()
       );
-      const splitTextForPdf = (value: string, maxLength = 1250) => {
-        const words = value.trim().split(/\s+/).filter(Boolean);
-        if (words.length === 0) return ["Não informado"];
-        return words.reduce<string[]>((chunks, word) => {
-          const current = chunks[chunks.length - 1] || "";
-          if (current && `${current} ${word}`.length > maxLength) chunks.push(word);
-          else chunks[chunks.length - 1] = current ? `${current} ${word}` : word;
-          return chunks;
-        }, []);
+      const textMeasurePdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      textMeasurePdf.setFont("helvetica", "normal");
+      textMeasurePdf.setFontSize(8.5);
+      const splitTextForPdf = (value: string, fallback: string) => {
+        const lines = textMeasurePdf.splitTextToSize(value.trim() || fallback, 162) as string[];
+        const linesPerPage = 43;
+        return Array.from(
+          { length: Math.ceil(lines.length / linesPerPage) },
+          (_, index) => lines.slice(index * linesPerPage, (index + 1) * linesPerPage).join(" ")
+        );
       };
       const roomPdfPages = groupedRooms.flatMap((room: any) => {
         const photos = preparedRoomPhotos.filter((photo: any) =>
           room.sourceIds.includes(photo.roomId) || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
         );
+        const linkedCommentTexts = inspectionComments
+          .filter((comment: any) => room.sourceIds.includes(comment.roomId) || normalizeRoomName(comment.roomName || "") === normalizeRoomName(room.name))
+          .map((comment: any) => String(comment.texto || comment.text || "").trim())
+          .filter(Boolean);
+        const roomComments = Array.from(new Set([String(room.comentarios || "").trim(), ...linkedCommentTexts].filter(Boolean))).join("\n\n");
         const textPages = [
-          ...splitTextForPdf(String(room.visaoGeral || "")).map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
-          ...splitTextForPdf(String(room.comentarios || "")).filter((text) => text !== "Não informado").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
+          ...splitTextForPdf(String(room.visaoGeral || ""), "Não informado").map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
+          ...splitTextForPdf(roomComments, "Sem comentários registrados.").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
         ];
         const photoPages = Array.from(
           { length: Math.ceil(photos.length / photosPerRoomPage) },
