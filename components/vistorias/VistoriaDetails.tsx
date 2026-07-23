@@ -386,16 +386,23 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
       const wrapper = document.createElement("div");
       wrapper.setAttribute("aria-hidden", "true");
-      wrapper.style.position = "absolute";
+      wrapper.style.position = "fixed";
       wrapper.style.top = "0";
-      wrapper.style.left = "-10000px";
+      wrapper.style.left = "0";
       wrapper.style.width = "210mm";
-      wrapper.style.height = "auto";
+      wrapper.style.height = "100vh";
       wrapper.style.overflow = "visible";
       wrapper.style.backgroundColor = "#ffffff";
       wrapper.style.pointerEvents = "none";
+      wrapper.style.zIndex = "2147483647";
       wrapper.appendChild(tempDiv);
       document.body.appendChild(wrapper);
+
+      // Aguarda o navegador efetivamente calcular e pintar o laudo. Capturar um
+      // elemento fora do viewport produz um canvas vazio em alguns navegadores.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
 
       // Wait for all images inside tempDiv to load
       const images = tempDiv.getElementsByTagName("img");
