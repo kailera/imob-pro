@@ -1,11 +1,16 @@
 "use client";
 
 import React from "react";
-import { ClipboardList, Key, FileText, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File } from "lucide-react";
+import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
 import { CommentData } from "./CommentsTimeline";
-import type { InspectionAttachment } from "./DocumentsPhotosSection";
 import { PreviewableImage } from "./PreviewableImage";
+
+interface InfoGeralItem {
+  id: number;
+  titulo: string;
+  conteudo: string;
+}
 
 interface DetailSectionsProps {
   comments?: CommentData[];
@@ -13,7 +18,8 @@ interface DetailSectionsProps {
   reportObservation?: string;
   rooms?: Room[];
   solicitante?: string;
-  attachments?: InspectionAttachment[];
+  infoGeralItems?: InfoGeralItem[];
+  onUpdateInfoGeralItem?: (id: number, newConteudo: string) => void;
   chavesQuantidade?: number;
   chavesObservacao?: string;
   vistoriaStatus?: string;
@@ -28,7 +34,8 @@ export function DetailSections({
   reportObservation = "",
   rooms = [],
   solicitante = "",
-  attachments = [],
+  infoGeralItems = [],
+  onUpdateInfoGeralItem,
   chavesQuantidade = 0,
   chavesObservacao = "",
   vistoriaStatus = "",
@@ -177,40 +184,24 @@ export function DetailSections({
 
           <div className="h-px bg-[#EEEEF3]" />
 
-          {/* Documentos e Fotos */}
+          {/* Informações Gerais / Termos Finais */}
           <div>
             <h4 className="text-xs font-bold text-[#004777] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <FileText className="w-4 h-4" />
-              Documentos e Fotos
+              <CheckSquare className="w-4 h-4" />
+              Termos e Condições Gerais do Laudo
             </h4>
-            {attachments.length === 0 ? (
-              <p className="text-sm italic text-gray-400">Nenhum documento ou foto anexado.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {attachments.map((attachment) => (
-                  <div key={attachment.id} className="overflow-hidden rounded-lg border border-[#EEEEF3] bg-white">
-                    {attachment.mimeType.startsWith("image/") ? (
-                      <div className="aspect-video bg-slate-50">
-                        <PreviewableImage src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="flex h-24 items-center justify-center bg-slate-50 text-[#004777]">
-                        <File className="h-8 w-8" />
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="truncate text-xs text-[#280003]">{attachment.name}</strong>
-                        <a href={attachment.url} download={attachment.name} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 rounded p-1 text-[#004777] hover:bg-slate-100" title="Baixar arquivo">
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </div>
-                      {attachment.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-600">{attachment.description}</p>}
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {infoGeralItems.map((item) => (
+                <div key={item.id} className="bg-white border border-[#EEEEF3] rounded-lg p-3">
+                  <span className="block text-[#004777] font-bold text-[10px] tracking-wider uppercase mb-1">
+                    {item.titulo}
+                  </span>
+                  <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                    {item.conteudo || <span className="text-gray-400 italic">Não preenchido.</span>}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>

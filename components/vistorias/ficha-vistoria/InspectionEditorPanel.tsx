@@ -7,8 +7,6 @@ import { useAuth } from "@clerk/nextjs";
 import { CommentForm } from "./CommentForm";
 import { CommentsTimeline, CommentData } from "./CommentsTimeline";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
-import { DocumentsPhotosSection } from "./DocumentsPhotosSection";
-import type { InspectionAttachment } from "./DocumentsPhotosSection";
 
 interface InspectionEditorPanelProps {
   rooms: Room[];
@@ -34,14 +32,20 @@ interface InspectionEditorPanelProps {
   chavesQuantidade: number;
   chavesObservacao: string;
   onUpdateKeys: (quantidade: number, observacao: string) => void;
-  attachments: InspectionAttachment[];
-  onUpdateAttachments: (attachments: InspectionAttachment[]) => void;
+  infoGeralItems: InfoGeralItem[];
+  onUpdateInfoGeralItem: (id: number, newConteudo: string) => void;
   onResolveContestacao?: (id: string, input: any) => Promise<void>;
   userRole?: string;
   disabled?: boolean;
   activeTab?: 'comments' | 'report' | 'contestations';
   onTabChange?: (tab: 'comments' | 'report' | 'contestations') => void;
   contestations?: any[];
+}
+
+interface InfoGeralItem {
+  id: number;
+  titulo: string;
+  conteudo: string;
 }
 
 export function InspectionEditorPanel({
@@ -57,8 +61,8 @@ export function InspectionEditorPanel({
   chavesQuantidade,
   chavesObservacao,
   onUpdateKeys,
-  attachments,
-  onUpdateAttachments,
+  infoGeralItems,
+  onUpdateInfoGeralItem,
   activeTab: controlledActiveTab,
   onTabChange,
   contestations = [],
@@ -283,7 +287,28 @@ export function InspectionEditorPanel({
             </div>
           </div>
 
-          <DocumentsPhotosSection attachments={attachments} onChange={onUpdateAttachments} disabled={disabled} />
+          {/* Termos e Condições Gerais */}
+          <div className="border-t border-[#EEEEF3] pt-4 flex flex-col gap-3">
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+              Termos e Condições Gerais
+            </label>
+            <div className="flex flex-col gap-3.5">
+              {infoGeralItems.map((item) => (
+                <div key={item.id} className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-[#004777] uppercase tracking-wider">
+                    {item.titulo}
+                  </span>
+                  <textarea
+                    rows={4}
+                    value={item.conteudo}
+                    disabled={disabled}
+                    onChange={(e) => onUpdateInfoGeralItem(item.id, e.target.value)}
+                    className="w-full p-2.5 bg-white border border-[#EEEEF3] rounded-lg text-xs text-[#280003] resize-y focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:bg-gray-55 disabled:text-gray-500"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

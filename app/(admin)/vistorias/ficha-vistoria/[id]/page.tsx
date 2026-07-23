@@ -13,7 +13,12 @@ import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComm
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
-import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
+
+interface InfoGeralItem {
+  id: number;
+  titulo: string;
+  conteudo: string;
+}
 import { VistoriaDetails, type Vistoria } from "@/components/vistorias/VistoriaDetails";
 
 export default function FichaVistoriaPage() {
@@ -24,11 +29,25 @@ export default function FichaVistoriaPage() {
   const defaultReportDesc = "";
   const defaultReportObs = "";
 
+  const defaultInfoGeralItems: InfoGeralItem[] = [
+    { id: 1, titulo: "Visão Geral", conteudo: "" },
+    { id: 2, titulo: "1) PINTURA", conteudo: "" },
+    { id: 3, titulo: "2) ELÉTRICA", conteudo: "" },
+    { id: 4, titulo: "3) PISOS E AZULEJOS", conteudo: "" },
+    { id: 5, titulo: "4) VIDRAÇAS E JANELAS", conteudo: "" },
+    { id: 6, titulo: "5) PORTAS", conteudo: "" },
+    { id: 7, titulo: "6) TRINCOS E FECHADURAS", conteudo: "" },
+    { id: 8, titulo: "7) TELHADO", conteudo: "" },
+    { id: 9, titulo: "8) HIDRÁULICA", conteudo: "" },
+    { id: 10, titulo: "9) LIMPEZA", conteudo: "" },
+    { id: 11, titulo: "10) INFILTRAÇÕES", conteudo: "" }
+  ];
+
   const [rooms, setRooms] = useState<Room[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
   const [reportDescription, setReportDescription] = useState("");
   const [reportObservation, setReportObservation] = useState("");
-  const [attachments, setAttachments] = useState<InspectionAttachment[]>([]);
+  const [infoGeralItems, setInfoGeralItems] = useState<InfoGeralItem[]>([]);
   const [solicitante, setSolicitante] = useState("Não informado");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -199,10 +218,10 @@ export default function FichaVistoriaPage() {
         setReportObservation(dbData.reparosNecessarios || defaultReportObs);
 
         // 4. Mapear info geral JSON
-        if (dbData.infoGeral && !Array.isArray(dbData.infoGeral) && Array.isArray(dbData.infoGeral.attachments)) {
-          setAttachments(dbData.infoGeral.attachments);
+        if (dbData.infoGeral && Array.isArray(dbData.infoGeral)) {
+          setInfoGeralItems(dbData.infoGeral as InfoGeralItem[]);
         } else {
-          setAttachments([]);
+          setInfoGeralItems(defaultInfoGeralItems);
         }
 
         // 5. Mapear solicitante/operador e outros campos
@@ -430,6 +449,10 @@ export default function FichaVistoriaPage() {
     setRooms(newRooms);
   };
 
+  const handleUpdateInfoGeralItem = (id: number, newConteudo: string) => {
+    setInfoGeralItems(prev => prev.map(item => item.id === id ? { ...item, conteudo: newConteudo } : item));
+  };
+
   const handleAddComment = async (
     roomId: string,
     roomName: string,
@@ -607,7 +630,7 @@ export default function FichaVistoriaPage() {
       status: nextStatus as any,
       observacoes: reportDescription,
       reparosNecessarios: reportObservation,
-      infoGeral: { attachments },
+      infoGeral: infoGeralItems,
       chavesQuantidade,
       chavesObservacao,
       rooms: rooms.map(r => ({
@@ -633,7 +656,7 @@ export default function FichaVistoriaPage() {
             status: nextStatus,
             observacoes: reportDescription,
             reparosNecessarios: reportObservation,
-            infoGeral: { attachments },
+            infoGeral: infoGeralItems,
             chavesQuantidade,
             chavesObservacao,
             ambienteVistorias: rooms.map(r => ({
@@ -661,7 +684,7 @@ export default function FichaVistoriaPage() {
           status: nextStatus,
           observacoes: reportDescription,
           reparosNecessarios: reportObservation,
-          infoGeral: { attachments },
+          infoGeral: infoGeralItems,
           chavesQuantidade,
           chavesObservacao,
           ambienteVistorias: rooms.map(r => ({
@@ -939,7 +962,8 @@ export default function FichaVistoriaPage() {
               reportObservation={reportObservation}
               rooms={rooms}
               solicitante={solicitante}
-              attachments={attachments}
+              infoGeralItems={infoGeralItems}
+              onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
               chavesQuantidade={chavesQuantidade}
               chavesObservacao={chavesObservacao}
               vistoriaStatus={vistoriaStatus}
@@ -973,8 +997,8 @@ export default function FichaVistoriaPage() {
               setChavesQuantidade(qtd);
               setChavesObservacao(obs);
             }}
-            attachments={attachments}
-            onUpdateAttachments={setAttachments}
+            infoGeralItems={infoGeralItems}
+            onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
             activeTab={activeEditorTab}
             onTabChange={setActiveEditorTab}
             contestations={contestations}

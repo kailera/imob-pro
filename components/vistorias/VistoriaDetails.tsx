@@ -63,7 +63,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const vistoriadorFormatted = dbData.vistoriador 
         ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ''}` 
         : vistoria.vistoriador;
-      const html2pdf = (await import("html2pdf.js")).default;
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
 
       // 2. Mapear ambientes
       let rooms = dbData.ambienteVistorias.map((r: any) => ({
@@ -84,9 +87,13 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const reportDesc = dbData.observacoes || "Nenhuma descrição detalhada informada.";
       const reportObs = dbData.reparosNecessarios || "";
 
-      // 3. Mapear documentos e fotos (fichas antigas podem conter o formato de termos)
-      const infoGeral = dbData.infoGeral as { attachments?: Array<{ id: string; name: string; url: string; mimeType: string; description?: string }> } | null;
-      const attachments = Array.isArray(infoGeral?.attachments) ? infoGeral.attachments : [];
+      // 3. Mapear Informações Gerais
+      let infoGeralItems = (dbData.infoGeral as any) || [];
+      if (!Array.isArray(infoGeralItems) || infoGeralItems.length === 0) {
+        infoGeralItems = [
+          { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições de habitação." }
+        ];
+      }
       const roomPhotos = (dbData.comentariosVistoria || []).flatMap((comment: any) =>
         (Array.isArray(comment.midias) ? comment.midias : Array.isArray(comment.media) ? comment.media : [])
           .filter((media: any) => media?.type === "image" && typeof media.url === "string")
@@ -341,16 +348,15 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               </div>
             ` : ''}
 
-            <!-- Documentos e Fotos -->
-            ${attachments.length > 0 ? `
+            <!-- Termos Gerais -->
+            ${infoGeralItems.length > 0 ? `
               <div style="margin-bottom: 15px;">
-                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Documentos e Fotos</h2>
+                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Termos e Condições Gerais</h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8px; line-height: 1.3;">
-                  ${attachments.map((attachment) => `
+                  ${infoGeralItems.map((item: any) => `
                     <div style="padding: 5px; background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px;">
-                      ${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;" />` : ""}
-                      <strong style="display: block; color: #004777; font-size: 7px; margin-bottom: 1px;">${escapeHtml(attachment.name)}</strong>
-                      ${attachment.description ? `<p style="margin: 0; color: #333;">${escapeHtml(attachment.description)}</p>` : ""}
+                      <strong style="display: block; color: #004777; text-transform: uppercase; font-size: 7px; margin-bottom: 1px;">${escapeHtml(item.titulo || "")}</strong>
+                      <p style="margin: 0; color: #333;">${escapeHtml(item.conteudo || "")}</p>
                     </div>
                   `).join('')}
                 </div>
@@ -386,46 +392,91 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
 
       const wrapper = document.createElement("div");
       wrapper.setAttribute("aria-hidden", "true");
-      wrapper.style.position = "fixed";
+      wrapper.style.position = "absolute";
       wrapper.style.top = "0";
-      wrapper.style.left = "0";
+      wrapper.style.left = "-10000px";
       wrapper.style.width = "210mm";
-      wrapper.style.height = "100vh";
+      wrapper.style.height = "auto";
       wrapper.style.overflow = "visible";
       wrapper.style.backgroundColor = "#ffffff";
       wrapper.style.pointerEvents = "none";
-      wrapper.style.zIndex = "2147483647";
       wrapper.appendChild(tempDiv);
       document.body.appendChild(wrapper);
 
-      // Aguarda o navegador efetivamente calcular e pintar o laudo. Capturar um
-      // elemento fora do viewport produz um canvas vazio em alguns navegadores.
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-
-      // Wait for all images inside tempDiv to load
-      const images = tempDiv.getElementsByTagName("img");
-      const promises = Array.from(images).map((img) => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      });
-      await Promise.all(promises);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const opt = {
-        margin: 0,
-        filename: `Relatorio_Vistoria_${vistoria.codigo}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.82 },
-        html2canvas: { scale: 1.5, useCORS: true, allowTaint: false, logging: false },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-      };
-
       try {
-        await html2pdf().from(tempDiv).set(opt).save();
+        // Wait for all images inside tempDiv to load
+        const images = tempDiv.getElementsByTagName("img");
+        const promises = Array.from(images).map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        });
+        await Promise.all(promises);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const pages = Array.from(tempDiv.children).filter(
+          (child): child is HTMLElement => child instanceof HTMLElement
+        );
+        if (pages.length === 0) {
+          throw new Error("Nenhuma página foi montada para o PDF.");
+        }
+
+        const pdf = new jsPDF({
+          unit: "mm",
+          format: "a4",
+          orientation: "portrait",
+          compress: true,
+        });
+
+        for (let index = 0; index < pages.length; index += 1) {
+          const canvas = await html2canvas(pages[index], {
+            scale: 1.5,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+            backgroundColor: "#ffffff",
+            imageTimeout: 15000,
+          });
+
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (!context) {
+            throw new Error(`Não foi possível capturar a página ${index + 1}.`);
+          }
+          let hasVisibleContent = false;
+          for (let y = 1; y < 12 && !hasVisibleContent; y += 1) {
+            for (let x = 1; x < 8; x += 1) {
+              const sample = context.getImageData(
+                Math.floor((canvas.width * x) / 8),
+                Math.floor((canvas.height * y) / 12),
+                1,
+                1
+              ).data;
+              if (sample[3] > 0 && (sample[0] < 248 || sample[1] < 248 || sample[2] < 248)) {
+                hasVisibleContent = true;
+                break;
+              }
+            }
+          }
+          if (!hasVisibleContent) {
+            throw new Error(`A captura da página ${index + 1} ficou em branco.`);
+          }
+
+          if (index > 0) pdf.addPage("a4", "portrait");
+          pdf.addImage(
+            canvas.toDataURL("image/jpeg", 0.82),
+            "JPEG",
+            0,
+            0,
+            210,
+            297,
+            undefined,
+            "FAST"
+          );
+        }
+
+        pdf.save(`Relatorio_Vistoria_${vistoria.codigo}.pdf`);
       } finally {
         wrapper.remove();
       }
