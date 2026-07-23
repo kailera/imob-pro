@@ -34,6 +34,15 @@ const statusBadgeClasses = {
   contestada: "bg-red-50 text-red-700 border-red-100",
 };
 
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] || character);
+
 export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -72,13 +81,9 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
       const reportDesc = dbData.observacoes || "Nenhuma descrição detalhada informada.";
       const reportObs = dbData.reparosNecessarios || "";
 
-      // 3. Mapear Informações Gerais
-      let infoGeralItems = (dbData.infoGeral as any) || [];
-      if (infoGeralItems.length === 0) {
-        infoGeralItems = [
-          { id: 1, titulo: "Visão Geral", conteudo: "Em perfeitas condições de habitação." }
-        ];
-      }
+      // 3. Mapear documentos e fotos (fichas antigas podem conter o formato de termos)
+      const infoGeral = dbData.infoGeral as { attachments?: Array<{ id: string; name: string; url: string; mimeType: string; description?: string }> } | null;
+      const attachments = Array.isArray(infoGeral?.attachments) ? infoGeral.attachments : [];
 
       const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
@@ -294,15 +299,16 @@ export function VistoriaDetails({ vistoria, onViewFullReport }: VistoriaDetailsP
               </div>
             ` : ''}
 
-            <!-- Termos Gerais -->
-            ${infoGeralItems.length > 0 ? `
+            <!-- Documentos e Fotos -->
+            ${attachments.length > 0 ? `
               <div style="margin-bottom: 15px;">
-                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Termos e Condições Gerais</h2>
+                <h2 style="font-size: 10px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #EEEEF3; padding-bottom: 2px; margin-bottom: 6px; margin-top: 0;">Documentos e Fotos</h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8px; line-height: 1.3;">
-                  ${infoGeralItems.map((item: any) => `
+                  ${attachments.map((attachment) => `
                     <div style="padding: 5px; background-color: #fafafa; border: 1px solid #EEEEF3; border-radius: 4px;">
-                      <strong style="display: block; color: #004777; text-transform: uppercase; font-size: 7px; margin-bottom: 1px;">${item.titulo}</strong>
-                      <p style="margin: 0; color: #333;">${item.conteudo}</p>
+                      ${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 80px; object-fit: cover; border-radius: 3px; margin-bottom: 4px;" />` : ""}
+                      <strong style="display: block; color: #004777; font-size: 7px; margin-bottom: 1px;">${escapeHtml(attachment.name)}</strong>
+                      ${attachment.description ? `<p style="margin: 0; color: #333;">${escapeHtml(attachment.description)}</p>` : ""}
                     </div>
                   `).join('')}
                 </div>

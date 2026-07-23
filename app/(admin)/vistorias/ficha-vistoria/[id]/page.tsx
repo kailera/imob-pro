@@ -13,12 +13,7 @@ import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComm
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
-
-interface InfoGeralItem {
-  id: number;
-  titulo: string;
-  conteudo: string;
-}
+import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
 
 export default function FichaVistoriaPage() {
   const router = useRouter();
@@ -28,25 +23,11 @@ export default function FichaVistoriaPage() {
   const defaultReportDesc = "";
   const defaultReportObs = "";
 
-  const defaultInfoGeralItems: InfoGeralItem[] = [
-    { id: 1, titulo: "Visão Geral", conteudo: "" },
-    { id: 2, titulo: "1) PINTURA", conteudo: "" },
-    { id: 3, titulo: "2) ELÉTRICA", conteudo: "" },
-    { id: 4, titulo: "3) PISOS E AZULEJOS", conteudo: "" },
-    { id: 5, titulo: "4) VIDRAÇAS E JANELAS", conteudo: "" },
-    { id: 6, titulo: "5) PORTAS", conteudo: "" },
-    { id: 7, titulo: "6) TRINCOS E FECHADURAS", conteudo: "" },
-    { id: 8, titulo: "7) TELHADO", conteudo: "" },
-    { id: 9, titulo: "8) HIDRÁULICA", conteudo: "" },
-    { id: 10, titulo: "9) LIMPEZA", conteudo: "" },
-    { id: 11, titulo: "10) INFILTRAÇÕES", conteudo: "" }
-  ];
-
   const [rooms, setRooms] = useState<Room[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
   const [reportDescription, setReportDescription] = useState("");
   const [reportObservation, setReportObservation] = useState("");
-  const [infoGeralItems, setInfoGeralItems] = useState<InfoGeralItem[]>([]);
+  const [attachments, setAttachments] = useState<InspectionAttachment[]>([]);
   const [solicitante, setSolicitante] = useState("Não informado");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,6 +60,7 @@ export default function FichaVistoriaPage() {
 
   // Estados para associação de Inquilino
   const [associatedLocatarioId, setAssociatedLocatarioId] = useState<string | null>(null);
+  const [authorizedLocatarioIds, setAuthorizedLocatarioIds] = useState<string[]>([]);
   const [locatarios, setLocatarios] = useState<any[]>([]);
   const [selectedLocatarioId, setSelectedLocatarioId] = useState<string>("");
   const [loadingLocatarios, setLoadingLocatarios] = useState(false);
@@ -182,10 +164,10 @@ export default function FichaVistoriaPage() {
         setReportObservation(dbData.reparosNecessarios || defaultReportObs);
 
         // 4. Mapear info geral JSON
-        if (dbData.infoGeral && Array.isArray(dbData.infoGeral)) {
-          setInfoGeralItems(dbData.infoGeral as any);
+        if (dbData.infoGeral && !Array.isArray(dbData.infoGeral) && Array.isArray(dbData.infoGeral.attachments)) {
+          setAttachments(dbData.infoGeral.attachments);
         } else {
-          setInfoGeralItems(defaultInfoGeralItems);
+          setAttachments([]);
         }
 
         // 5. Mapear solicitante/operador e outros campos
@@ -203,6 +185,10 @@ export default function FichaVistoriaPage() {
         setTokenAcesso(dbData.tokenAcesso || null);
         setContestations(dbData.contestacaoVistorias || []);
         setAssociatedLocatarioId(dbData.locatarioId || null);
+        setAuthorizedLocatarioIds(Array.from(new Set([
+          ...(dbData.locatariosAutorizados || []).map((item: any) => item.locatarioId),
+          ...(dbData.locatarioId ? [dbData.locatarioId] : []),
+        ])) as string[]);
         
         if (dbData.vistoriador) {
           const creciText = dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : "";
@@ -262,7 +248,11 @@ export default function FichaVistoriaPage() {
     try {
       const res = await associateTenantToVistoria(vistoriaId, selectedLocatarioId);
       if (res.success) {
-        setAssociatedLocatarioId(selectedLocatarioId);
+        setAssociatedLocatarioId((current) => current || selectedLocatarioId);
+        setAuthorizedLocatarioIds((current) =>
+          current.includes(selectedLocatarioId) ? current : [...current, selectedLocatarioId]
+        );
+        setSelectedLocatarioId("");
         
         // Agora gera o token de acesso
         setIsGeneratingToken(true);
@@ -304,6 +294,9 @@ export default function FichaVistoriaPage() {
         const assocRes = await associateTenantToVistoria(vistoriaId, res.data.id);
         if (assocRes.success) {
           setAssociatedLocatarioId(res.data.id);
+          setAuthorizedLocatarioIds((current) =>
+            current.includes(res.data.id) ? current : [...current, res.data.id]
+          );
           
           setIsGeneratingToken(true);
           const tokenRes = await generateTokenAcesso(vistoriaId);
@@ -400,10 +393,6 @@ export default function FichaVistoriaPage() {
 
   const handleReorderRooms = (newRooms: Room[]) => {
     setRooms(newRooms);
-  };
-
-  const handleUpdateInfoGeralItem = (id: number, newConteudo: string) => {
-    setInfoGeralItems(prev => prev.map(item => item.id === id ? { ...item, conteudo: newConteudo } : item));
   };
 
   const handleAddComment = async (
@@ -583,7 +572,7 @@ export default function FichaVistoriaPage() {
       status: nextStatus as any,
       observacoes: reportDescription,
       reparosNecessarios: reportObservation,
-      infoGeral: infoGeralItems,
+      infoGeral: { attachments },
       chavesQuantidade,
       chavesObservacao,
       rooms: rooms.map(r => ({
@@ -609,7 +598,7 @@ export default function FichaVistoriaPage() {
             status: nextStatus,
             observacoes: reportDescription,
             reparosNecessarios: reportObservation,
-            infoGeral: infoGeralItems,
+            infoGeral: { attachments },
             chavesQuantidade,
             chavesObservacao,
             ambienteVistorias: rooms.map(r => ({
@@ -637,7 +626,7 @@ export default function FichaVistoriaPage() {
           status: nextStatus,
           observacoes: reportDescription,
           reparosNecessarios: reportObservation,
-          infoGeral: infoGeralItems,
+          infoGeral: { attachments },
           chavesQuantidade,
           chavesObservacao,
           ambienteVistorias: rooms.map(r => ({
@@ -721,6 +710,7 @@ export default function FichaVistoriaPage() {
 
   const isBrokerOrAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "CORRETOR";
   const canEdit = vistoriaStatus === "NAO_INICIADA" || vistoriaStatus === "EM_ANDAMENTO" || vistoriaStatus === "CONTESTADA" || isBrokerOrAdmin;
+  const headerActionClass = "inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]/35 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[190px] sm:flex-none";
 
   return (
     <div className="flex flex-col w-full max-w-[1600px] bg-white mx-auto gap-6 pb-20 md:pb-16 px-2 sm:px-0 h-[100dvh] md:h-auto overflow-hidden md:overflow-visible print:h-auto print:overflow-visible print:max-w-none print:p-0 print:gap-0">
@@ -777,13 +767,13 @@ export default function FichaVistoriaPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 print:hidden">
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end print:hidden">
           {/* Botão Enviar para Aprovação */}
           {["NAO_INICIADA", "EM_ANDAMENTO", "CONTESTADA"].includes(vistoriaStatus) && (
             <button
               onClick={() => handleUpdateStatus("AGUARDANDO_APROVACAO")}
               disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+              className={`${headerActionClass} border-amber-500 bg-amber-500 text-white hover:border-amber-600 hover:bg-amber-600`}
             >
               Enviar para Aprovação
             </button>
@@ -796,20 +786,20 @@ export default function FichaVistoriaPage() {
                 <button
                   onClick={() => handleUpdateStatus("CONCLUIDA")}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+                  className={`${headerActionClass} border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700`}
                 >
                   Aprovar Vistoria
                 </button>
                 <button
                   onClick={() => handleUpdateStatus("EM_ANDAMENTO")}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-rose-605 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-60"
+                  className={`${headerActionClass} border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700`}
                 >
                   Reprovar Vistoria
                 </button>
               </>
             ) : (
-              <span className="text-xs bg-amber-55 text-amber-700 border border-amber-200 px-3 py-2.5 rounded-lg font-semibold">
+              <span className={`${headerActionClass} border-amber-200 bg-amber-50 text-amber-700 shadow-none`}>
                 Aguardando Aprovação
               </span>
             )
@@ -817,7 +807,7 @@ export default function FichaVistoriaPage() {
 
           <button
             onClick={handleOpenShare}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#004777] text-white rounded-lg text-sm font-semibold hover:bg-[#00365a] transition-all shadow-sm"
+            className={`${headerActionClass} border-[#004777] bg-[#004777] text-white hover:border-[#00365a] hover:bg-[#00365a]`}
           >
             <Share2 className="w-4 h-4" />
             <span>Enviar p/ Inquilino</span>
@@ -828,7 +818,7 @@ export default function FichaVistoriaPage() {
             <button
               onClick={handleSaveDatabase}
               disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#708D81] text-white rounded-lg text-sm font-semibold hover:bg-[#5b756b] transition-all shadow-sm disabled:opacity-60"
+              className={`${headerActionClass} border-[#708D81] bg-[#708D81] text-white hover:border-[#5b756b] hover:bg-[#5b756b]`}
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -841,7 +831,7 @@ export default function FichaVistoriaPage() {
 
           <button
             onClick={() => window.print()}
-            className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-slate-100 border border-slate-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all shadow-sm"
+            className={`${headerActionClass} hidden border-slate-200 bg-slate-100 text-gray-700 hover:border-slate-300 hover:bg-slate-200 sm:inline-flex`}
           >
             <FileText className="w-4 h-4" />
             <span>Gerar PDF Oficial</span>
@@ -914,8 +904,7 @@ export default function FichaVistoriaPage() {
               reportObservation={reportObservation}
               rooms={rooms}
               solicitante={solicitante}
-              infoGeralItems={infoGeralItems}
-              onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
+              attachments={attachments}
               chavesQuantidade={chavesQuantidade}
               chavesObservacao={chavesObservacao}
               vistoriaStatus={vistoriaStatus}
@@ -949,8 +938,8 @@ export default function FichaVistoriaPage() {
               setChavesQuantidade(qtd);
               setChavesObservacao(obs);
             }}
-            infoGeralItems={infoGeralItems}
-            onUpdateInfoGeralItem={handleUpdateInfoGeralItem}
+            attachments={attachments}
+            onUpdateAttachments={setAttachments}
             activeTab={activeEditorTab}
             onTabChange={setActiveEditorTab}
             contestations={contestations}
@@ -1120,6 +1109,40 @@ export default function FichaVistoriaPage() {
                 </div>
               ) : (
                 <>
+                  <div className="rounded-lg border border-[#EEEEF3] bg-slate-50 p-3">
+                    <p className="mb-2 text-[11px] font-bold text-[#004777]">Vincular outro inquilino</p>
+                    <p className="mb-2 text-[10px] leading-relaxed text-gray-500">
+                      O inquilino adicional poderá abrir este mesmo link usando o próprio CPF/CNPJ.
+                    </p>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedLocatarioId}
+                        onChange={(e) => setSelectedLocatarioId(e.target.value)}
+                        disabled={loadingLocatarios || isAssociating}
+                        className="min-w-0 flex-1 rounded-lg border border-[#EEEEF3] bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#004777]/25"
+                      >
+                        <option value="">
+                          {loadingLocatarios ? "Carregando inquilinos..." : "Selecione outro inquilino..."}
+                        </option>
+                        {locatarios
+                          .filter((loc) => !authorizedLocatarioIds.includes(loc.id))
+                          .map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.nome} - {loc.cpfCnpj}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleAssociateTenant}
+                        disabled={!selectedLocatarioId || isAssociating}
+                        className="rounded-lg bg-[#004777] px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-[#00365a] disabled:opacity-50"
+                      >
+                        {isAssociating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Vincular"}
+                      </button>
+                    </div>
+                  </div>
+
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Copie o link abaixo e envie para o inquilino. Para acessar o laudo de vistoria com segurança, ele precisará informar seu CPF/CNPJ de cadastro.
                   </p>
@@ -1160,8 +1183,11 @@ export default function FichaVistoriaPage() {
                       </a>
 
                       <div className="mt-2 text-[10px] text-gray-500 bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
-                        <strong>Inquilino Vinculado:</strong>{" "}
-                        {locatarios.find((l) => l.id === associatedLocatarioId)?.nome || "Inquilino selecionado"}
+                        <strong>Inquilinos vinculados:</strong>{" "}
+                        {authorizedLocatarioIds
+                          .map((id) => locatarios.find((loc) => loc.id === id)?.nome)
+                          .filter(Boolean)
+                          .join(", ") || "Inquilino selecionado"}
                       </div>
                     </div>
                   )}

@@ -117,6 +117,10 @@ export async function getVistoriaById(id: string) {
                 contestacaoVistorias: {
                     orderBy: { createdAt: "desc" },
                 },
+                locatariosAutorizados: {
+                    include: { locatario: true },
+                    orderBy: { createdAt: "asc" },
+                },
             },
         });
         return { success: true, data: vistoria };
@@ -485,9 +489,25 @@ export async function associateTenantToVistoria(vistoriaId: string, locatarioId:
         if (!userId) {
             return { success: false, error: "Não autorizado." };
         }
-        await prisma.vistoria.update({
-            where: { id: vistoriaId },
-            data: { locatarioId },
+        await prisma.$transaction(async (tx) => {
+            const vistoria = await tx.vistoria.findUnique({
+                where: { id: vistoriaId },
+                select: { locatarioId: true },
+            });
+            if (!vistoria) throw new Error("Vistoria não encontrada.");
+
+            await tx.vistoriaLocatario.upsert({
+                where: { vistoriaId_locatarioId: { vistoriaId, locatarioId } },
+                create: { vistoriaId, locatarioId },
+                update: {},
+            });
+
+            if (!vistoria.locatarioId) {
+                await tx.vistoria.update({
+                    where: { id: vistoriaId },
+                    data: { locatarioId },
+                });
+            }
         });
         revalidatePath("/vistorias");
         revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
@@ -504,6 +524,9 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
             where: { tokenAcesso },
             include: {
                 locatario: true,
+                locatariosAutorizados: {
+                    include: { locatario: true }
+                },
                 imovel: {
                     include: {
                         contratoImovelLocacaos: {
@@ -531,6 +554,12 @@ export async function validateTenantAccess(tokenAcesso: string, cpfCnpj: string)
         let matchesLocatario = false;
         if (vistoria.locatario && vistoria.locatario.cpfCnpj.replace(/\D/g, "") === cleanInput) {
             matchesLocatario = true;
+        }
+
+        if (!matchesLocatario) {
+            matchesLocatario = vistoria.locatariosAutorizados.some(({ locatario }) =>
+                locatario.cpfCnpj.replace(/\D/g, "") === cleanInput
+            );
         }
 
         // 2. Fallback: Procurar por locatário nos contratos

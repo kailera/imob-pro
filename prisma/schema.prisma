@@ -332,6 +332,7 @@ model Locatario {
   contratoId   String?
   contrato     ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Cascade)
   vistorias    Vistoria[]
+  acessosVistoria VistoriaLocatario[]
 }
 
 //*************************************************************
@@ -484,8 +485,21 @@ model Vistoria {
   tokenAcesso          String?               @unique
   locatarioId          String?
   locatario            Locatario?            @relation(fields: [locatarioId], references: [id], onDelete: SetNull)
+  locatariosAutorizados VistoriaLocatario[]
 
   @@map("vistoria")
+}
+
+model VistoriaLocatario {
+  vistoriaId  String
+  locatarioId String
+  vistoria    Vistoria   @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  locatario   Locatario @relation(fields: [locatarioId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+
+  @@id([vistoriaId, locatarioId])
+  @@index([locatarioId])
+  @@map("vistoria_locatario")
 }
 
 model ContestacaoVistoria {

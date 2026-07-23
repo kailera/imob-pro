@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { CheckCircle2, AlertTriangle, Clock, Edit2, Trash2, Save, X, Film } from "lucide-react";
+import { PreviewableImage } from "./PreviewableImage";
 
 export interface CommentMedia {
   url: string;
@@ -220,12 +221,7 @@ export function CommentsTimeline({ comments, onUpdateComment, onDeleteComment, d
                       {comment.media.map((med, idx) => (
                         <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-[#EEEEF3] bg-gray-50 flex items-center justify-center shadow-sm">
                           {med.type === "image" ? (
-                            <img 
-                              src={med.url} 
-                              alt="Comentário" 
-                              onClick={() => window.open(med.url, '_blank')}
-                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" 
-                            />
+                            <PreviewableImage src={med.url} alt={`Foto de ${comment.roomName}`} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                           ) : (
                             <div className="relative w-full h-full">
                               <video 
