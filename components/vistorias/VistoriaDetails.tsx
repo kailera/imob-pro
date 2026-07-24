@@ -293,6 +293,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const textMeasurePdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       textMeasurePdf.setFont("helvetica", "normal");
       textMeasurePdf.setFontSize(8.5);
+      textMeasurePdf.setLineHeightFactor(1.35);
       const splitTextForPdf = (value: string, fallback: string) => {
         const lines = textMeasurePdf.splitTextToSize(value.trim() || fallback, 162) as string[];
         const linesPerPage = 43;
@@ -318,12 +319,12 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         const textItems = [
           ...splitTextForPdf(overviewText, "Não informado").map((text, index) => ({
             kind: "text" as const,
-            height: 8 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 3.8,
+            height: 6.5 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 4.05,
             payload: { type: "text" as const, label: "Visão geral", text, continuation: index > 0 },
           })),
           ...splitTextForPdf(commentsText, "Sem comentários registrados.").map((text, index) => ({
             kind: "text" as const,
-            height: 8 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 3.8,
+            height: 6.5 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 4.05,
             payload: { type: "text" as const, label: "Comentários", text, continuation: index > 0 },
           })),
         ];
@@ -776,10 +777,11 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setTextColor(40, 40, 40);
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(8);
+            pdf.setLineHeightFactor(1.3);
             inspectionTerm.forEach((paragraph) => {
               const lines = pdf.splitTextToSize(paragraph, 166);
-              pdf.text(lines, 22, termY, { lineHeightFactor: 1.3, align: "left" });
-              termY += lines.length * 3.5 + 4;
+              pdf.text(lines, 22, termY, { align: "left" });
+              termY += lines.length * 3.67 + 4;
             });
 
             const detailsY = Math.min(Math.max(termY + 2, 220), 251);
@@ -825,13 +827,14 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setTextColor(40, 40, 40);
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(9);
+            pdf.setLineHeightFactor(1.4);
             finalTerm.forEach((paragraph) => {
               const paragraphWithEmail = paragraph.includes("administração do imóvel") && realEstate?.emailContato
                 ? `${paragraph} E-mail: ${realEstate.emailContato}.`
                 : paragraph;
               const lines = pdf.splitTextToSize(paragraphWithEmail, 166);
-              pdf.text(lines, 22, finalY, { lineHeightFactor: 1.4, align: "left" });
-              finalY += lines.length * 4.1 + 7;
+              pdf.text(lines, 22, finalY, { align: "left" });
+              finalY += lines.length * 4.45 + 6;
             });
 
             const signatureTitleY = 216;
@@ -881,9 +884,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               pdf.setTextColor(51, 51, 51);
               pdf.setFont("helvetica", "normal");
               pdf.setFontSize(8.5);
+              pdf.setLineHeightFactor(1.35);
               const lines = pdf.splitTextToSize(value || "Não informado", 162);
-              pdf.text(lines, 28, y + 5, { lineHeightFactor: 1.35 });
-              return y + 8 + lines.length * 3.8;
+              pdf.text(lines, 28, y + 4.5);
+              return y + 6.5 + lines.length * 4.05;
             };
 
             pdf.setFillColor(255, 255, 255);
