@@ -5,7 +5,7 @@ import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Do
 import { getVistoriaById } from "@/app/(admin)/vistorias/actions";
 import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 import {
-  canShareConditionsPageWithFinalTerm,
+  CONDITIONS_PER_PAGE,
   fitImageInside,
   getAdaptivePhotoGrid,
 } from "@/lib/vistorias/pdfLayout";
@@ -333,39 +333,15 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const roomPagesHtml = roomPdfPages.map((_, pageIndex) => `<div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; page-break-before: always;"></div>`).join("");
       const splitIntoChunks = <T,>(items: T[], size: number) =>
         Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
-      const termsChunks = splitIntoChunks(
+      const termsPagesHtml = splitIntoChunks(
         infoGeralItems as Array<{ id?: string | number; titulo?: string; conteudo?: string }>,
-        6
-      );
-      const firstTermsChunk = termsChunks[0] || [];
-      const shareFinalTermWithConditions = canShareConditionsPageWithFinalTerm(firstTermsChunk, finalTermText);
-      const compactFinalTermHtml = `
-        <section style="margin-top: 14px; border-top: 2px solid #004777; padding-top: 10px;">
-          <span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Encerramento</span>
-          <h2 style="font-size: 14px; color: #004777; margin: 0 0 8px;">Termo final da vistoria</h2>
-          <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background: #fafafa;">
-            ${finalTerm.map((paragraph) => `<p style="font-size: 8px; line-height: 1.4; color: #280003; margin: 0 0 7px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 34px; margin-top: 34px;">
-            <div style="text-align: center; border-top: 1px solid #777; padding-top: 5px;">
-              <strong style="display: block; font-size: 8px; color: #280003;">${escapeHtml(tenantName)}</strong>
-              <span style="display: block; font-size: 7px; color: #555; margin-top: 2px;">${escapeHtml(tenantDocument)}</span>
-              <span style="display: block; font-size: 7px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 4px;">Locatário</span>
-            </div>
-            <div style="text-align: center; border-top: 1px solid #777; padding-top: 5px;">
-              <strong style="display: block; font-size: 8px; color: #280003;">${escapeHtml(realEstateName)}</strong>
-              <span style="display: block; font-size: 7px; color: #555; margin-top: 2px;">${escapeHtml(realEstateDocument)}</span>
-              <span style="display: block; font-size: 7px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 4px;">Imobiliária / Administradora</span>
-            </div>
-          </div>
-        </section>`;
-      const termsPagesHtml = termsChunks.map((terms, pageIndex) => `
+        CONDITIONS_PER_PAGE
+      ).map((terms, pageIndex) => `
         <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
-            ${shareFinalTermWithConditions && pageIndex === 0 ? compactFinalTermHtml : ""}
-            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin: ${shareFinalTermWithConditions && pageIndex === 0 ? "14px 0 12px" : "0 0 12px"};"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Complemento do laudo</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Condições gerais</h2></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 9px; background: #ffffff;"><h3 style="font-size: 8px; color: #004777; text-transform: uppercase; margin: 0 0 5px; line-height: 1.25;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 8px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
+            <div style="border-bottom: 2px solid #004777; padding-bottom: 6px; margin: 0 0 9px;"><span style="display: block; font-size: 7px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px;">Complemento do laudo</span><h2 style="font-size: 15px; color: #004777; margin: 0;">Condições gerais</h2></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 7px 9px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 7px; background: #ffffff;"><h3 style="font-size: 7px; color: #004777; text-transform: uppercase; margin: 0 0 3px; line-height: 1.2;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 7px; line-height: 1.3; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Condições ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
@@ -378,7 +354,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Anexos ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
-      const finalTermPageHtml = shareFinalTermWithConditions ? "" : `
+      const finalTermPageHtml = `
         <div data-pdf-kind="closing" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background: #fff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
@@ -389,7 +365,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 14px; background: #fafafa;">
               ${finalTerm.map((paragraph) => `<p style="font-size: 10px; line-height: 1.5; color: #280003; margin: 0 0 12px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
             </div>
-            <div style="margin-top: 28px;">
+            <div style="margin-top: auto; margin-bottom: 48px;">
               <h3 style="font-size: 12px; color: #004777; border-bottom: 1px solid #004777; padding-bottom: 5px; margin: 0 0 55px;">Assinaturas</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 34px;">
                 <div style="text-align: center; border-top: 1px solid #777; padding-top: 7px;">
@@ -691,7 +667,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             </div>
           </div>
         </div>
-        ${roomPagesHtml}${finalTermPageHtml}${termsPagesHtml}${attachmentPagesHtml}${photoPagesHtml}
+        ${roomPagesHtml}${termsPagesHtml}${attachmentPagesHtml}${photoPagesHtml}${finalTermPageHtml}
       `;
 
       const wrapper = document.createElement("div");
@@ -843,27 +819,28 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               finalY += lines.length * 4.1 + 7;
             });
 
-            const signatureY = Math.max(finalY + 42, 180);
+            const signatureTitleY = 216;
+            const signatureLineY = 244;
             pdf.setTextColor(0, 71, 119);
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(11);
-            pdf.text("ASSINATURAS", 22, signatureY - 18);
+            pdf.text("ASSINATURAS", 22, signatureTitleY);
             pdf.setDrawColor(120, 120, 120);
-            pdf.line(28, signatureY + 20, 96, signatureY + 20);
-            pdf.line(114, signatureY + 20, 182, signatureY + 20);
+            pdf.line(28, signatureLineY, 96, signatureLineY);
+            pdf.line(114, signatureLineY, 182, signatureLineY);
             pdf.setTextColor(40, 40, 40);
             pdf.setFontSize(9);
-            pdf.text(tenantName, 62, signatureY + 27, { align: "center" });
-            pdf.text(realEstateName, 148, signatureY + 27, { align: "center" });
+            pdf.text(tenantName, 62, signatureLineY + 7, { align: "center" });
+            pdf.text(realEstateName, 148, signatureLineY + 7, { align: "center" });
             pdf.setTextColor(90, 90, 90);
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(7.5);
-            pdf.text(tenantDocument, 62, signatureY + 32, { align: "center" });
-            pdf.text(realEstateDocument, 148, signatureY + 32, { align: "center" });
+            pdf.text(tenantDocument, 62, signatureLineY + 12, { align: "center" });
+            pdf.text(realEstateDocument, 148, signatureLineY + 12, { align: "center" });
             pdf.setTextColor(0, 71, 119);
             pdf.setFont("helvetica", "bold");
-            pdf.text("LOCATÁRIO", 62, signatureY + 38, { align: "center" });
-            pdf.text("IMOBILIÁRIA / ADMINISTRADORA", 148, signatureY + 38, { align: "center" });
+            pdf.text("LOCATÁRIO", 62, signatureLineY + 19, { align: "center" });
+            pdf.text("IMOBILIÁRIA / ADMINISTRADORA", 148, signatureLineY + 19, { align: "center" });
 
             pdf.setDrawColor(220, 225, 230);
             pdf.line(22, 282, 188, 282);

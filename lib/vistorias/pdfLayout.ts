@@ -12,6 +12,10 @@ export interface FittedImageRect {
   offsetY: number;
 }
 
+export const PHOTOS_PER_ROW = 4;
+// "Visão Geral" + os dez pontos configuráveis do complemento do laudo.
+export const CONDITIONS_PER_PAGE = 11;
+
 export function getAdaptivePhotoGrid(
   photoCount: number,
   availableWidth: number,
@@ -22,16 +26,17 @@ export function getAdaptivePhotoGrid(
     return { columns: 0, rows: 0, cellWidth: 0, cellHeight: 0 };
   }
 
-  const columns = photoCount === 1 ? 1 : photoCount <= 4 ? 2 : 3;
+  const columns = PHOTOS_PER_ROW;
   const rows = Math.ceil(photoCount / columns);
   const horizontalGaps = Math.max(0, columns - 1) * gap;
   const verticalGaps = Math.max(0, rows - 1) * gap;
+  const availableCellHeight = Math.max(1, (availableHeight - verticalGaps) / rows);
 
   return {
     columns,
     rows,
     cellWidth: Math.max(1, (availableWidth - horizontalGaps) / columns),
-    cellHeight: Math.max(1, (availableHeight - verticalGaps) / rows),
+    cellHeight: Math.min(62, availableCellHeight),
   };
 }
 
@@ -55,19 +60,4 @@ export function fitImageInside(
     offsetX: (targetWidth - width) / 2,
     offsetY: (targetHeight - height) / 2,
   };
-}
-
-export function canShareConditionsPageWithFinalTerm(
-  conditions: Array<{ conteudo?: string | null }>,
-  finalTermText: string
-): boolean {
-  if (conditions.length === 0 || conditions.length > 6) return false;
-
-  const conditionsLength = conditions.reduce(
-    (total, condition) => total + String(condition.conteudo || "").trim().length,
-    0
-  );
-  const finalTermLength = finalTermText.trim().length;
-
-  return conditionsLength <= 1800 && finalTermLength > 0 && finalTermLength <= 1100;
 }
