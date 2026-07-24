@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File } from "lucide-react";
+import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File, Building, MapPin, Edit3 } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
 import { CommentData } from "./CommentsTimeline";
 import { PreviewableImage } from "./PreviewableImage";
@@ -28,6 +28,9 @@ interface DetailSectionsProps {
   proprietario?: string;
   vistoriador?: string;
   assinatura?: string | null;
+  imovelCodigo?: string;
+  imovelEndereco?: string;
+  onOpenChangeImovelModal?: () => void;
 }
 
 export function DetailSections({
@@ -44,7 +47,10 @@ export function DetailSections({
   vistoriaStatus = "",
   proprietario = "Proprietário",
   vistoriador = "Vistoriador Designado",
-  assinatura = null
+  assinatura = null,
+  imovelCodigo = "",
+  imovelEndereco = "",
+  onOpenChangeImovelModal
 }: DetailSectionsProps) {
 
   return (
@@ -52,11 +58,24 @@ export function DetailSections({
 
       {/* 1. Informações da Vistoria */}
       <section className="bg-white rounded-2xl border border-[#EEEEF3] p-5 sm:p-6 shadow-sm flex flex-col gap-4 print:border-none print:shadow-none print:p-0">
-        <h3 className="text-base font-bold text-[#280003] flex items-center gap-2 border-b border-[#EEEEF3] pb-3 print:pb-1">
-          <ClipboardList className="w-5 h-5 text-[#004777] print:hidden" />
-          <span>Informações da Vistoria</span>
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#EEEEF3] pb-3 print:pb-1">
+          <h3 className="text-base font-bold text-[#280003] flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-[#004777] print:hidden" />
+            <span>Informações da Vistoria</span>
+          </h3>
+
+          {onOpenChangeImovelModal && (
+            <button
+              onClick={onOpenChangeImovelModal}
+              className="print:hidden text-xs font-bold text-[#004777] bg-[#004777]/5 hover:bg-[#004777]/10 px-3 py-1.5 rounded-lg border border-[#004777]/15 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Alterar Imóvel</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
           <div>
             <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Status</span>
             <span className="font-bold text-[#004777] uppercase text-xs">
@@ -74,6 +93,19 @@ export function DetailSections({
           <div>
             <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Proprietário</span>
             <span className="font-bold text-[#280003]">{proprietario}</span>
+          </div>
+          <div className="col-span-2 md:col-span-1">
+            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Imóvel & Endereço</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-[#004777] text-xs flex items-center gap-1">
+                <Building className="w-3.5 h-3.5 shrink-0" />
+                {imovelCodigo || "Sem código"}
+              </span>
+              <span className="text-xs text-gray-600 font-medium truncate flex items-center gap-1 mt-0.5" title={imovelEndereco}>
+                <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
+                <span>{imovelEndereco || "Endereço não informado"}</span>
+              </span>
+            </div>
           </div>
         </div>
       </section>

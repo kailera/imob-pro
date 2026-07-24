@@ -8,7 +8,8 @@ import {
     VistoriaStatus,
     LimpezaStatus,
     TipoImovelVistoriado,
-    UsersRole
+    UsersRole,
+    TipoImovel
 } from "@/generated/prisma";
 import { auth } from "@clerk/nextjs/server";
 
@@ -824,3 +825,137 @@ export async function createInquilino(input: {
         return { success: false, error: error.message || "Erro ao criar inquilino." };
     }
 }
+
+export async function updateVistoriaImovel(vistoriaId: string, imovelId: string, proprietario?: string) {
+    try {
+        const imovel = await prisma.imovel.findUnique({
+            where: { id: imovelId },
+            include: {
+                imovelLocacaos: {
+                    include: { locadors: true }
+                }
+            }
+        });
+        if (!imovel) {
+            return { success: false, error: "Imóvel não encontrado." };
+        }
+
+        const autoProprietario = proprietario || imovel.imovelLocacaos?.[0]?.locadors?.[0]?.nome || undefined;
+
+        const updated = await prisma.vistoria.update({
+            where: { id: vistoriaId },
+            data: {
+                imovelId,
+                ...(autoProprietario ? { proprietario: autoProprietario } : {})
+            },
+            include: {
+                imovel: true,
+                vistoriador: true,
+                operador: true
+            }
+        });
+
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Erro ao atualizar imóvel da vistoria:", error);
+        return { success: false, error: error.message || "Erro ao atualizar imóvel da vistoria." };
+    }
+}
+
+export async function createAndLinkImovelToVistoria(
+    vistoriaId: string,
+    input: {
+        codigo?: string;
+        logradouro?: string;
+        numero: number;
+        bairro: string;
+        cidade: string;
+        uf: string;
+        tipo?: TipoImovel;
+        proprietario?: string;
+    }
+) {
+    try {
+        let imob = await prisma.imob.findFirst();
+        if (!imob) {
+            imob = await prisma.imob.create({
+                data: { orgId: "org_default" }
+            });
+        }
+
+        let codigo = input.codigo?.trim();
+        if (!codigo) {
+            const count = await prisma.imovel.count();
+            codigo = `IMB-${String(count + 1).padStart(3, "0")}`;
+        }
+
+        const newImovel = await prisma.imovel.create({
+            data: {
+                codigo,
+                logradouro: input.logradouro || null,
+                numero: input.numero || 0,
+                bairro: input.bairro,
+                cidade: input.cidade,
+                uf: input.uf,
+                cep: 0,
+                tipo: input.tipo || TipoImovel.CASA,
+                imobId: imob.id
+            }
+        });
+
+        const updateRes = await updateVistoriaImovel(vistoriaId, newImovel.id, input.proprietario);
+        if (!updateRes.success) {
+            return updateRes;
+        }
+
+        return { success: true, data: updateRes.data, imovel: newImovel };
+    } catch (error: any) {
+        console.error("Erro ao cadastrar e vincular imóvel:", error);
+        return { success: false, error: error.message || "Erro ao cadastrar imóvel." };
+    }
+}
+
+export async function updateImovelDetails(
+    imovelId: string,
+    input: {
+        codigo?: string;
+        logradouro?: string;
+        numero?: number;
+        bairro?: string;
+        cidade?: string;
+        uf?: string;
+        tipo?: TipoImovel;
+        proprietario?: string;
+    }
+) {
+    try {
+        const updatedImovel = await prisma.imovel.update({
+            where: { id: imovelId },
+            data: {
+                ...(input.codigo ? { codigo: input.codigo } : {}),
+                ...(input.logradouro !== undefined ? { logradouro: input.logradouro || null } : {}),
+                ...(input.numero !== undefined ? { numero: input.numero } : {}),
+                ...(input.bairro ? { bairro: input.bairro } : {}),
+                ...(input.cidade ? { cidade: input.cidade } : {}),
+                ...(input.uf ? { uf: input.uf } : {}),
+                ...(input.tipo ? { tipo: input.tipo } : {}),
+            }
+        });
+
+        if (input.proprietario) {
+            await prisma.vistoria.updateMany({
+                where: { imovelId },
+                data: { proprietario: input.proprietario }
+            });
+        }
+
+        revalidatePath("/vistorias");
+        return { success: true, data: updatedImovel };
+    } catch (error: any) {
+        console.error("Erro ao atualizar dados do imóvel:", error);
+        return { success: false, error: error.message || "Erro ao atualizar imóvel." };
+    }
+}
+

@@ -17,6 +17,7 @@ import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria
 import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 
 import { formatImovelAddress } from "@/lib/vistorias/formatters";
+import { ChangeImovelModal } from "@/components/vistorias/ficha-vistoria/ChangeImovelModal";
 
 interface InfoGeralItem {
   id: number;
@@ -99,6 +100,35 @@ export default function FichaVistoriaPage() {
   const [newInquilinoEmail, setNewInquilinoEmail] = useState("");
   const [newInquilinoTelefone, setNewInquilinoTelefone] = useState("");
   const [isCreatingInquilino, setIsCreatingInquilino] = useState(false);
+
+  // Estados para Imóvel vinculado
+  const [imovelId, setImovelId] = useState<string>("");
+  const [imovelCodigo, setImovelCodigo] = useState<string>("");
+  const [imovelEndereco, setImovelEndereco] = useState<string>("");
+  const [isChangeImovelModalOpen, setIsChangeImovelModalOpen] = useState(false);
+
+  const handleImovelUpdated = (updatedVistoriaData: any) => {
+    if (updatedVistoriaData) {
+      if (updatedVistoriaData.proprietario) {
+        setProprietario(updatedVistoriaData.proprietario);
+      }
+      if (updatedVistoriaData.imovel) {
+        setImovelId(updatedVistoriaData.imovel.id);
+        setImovelCodigo(updatedVistoriaData.imovel.codigo || "");
+        setImovelEndereco(formatImovelAddress(updatedVistoriaData.imovel));
+        setPdfVistoria((prev) =>
+          prev
+            ? {
+                ...prev,
+                imovelCodigo: updatedVistoriaData.imovel.codigo || "",
+                endereco: formatImovelAddress(updatedVistoriaData.imovel),
+                proprietario: updatedVistoriaData.proprietario || prev.proprietario,
+              }
+            : null
+        );
+      }
+    }
+  };
 
   // Load from database on mount
   useEffect(() => {
@@ -246,6 +276,9 @@ export default function FichaVistoriaPage() {
         setChavesObservacao(dbData.chavesObservacao || "");
         setVistoriaStatus(dbData.status || "");
         setProprietario(dbData.proprietario || "Proprietário");
+        setImovelId(dbData.imovelId || dbData.imovel?.id || "");
+        setImovelCodigo(dbData.imovel?.codigo || "");
+        setImovelEndereco(dbData.imovel ? formatImovelAddress(dbData.imovel) : "");
         setAssinatura(dbData.assinatura || null);
         setTokenAcesso(dbData.tokenAcesso || null);
         setContestations(dbData.contestacaoVistorias || []);
@@ -979,6 +1012,9 @@ export default function FichaVistoriaPage() {
               proprietario={proprietario}
               vistoriador={vistoriador}
               assinatura={assinatura}
+              imovelCodigo={imovelCodigo}
+              imovelEndereco={imovelEndereco}
+              onOpenChangeImovelModal={() => setIsChangeImovelModalOpen(true)}
             />
           </div>
         </div>
@@ -1020,6 +1056,15 @@ export default function FichaVistoriaPage() {
         </div>
 
       </div>
+
+      {/* Change Imovel Modal */}
+      <ChangeImovelModal
+        isOpen={isChangeImovelModalOpen}
+        onClose={() => setIsChangeImovelModalOpen(false)}
+        vistoriaId={vistoriaId}
+        currentImovelId={imovelId}
+        onImovelUpdated={handleImovelUpdated}
+      />
 
       {/* Bottom Navigation for mobile screens */}
       <BottomNavigationMobile activeTab={activeMobileTab} onChange={handleMobileTabChange} />
