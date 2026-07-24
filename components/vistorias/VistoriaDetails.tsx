@@ -356,7 +356,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
             <div style="border-bottom: 2px solid #004777; padding-bottom: 6px; margin: 0 0 9px;"><span style="display: block; font-size: 7px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px;">Complemento do laudo</span><h2 style="font-size: 15px; color: #004777; margin: 0;">Condições gerais</h2></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 7px 9px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 7px; background: #ffffff;"><h3 style="font-size: 7px; color: #004777; text-transform: uppercase; margin: 0 0 3px; line-height: 1.2;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 7px; line-height: 1.3; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 7px 9px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 5px; padding: 7px; background: #ffffff;"><h3 style="font-size: 7px; color: #004777; text-transform: uppercase; margin: 0 0 3px; line-height: 1.2;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 7px; line-height: 1.3; color: #333; margin: 0; text-align: left; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Condições ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
@@ -365,7 +365,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
             <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Anexos</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Documentos complementares</h2></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${attachmentsPage.map((attachment: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 6px; background: #fafafa;">${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.pdfUrl)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 145px; object-fit: cover; border-radius: 4px; background: #eee; margin-bottom: 6px;" />` : ""}<h3 style="font-size: 8px; color: #004777; margin: 0 0 4px; overflow-wrap: anywhere;">${escapeHtml(attachment.name)}</h3>${attachment.description ? `<p style="font-size: 8px; line-height: 1.4; color: #555; margin: 0; text-align: justify;">${escapeHtml(attachment.description)}</p>` : ""}</section>`).join("")}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${attachmentsPage.map((attachment: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 6px; background: #fafafa;">${attachment.mimeType.startsWith("image/") ? `<img src="${escapeHtml(attachment.pdfUrl)}" alt="${escapeHtml(attachment.name)}" style="display: block; width: 100%; height: 145px; object-fit: cover; border-radius: 4px; background: #eee; margin-bottom: 6px;" />` : ""}<h3 style="font-size: 8px; color: #004777; margin: 0 0 4px; overflow-wrap: anywhere;">${escapeHtml(attachment.name)}</h3>${attachment.description ? `<p style="font-size: 8px; line-height: 1.4; color: #555; margin: 0; text-align: left;">${escapeHtml(attachment.description)}</p>` : ""}</section>`).join("")}</div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Anexos ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
@@ -378,7 +378,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               <h2 style="font-size: 16px; color: #004777; margin: 0;">Termo final da vistoria</h2>
             </div>
             <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 14px; background: #fafafa;">
-              ${finalTerm.map((paragraph) => `<p style="font-size: 10px; line-height: 1.5; color: #280003; margin: 0 0 12px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
+              ${finalTerm.map((paragraph) => `<p style="font-size: 10px; line-height: 1.5; color: #280003; margin: 0 0 12px; text-align: left;">${escapeHtml(paragraph)}</p>`).join("")}
             </div>
             <div style="margin-top: auto; margin-bottom: 48px;">
               <h3 style="font-size: 12px; color: #004777; border-bottom: 1px solid #004777; padding-bottom: 5px; margin: 0 0 55px;">Assinaturas</h3>
@@ -516,7 +516,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <!-- Termo de vistoria -->
             <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 9px; margin-bottom: 9px; background-color: #fafafa;">
               <h2 style="font-size: 9px; font-weight: bold; color: #004777; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #d9dee4; padding-bottom: 4px; margin: 0 0 6px;">Termo da Vistoria</h2>
-              ${inspectionTerm.map((paragraph) => `<p style="font-size: 7.4px; line-height: 1.3; color: #280003; margin: 0 0 5px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
+              ${inspectionTerm.map((paragraph) => `<p style="font-size: 7.4px; line-height: 1.3; color: #280003; margin: 0 0 5px; text-align: left;">${escapeHtml(paragraph)}</p>`).join("")}
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
@@ -778,7 +778,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             pdf.setFontSize(8);
             inspectionTerm.forEach((paragraph) => {
               const lines = pdf.splitTextToSize(paragraph, 166);
-              pdf.text(lines, 22, termY, { lineHeightFactor: 1.3, align: "justify", maxWidth: 166 });
+              pdf.text(lines, 22, termY, { lineHeightFactor: 1.3, align: "left" });
               termY += lines.length * 3.5 + 4;
             });
 
@@ -830,7 +830,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
                 ? `${paragraph} E-mail: ${realEstate.emailContato}.`
                 : paragraph;
               const lines = pdf.splitTextToSize(paragraphWithEmail, 166);
-              pdf.text(lines, 22, finalY, { lineHeightFactor: 1.4, align: "justify", maxWidth: 166 });
+              pdf.text(lines, 22, finalY, { lineHeightFactor: 1.4, align: "left" });
               finalY += lines.length * 4.1 + 7;
             });
 

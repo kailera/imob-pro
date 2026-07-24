@@ -14,8 +14,8 @@ export interface FittedImageRect {
 
 export const PHOTOS_PER_ROW = 4;
 export const PHOTO_GRID_GAP = 4;
-export const PHOTO_CARD_HEIGHT = 52;
-export const ROOM_PAGE_CONTENT_HEIGHT = 250;
+export const PHOTO_CARD_HEIGHT = 45;
+export const ROOM_PAGE_CONTENT_HEIGHT = 255;
 export const ROOM_HEADER_HEIGHT = 20;
 export const ROOM_SECTION_GAP = 7;
 export const PHOTO_HEADING_HEIGHT = 7;
