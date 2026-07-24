@@ -8,6 +8,13 @@ import {
   CONDITIONS_PER_PAGE,
   fitImageInside,
   getAdaptivePhotoGrid,
+  packRoomContentPages,
+  PHOTO_CARD_HEIGHT,
+  PHOTO_GRID_GAP,
+  PHOTO_HEADING_HEIGHT,
+  PHOTOS_PER_ROW,
+  ROOM_HEADER_HEIGHT,
+  ROOM_SECTION_GAP,
 } from "@/lib/vistorias/pdfLayout";
 
 export interface Vistoria {
@@ -267,7 +274,8 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
 
       const normalizeRoomName = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
-      const photosPerRoomPage = 12;
+      const splitIntoChunks = <T,>(items: T[], size: number) =>
+        Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
       const groupedRooms = Array.from(
         rooms.reduce((grouped: Map<string, any>, room: any) => {
           const key = normalizeRoomName(room.name || "Ambiente");
@@ -293,7 +301,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           (_, index) => lines.slice(index * linesPerPage, (index + 1) * linesPerPage).join(" ")
         );
       };
-      const roomPdfPages = groupedRooms.flatMap((room: any) => {
+      type RoomPdfItem =
+        | { type: "text"; label: string; text: string; continuation: boolean }
+        | { type: "photo-row"; photos: any[]; photoStartIndex: number };
+      const roomLayoutInputs = groupedRooms.map((room: any) => {
         const photos = preparedRoomPhotos.filter((photo: any) =>
           room.sourceIds.includes(photo.roomId) || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
         );
@@ -304,35 +315,39 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         const roomComments = Array.from(new Set([String(room.comentarios || "").trim(), ...linkedCommentTexts].filter(Boolean))).join("\n\n");
         const overviewText = String(room.visaoGeral || "").trim() || "Não informado";
         const commentsText = roomComments || "Sem comentários registrados.";
-        const overviewLines = textMeasurePdf.splitTextToSize(overviewText, 162) as string[];
-        const commentsLines = textMeasurePdf.splitTextToSize(commentsText, 162) as string[];
-        const canCombineWithPhotos = overviewLines.length + commentsLines.length <= 24;
-        const firstPhotoCount = canCombineWithPhotos
-          ? Math.min(photos.length, overviewLines.length + commentsLines.length <= 13 ? 8 : 4)
-          : 0;
-        const textPages = [
-          ...splitTextForPdf(overviewText, "Não informado").map((text, index) => ({ room, kind: "text", label: "Visão geral", text, continuation: index > 0 })),
-          ...splitTextForPdf(commentsText, "Sem comentários registrados.").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
+        const textItems = [
+          ...splitTextForPdf(overviewText, "Não informado").map((text, index) => ({
+            kind: "text" as const,
+            height: 8 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 3.8,
+            payload: { type: "text" as const, label: "Visão geral", text, continuation: index > 0 },
+          })),
+          ...splitTextForPdf(commentsText, "Sem comentários registrados.").map((text, index) => ({
+            kind: "text" as const,
+            height: 8 + (textMeasurePdf.splitTextToSize(text, 162) as string[]).length * 3.8,
+            payload: { type: "text" as const, label: "Comentários", text, continuation: index > 0 },
+          })),
         ];
-        const combinedPage = canCombineWithPhotos
-          ? [{ room, kind: "combined", overviewText, commentsText, photos: photos.slice(0, firstPhotoCount), photoStartIndex: 0, continuation: false }]
-          : textPages;
-        const remainingPhotos = photos.slice(firstPhotoCount);
-        const photoPages = Array.from(
-          { length: Math.ceil(remainingPhotos.length / photosPerRoomPage) },
-          (_, index) => ({
-            room,
-            kind: "photos",
-            photos: remainingPhotos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage),
-            photoStartIndex: firstPhotoCount + index * photosPerRoomPage,
-            continuation: firstPhotoCount > 0 || index > 0
-          })
-        );
-        return [...combinedPage, ...photoPages];
+        const photoItems = splitIntoChunks(photos, PHOTOS_PER_ROW).map((photoRow, rowIndex) => ({
+          kind: "photo-row" as const,
+          height: PHOTO_CARD_HEIGHT + PHOTO_GRID_GAP,
+          payload: {
+            type: "photo-row" as const,
+            photos: photoRow,
+            photoStartIndex: rowIndex * PHOTOS_PER_ROW,
+          },
+        }));
+
+        return {
+          room,
+          items: [...textItems, ...photoItems] as Array<{
+            kind: "text" | "photo-row";
+            height: number;
+            payload: RoomPdfItem;
+          }>,
+        };
       });
+      const roomPdfPages = packRoomContentPages(roomLayoutInputs);
       const roomPagesHtml = roomPdfPages.map((_, pageIndex) => `<div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; page-break-before: always;"></div>`).join("");
-      const splitIntoChunks = <T,>(items: T[], size: number) =>
-        Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
       const termsPagesHtml = splitIntoChunks(
         infoGeralItems as Array<{ id?: string | number; titulo?: string; conteudo?: string }>,
         CONDITIONS_PER_PAGE
@@ -858,15 +873,6 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             const roomPage: any = roomPdfPages[roomPageIndex];
             if (!roomPage) throw new Error("Não foi possível localizar os dados do ambiente para o PDF.");
 
-            const roomPhotos = roomPage.kind === "photos" || roomPage.kind === "combined" ? roomPage.photos : [];
-            const loadedPhotos = await Promise.allSettled(
-              roomPhotos.map((photo: any) => loadPdfImage(photo.pdfUrl))
-            );
-            const photos = loadedPhotos.flatMap((result: PromiseSettledResult<HTMLImageElement>, photoIndex: number) =>
-              result.status === "fulfilled"
-                ? [{ image: result.value, photo: roomPhotos[photoIndex] }]
-                : []
-            );
             const writeParagraph = (label: string, value: string, y: number) => {
               pdf.setTextColor(0, 71, 119);
               pdf.setFont("helvetica", "bold");
@@ -877,81 +883,104 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               pdf.setFontSize(8.5);
               const lines = pdf.splitTextToSize(value || "Não informado", 162);
               pdf.text(lines, 28, y + 5, { lineHeightFactor: 1.35 });
-              return y + 5 + lines.length * 3.8;
+              return y + 8 + lines.length * 3.8;
             };
 
             pdf.setFillColor(255, 255, 255);
             pdf.rect(0, 0, 210, 297, "F");
-            pdf.setDrawColor(0, 71, 119);
-            pdf.setLineWidth(0.6);
-            pdf.line(28, 42, 190, 42);
-            pdf.setTextColor(112, 141, 129);
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(8);
-            pdf.text("ESTADO DO AMBIENTE", 28, 30);
-            pdf.setTextColor(0, 71, 119);
-            pdf.setFontSize(15);
-            pdf.text(String(roomPage.room.name), 28, 37);
-            pdf.setTextColor(85, 85, 85);
-            pdf.setFontSize(8);
-            pdf.text(String(roomPage.room.type || "Ambiente"), 190, 37, { align: "right" });
+            let contentY = 24;
+            for (const [sectionIndex, section] of roomPage.sections.entries()) {
+              if (sectionIndex > 0) contentY += ROOM_SECTION_GAP;
 
-            let photoStartY = 54;
-            if (roomPage.kind === "text") {
-              writeParagraph(
-                `${roomPage.label}${roomPage.continuation ? " (continuação)" : ""}`,
-                String(roomPage.text),
-                52
-              );
-            } else if (roomPage.kind === "combined") {
-              let contentY = writeParagraph("Visão geral", String(roomPage.overviewText), 52);
-              contentY = writeParagraph("Comentários", String(roomPage.commentsText), contentY + 5);
-              photoStartY = contentY + 7;
-            }
-
-            if (roomPage.kind === "photos" || roomPage.kind === "combined") {
-              pdf.setTextColor(0, 71, 119);
+              pdf.setDrawColor(0, 71, 119);
+              pdf.setLineWidth(0.6);
+              pdf.line(28, contentY + 16, 190, contentY + 16);
+              pdf.setTextColor(112, 141, 129);
               pdf.setFont("helvetica", "bold");
-              pdf.setFontSize(8);
-              pdf.text(`REGISTRO FOTOGRÁFICO${roomPage.continuation ? " — CONTINUAÇÃO" : ""}`, 28, photoStartY);
-              const gridTop = photoStartY + 7;
-              const availablePhotoHeight = Math.max(1, 274 - gridTop);
-              const grid = getAdaptivePhotoGrid(photos.length, 162, availablePhotoHeight, 6);
-              const captionHeight = 4;
-              photos.forEach(({ image }: { image: HTMLImageElement }, photoIndex: number) => {
-                const column = photoIndex % grid.columns;
-                const row = Math.floor(photoIndex / grid.columns);
-                const cellX = 28 + column * (grid.cellWidth + 6);
-                const cellY = gridTop + row * (grid.cellHeight + 6);
-                const imageAreaHeight = Math.max(1, grid.cellHeight - captionHeight);
-                const fitted = fitImageInside(
-                  image.naturalWidth || image.width,
-                  image.naturalHeight || image.height,
-                  grid.cellWidth,
-                  imageAreaHeight
-                );
+              pdf.setFontSize(7);
+              pdf.text(
+                `ESTADO DO AMBIENTE${section.continuation ? " — CONTINUAÇÃO" : ""}`,
+                28,
+                contentY + 4
+              );
+              pdf.setTextColor(0, 71, 119);
+              pdf.setFontSize(13);
+              pdf.text(String(section.room.name), 28, contentY + 11);
+              pdf.setTextColor(85, 85, 85);
+              pdf.setFontSize(7);
+              pdf.text(String(section.room.type || "Ambiente"), 190, contentY + 11, { align: "right" });
+              contentY += ROOM_HEADER_HEIGHT;
 
-                pdf.setFillColor(247, 248, 249);
-                pdf.roundedRect(cellX, cellY, grid.cellWidth, imageAreaHeight, 1.5, 1.5, "F");
-                pdf.addImage(
-                  image,
-                  "JPEG",
-                  cellX + fitted.offsetX,
-                  cellY + fitted.offsetY,
-                  fitted.width,
-                  fitted.height,
-                  undefined,
-                  "FAST"
+              let hasPhotoHeading = false;
+              for (const item of section.items) {
+                const payload = item.payload as RoomPdfItem;
+                if (payload.type === "text") {
+                  contentY = writeParagraph(
+                    `${payload.label}${payload.continuation ? " (continuação)" : ""}`,
+                    payload.text,
+                    contentY
+                  );
+                  continue;
+                }
+
+                if (!hasPhotoHeading) {
+                  pdf.setTextColor(0, 71, 119);
+                  pdf.setFont("helvetica", "bold");
+                  pdf.setFontSize(8);
+                  pdf.text(
+                    `REGISTRO FOTOGRÁFICO${payload.photoStartIndex > 0 ? " — CONTINUAÇÃO" : ""}`,
+                    28,
+                    contentY
+                  );
+                  contentY += PHOTO_HEADING_HEIGHT;
+                  hasPhotoHeading = true;
+                }
+
+                const loadedPhotos = await Promise.allSettled(
+                  payload.photos.map((photo: any) => loadPdfImage(photo.pdfUrl))
                 );
-                pdf.setTextColor(85, 85, 85);
-                pdf.setFont("helvetica", "normal");
-                pdf.setFontSize(6.5);
-                pdf.text(
-                  `Foto ${(roomPage.photoStartIndex || 0) + photoIndex + 1}`,
-                  cellX,
-                  cellY + grid.cellHeight - 1
+                const grid = getAdaptivePhotoGrid(
+                  payload.photos.length,
+                  162,
+                  PHOTO_CARD_HEIGHT,
+                  PHOTO_GRID_GAP
                 );
-              });
+                const captionHeight = 4;
+                loadedPhotos.forEach((result, photoIndex) => {
+                  if (result.status !== "fulfilled") return;
+                  const image = result.value;
+                  const cellX = 28 + photoIndex * (grid.cellWidth + PHOTO_GRID_GAP);
+                  const imageAreaHeight = Math.max(1, grid.cellHeight - captionHeight);
+                  const fitted = fitImageInside(
+                    image.naturalWidth || image.width,
+                    image.naturalHeight || image.height,
+                    grid.cellWidth,
+                    imageAreaHeight
+                  );
+
+                  pdf.setFillColor(247, 248, 249);
+                  pdf.roundedRect(cellX, contentY, grid.cellWidth, imageAreaHeight, 1.5, 1.5, "F");
+                  pdf.addImage(
+                    image,
+                    "JPEG",
+                    cellX + fitted.offsetX,
+                    contentY + fitted.offsetY,
+                    fitted.width,
+                    fitted.height,
+                    undefined,
+                    "FAST"
+                  );
+                  pdf.setTextColor(85, 85, 85);
+                  pdf.setFont("helvetica", "normal");
+                  pdf.setFontSize(6.5);
+                  pdf.text(
+                    `Foto ${payload.photoStartIndex + photoIndex + 1}`,
+                    cellX,
+                    contentY + grid.cellHeight - 1
+                  );
+                });
+                contentY += PHOTO_CARD_HEIGHT + PHOTO_GRID_GAP;
+              }
             }
 
             pdf.setDrawColor(220, 225, 230);
