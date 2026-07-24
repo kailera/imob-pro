@@ -16,6 +16,8 @@ import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
 import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 
+import { formatImovelAddress } from "@/lib/vistorias/formatters";
+
 interface InfoGeralItem {
   id: number;
   titulo: string;
@@ -130,7 +132,7 @@ export default function FichaVistoriaPage() {
               status: dbData.status,
               data: dbData.data instanceof Date ? dbData.data.toISOString() : String(dbData.data),
               proprietario: dbData.proprietario || "Proprietário",
-              endereco: dbData.imovel ? `${dbData.imovel.bairro}, ${dbData.imovel.cidade}/${dbData.imovel.uf}` : "",
+              endereco: dbData.imovel ? formatImovelAddress(dbData.imovel) : "",
               observacoes: dbData.observacoes || "",
               reparosNecessarios: dbData.reparosNecessarios || "",
               chavesQuantidade: dbData.chavesQuantidade || 0,

@@ -24,6 +24,7 @@ import ConnectionStatus from "@/components/shared/ConnectionStatus";
 import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria } from "@/app/(admin)/vistorias/actions";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
+import { formatImovelAddress } from "@/lib/vistorias/formatters";
 
 function mapDbVistoriaToUi(v: any): Vistoria {
   const statusLabels: Record<string, string> = {
@@ -55,7 +56,7 @@ function mapDbVistoriaToUi(v: any): Vistoria {
     dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
     vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}${v.vistoriador.creci ? ` (CRECI: ${v.vistoriador.creci})` : ''}` : "Não designado",
     imovelCodigo: v.imovel ? v.imovel.codigo : "",
-    endereco: v.imovel ? `${v.imovel.bairro}, ${v.imovel.cidade}/${v.imovel.uf}` : "",
+    endereco: v.imovel ? formatImovelAddress(v.imovel) : "",
     proprietario: v.proprietario || "Não informado",
     inquilino: "Não vinculado",
     tipoImovel: v.imovel ? (v.imovel.tipo === "CASA" ? "Casa" : "Apartamento") : "Outro",
@@ -106,7 +107,7 @@ export default function VistoriasPage() {
               status: v.status,
               data: v.data instanceof Date ? v.data.toISOString() : String(v.data),
               proprietario: v.proprietario || "Não informado",
-              endereco: v.imovel ? `${v.imovel.bairro}, ${v.imovel.cidade}/${v.imovel.uf}` : "",
+              endereco: v.imovel ? formatImovelAddress(v.imovel) : "",
               observacoes: (v as any).observacoes || "",
               reparosNecessarios: (v as any).reparosNecessarios || "",
               chavesQuantidade: (v as any).chavesQuantidade || 0,
@@ -178,7 +179,7 @@ export default function VistoriasPage() {
         const firstImovel = resImoveis.data[0];
         if (firstImovel) {
           setSelectedImovelId(firstImovel.id);
-          const fullAddress = `${firstImovel.codigo} - ${firstImovel.bairro || ""}, ${firstImovel.cidade || ""} (Nº ${firstImovel.numero || ""})`;
+          const fullAddress = `${firstImovel.codigo} - ${formatImovelAddress(firstImovel)}`;
           setImovelSearchTerm(fullAddress);
           const ownerName = firstImovel.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
           setNewProprietario(ownerName);
@@ -275,7 +276,7 @@ export default function VistoriasPage() {
         status: "NAO_INICIADA",
         data: new Date(newData).toISOString(),
         proprietario: newProprietario || "Não informado",
-        endereco: selectedIm ? `${selectedIm.bairro || ""}, ${selectedIm.cidade || ""}/${selectedIm.uf || ""}` : "Endereço Local",
+        endereco: selectedIm ? formatImovelAddress(selectedIm) : "Endereço Local",
         observacoes: "",
         reparosNecessarios: "",
         chavesQuantidade: 0,
@@ -327,7 +328,7 @@ export default function VistoriasPage() {
 
   // Filter imoveis based on search input (by code or address)
   const filteredImoveis = imoveis.filter((im) => {
-    const searchString = `${im.codigo} ${im.bairro || ""} ${im.cidade || ""} ${im.uf || ""} ${im.numero || ""}`.toLowerCase();
+    const searchString = `${im.codigo} ${formatImovelAddress(im)}`.toLowerCase();
     return searchString.includes(imovelSearchTerm.toLowerCase());
   });
 
@@ -683,7 +684,7 @@ export default function VistoriasPage() {
                             key={im.id}
                             onClick={() => {
                               setSelectedImovelId(im.id);
-                              setImovelSearchTerm(`${im.codigo} - ${im.bairro || ""}, ${im.cidade || ""} (Nº ${im.numero || ""})`);
+                              setImovelSearchTerm(`${im.codigo} - ${formatImovelAddress(im)}`);
                               setIsImovelDropdownOpen(false);
                               const ownerName = im.imovelLocacaos?.[0]?.locadors?.[0]?.nome || "";
                               setNewProprietario(ownerName);
@@ -692,7 +693,7 @@ export default function VistoriasPage() {
                               selectedImovelId === im.id ? "bg-[#004777]/5 font-semibold text-[#004777]" : "text-gray-700"
                             }`}
                           >
-                            <span className="font-bold">{im.codigo}</span> - {im.bairro}, {im.cidade} (Nº {im.numero})
+                            <span className="font-bold">{im.codigo}</span> - {formatImovelAddress(im)}
                           </li>
                         ))
                       )}
