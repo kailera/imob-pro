@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:locacao": "tsx --test tests/locacao-periodos.test.ts tests/locacao-financeiro.test.ts",
-    "test:inter-webhook": "tsx --test tests/inter-webhook.test.ts"
+    "test:inter-webhook": "tsx --test tests/inter-webhook.test.ts",
+    "test:vistoria-pdf": "tsx --test tests/vistoria-pdf-layout.test.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.83",

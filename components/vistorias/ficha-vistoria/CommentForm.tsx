@@ -10,6 +10,9 @@ import { db } from "@/lib/db";
 
 interface CommentFormProps {
   rooms: Room[];
+  initialTerm: string;
+  finalTerm: string;
+  onUpdateTerms: (initialTerm: string, finalTerm: string) => void;
   onUpdateRoom?: (id: string, updates: Partial<Room>) => void,
   onAddComment: (
     roomId: string,
@@ -20,8 +23,18 @@ interface CommentFormProps {
   ) => void;
 }
 
-export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormProps) {
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('geral');
+const INITIAL_TERM_CONTEXT = "termo-inicial";
+const FINAL_TERM_CONTEXT = "termo-final";
+
+export function CommentForm({
+  rooms,
+  initialTerm,
+  finalTerm,
+  onUpdateTerms,
+  onAddComment,
+  onUpdateRoom
+}: CommentFormProps) {
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(INITIAL_TERM_CONTEXT);
   const [commentText, setCommentText] = useState("");
   const [status, setStatus] = useState<'Aprovado' | 'Atenção'>('Aprovado');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
@@ -32,6 +45,10 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
 
   const { isRecording, audioBlob, startRecording, stopRecording, setAudioBlob } = useAudioRecorder();
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+  const isInitialTerm = selectedRoomId === INITIAL_TERM_CONTEXT;
+  const isFinalTerm = selectedRoomId === FINAL_TERM_CONTEXT;
+  const isTermContext = isInitialTerm || isFinalTerm;
+  const selectedTerm = isInitialTerm ? initialTerm : finalTerm;
   const [recordingField, setRecordingField] = useState<'geral' | 'visaoGeral' | 'comentarios'>('geral');
 
   const handleStartRecording = (field: 'geral' | 'visaoGeral' | 'comentarios') => {
@@ -48,9 +65,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
         const formData = new FormData();
         formData.append("audio", audioBlob, "vistoria-audio.webm");
 
-        const room = selectedRoomId === 'geral'
-          ? null
-          : rooms.find(r => r.id === selectedRoomId);
+        const room = rooms.find(r => r.id === selectedRoomId);
 
         if (room) {
           formData.append("roomName", room.name);
@@ -60,7 +75,13 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
         const aiText = await processAudioComment(formData);
 
         if (recordingField === 'geral') {
-          setCommentText(prev => prev ? `${prev}\n${aiText}` : aiText);
+          if (isInitialTerm) {
+            onUpdateTerms(initialTerm ? `${initialTerm}\n${aiText}` : aiText, finalTerm);
+          } else if (isFinalTerm) {
+            onUpdateTerms(initialTerm, finalTerm ? `${finalTerm}\n${aiText}` : aiText);
+          } else {
+            setCommentText(prev => prev ? `${prev}\n${aiText}` : aiText);
+          }
         } else if (recordingField === 'visaoGeral' && selectedRoom && onUpdateRoom) {
           const currentVal = selectedRoom.visaoGeral || "";
           onUpdateRoom(selectedRoom.id, {
@@ -82,7 +103,20 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
     }
 
     processAudio();
-  }, [audioBlob, setAudioBlob, selectedRoomId, rooms, recordingField, selectedRoom, onUpdateRoom]);
+  }, [
+    audioBlob,
+    setAudioBlob,
+    selectedRoomId,
+    rooms,
+    recordingField,
+    selectedRoom,
+    onUpdateRoom,
+    isInitialTerm,
+    isFinalTerm,
+    initialTerm,
+    finalTerm,
+    onUpdateTerms
+  ]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -108,7 +142,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
   };
 
   const handleSave = async () => {
-    if (!commentText.trim()) return;
+    if (!selectedRoom || !commentText.trim()) return;
 
     setIsUploading(true);
     setUploadProgress("Iniciando uploads...");
@@ -176,9 +210,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
         }
       }
 
-      const roomName = selectedRoomId === 'geral'
-        ? 'Comentário Geral'
-        : rooms.find(r => r.id === selectedRoomId)?.name || 'Ambiente Desconhecido';
+      const roomName = selectedRoom.name;
 
       onAddComment(selectedRoomId, roomName, commentText.trim(), status, uploadedMedia);
 
@@ -211,7 +243,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
           onChange={(e) => setSelectedRoomId(e.target.value)}
           className="px-3 py-2.5 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:opacity-60"
         >
-          <option value="geral">📝 Comentário Geral / Informações</option>
+          <option value={INITIAL_TERM_CONTEXT}>📄 Termo inicial</option>
           {rooms.length > 0 && <optgroup label="Ambientes">
             {rooms.map(room => (
               <option key={room.id} value={room.id}>
@@ -219,10 +251,11 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
               </option>
             ))}
           </optgroup>}
+          <option value={FINAL_TERM_CONTEXT}>✅ Termo final</option>
         </select>
       </div>
 
-      {selectedRoomId !== 'geral' && selectedRoom && onUpdateRoom && (
+      {selectedRoom && onUpdateRoom && (
         <div className="flex flex-col gap-4 border-b border-[#EEEEF3] pb-4 mb-2">
           {/* Visão Geral do Ambiente */}
           <div className="flex flex-col gap-1.5 relative">
@@ -321,7 +354,13 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5 relative">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center justify-between">
-            <span>{selectedRoomId === 'geral' ? 'Novo Comentário Geral' : `Adicionar Detalhe / Foto em: ${selectedRoom?.name || ''}`}</span>
+            <span>
+              {isInitialTerm
+                ? "Termo inicial da vistoria"
+                : isFinalTerm
+                  ? "Termo final da vistoria"
+                  : `Adicionar detalhe / foto em: ${selectedRoom?.name || ""}`}
+            </span>
             {isRecording && recordingField === 'geral' && (
               <span className="text-red-500 flex items-center gap-1 animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-red-500"></span> Gravando...
@@ -341,10 +380,24 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
 
           <div className="relative">
             <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
+              value={isTermContext ? selectedTerm : commentText}
+              onChange={(e) => {
+                if (isInitialTerm) {
+                  onUpdateTerms(e.target.value, finalTerm);
+                } else if (isFinalTerm) {
+                  onUpdateTerms(initialTerm, e.target.value);
+                } else {
+                  setCommentText(e.target.value);
+                }
+              }}
               disabled={isProcessingAI || isUploading}
-              placeholder={selectedRoomId === 'geral' ? "Descreva o estado do ambiente, ou use o microfone..." : `Adicione uma nota sobre um item específico...`}
+              placeholder={
+                isInitialTerm
+                  ? "Informe o termo de abertura da vistoria..."
+                  : isFinalTerm
+                    ? "Informe o termo de encerramento e aceite da vistoria..."
+                    : "Adicione uma nota sobre um item específico..."
+              }
               className="w-full min-h-[120px] p-3 pb-12 bg-white border border-[#EEEEF3] rounded-lg text-sm text-[#280003] resize-none focus:outline-none focus:ring-2 focus:ring-[#004777]/20 shadow-sm disabled:opacity-70"
             />
 
@@ -371,7 +424,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
           </div>
         </div>
 
-        {previews.length > 0 && (
+        {!isTermContext && previews.length > 0 && (
           <div className="flex flex-wrap gap-2.5 p-3 bg-white border border-[#EEEEF3] rounded-xl shadow-sm">
             {previews.map((preview, index) => (
               <div key={index} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#EEEEF3] bg-gray-50 flex items-center justify-center shadow-sm group">
@@ -397,6 +450,11 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
           </div>
         )}
 
+        {isTermContext ? (
+          <p className="text-xs leading-relaxed text-gray-500">
+            Este texto compõe o PDF oficial e será persistido ao salvar a ficha no banco.
+          </p>
+        ) : (
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-2">
             <button
@@ -475,6 +533,7 @@ export function CommentForm({ rooms, onAddComment, onUpdateRoom }: CommentFormPr
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -200,7 +200,20 @@ export function InspectionEditorPanel({
       {activeTab === 'comments' && (
         <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Formulário Modularizado (Clean Code) */}
-          {!disabled && <CommentForm rooms={rooms} onAddComment={onAddComment} onUpdateRoom={onUpdateRoom} />}
+          {!disabled && (
+            <CommentForm
+              rooms={rooms}
+              initialTerm={tempDesc}
+              finalTerm={tempObs}
+              onUpdateTerms={(initialTerm, finalTerm) => {
+                setTempDesc(initialTerm);
+                setTempObs(finalTerm);
+                onUpdateReport(initialTerm, finalTerm);
+              }}
+              onAddComment={onAddComment}
+              onUpdateRoom={onUpdateRoom}
+            />
+          )}
 
           {/* Linha do Tempo Modularizada (Clean Code) */}
           <CommentsTimeline 

@@ -4,6 +4,11 @@ import React, { useState } from "react";
 import { ClipboardCopy, MapPin, User, Calendar, ClipboardCheck, ArrowUpRight, Download, Loader2 } from "lucide-react";
 import { getVistoriaById } from "@/app/(admin)/vistorias/actions";
 import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
+import {
+  canShareConditionsPageWithFinalTerm,
+  fitImageInside,
+  getAdaptivePhotoGrid,
+} from "@/lib/vistorias/pdfLayout";
 
 export interface Vistoria {
   id: string;
@@ -310,23 +315,56 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           ...splitTextForPdf(commentsText, "Sem comentários registrados.").map((text, index) => ({ room, kind: "text", label: "Comentários", text, continuation: index > 0 })),
         ];
         const combinedPage = canCombineWithPhotos
-          ? [{ room, kind: "combined", overviewText, commentsText, photos: photos.slice(0, firstPhotoCount), continuation: false }]
+          ? [{ room, kind: "combined", overviewText, commentsText, photos: photos.slice(0, firstPhotoCount), photoStartIndex: 0, continuation: false }]
           : textPages;
         const remainingPhotos = photos.slice(firstPhotoCount);
         const photoPages = Array.from(
           { length: Math.ceil(remainingPhotos.length / photosPerRoomPage) },
-          (_, index) => ({ room, kind: "photos", photos: remainingPhotos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage), continuation: firstPhotoCount > 0 || index > 0 })
+          (_, index) => ({
+            room,
+            kind: "photos",
+            photos: remainingPhotos.slice(index * photosPerRoomPage, (index + 1) * photosPerRoomPage),
+            photoStartIndex: firstPhotoCount + index * photosPerRoomPage,
+            continuation: firstPhotoCount > 0 || index > 0
+          })
         );
         return [...combinedPage, ...photoPages];
       });
       const roomPagesHtml = roomPdfPages.map((_, pageIndex) => `<div data-pdf-kind="room" data-room-page-index="${pageIndex}" style="width: 210mm; height: 297mm; page-break-before: always;"></div>`).join("");
       const splitIntoChunks = <T,>(items: T[], size: number) =>
         Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
-      const termsPagesHtml = splitIntoChunks(infoGeralItems, 6).map((terms, pageIndex) => `
+      const termsChunks = splitIntoChunks(
+        infoGeralItems as Array<{ id?: string | number; titulo?: string; conteudo?: string }>,
+        6
+      );
+      const firstTermsChunk = termsChunks[0] || [];
+      const shareFinalTermWithConditions = canShareConditionsPageWithFinalTerm(firstTermsChunk, finalTermText);
+      const compactFinalTermHtml = `
+        <section style="margin-top: 14px; border-top: 2px solid #004777; padding-top: 10px;">
+          <span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Encerramento</span>
+          <h2 style="font-size: 14px; color: #004777; margin: 0 0 8px;">Termo final da vistoria</h2>
+          <div style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 10px; background: #fafafa;">
+            ${finalTerm.map((paragraph) => `<p style="font-size: 8px; line-height: 1.4; color: #280003; margin: 0 0 7px; text-align: justify;">${escapeHtml(paragraph)}</p>`).join("")}
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 34px; margin-top: 34px;">
+            <div style="text-align: center; border-top: 1px solid #777; padding-top: 5px;">
+              <strong style="display: block; font-size: 8px; color: #280003;">${escapeHtml(tenantName)}</strong>
+              <span style="display: block; font-size: 7px; color: #555; margin-top: 2px;">${escapeHtml(tenantDocument)}</span>
+              <span style="display: block; font-size: 7px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 4px;">Locatário</span>
+            </div>
+            <div style="text-align: center; border-top: 1px solid #777; padding-top: 5px;">
+              <strong style="display: block; font-size: 8px; color: #280003;">${escapeHtml(realEstateName)}</strong>
+              <span style="display: block; font-size: 7px; color: #555; margin-top: 2px;">${escapeHtml(realEstateDocument)}</span>
+              <span style="display: block; font-size: 7px; color: #004777; text-transform: uppercase; font-weight: bold; margin-top: 4px;">Imobiliária / Administradora</span>
+            </div>
+          </div>
+        </section>`;
+      const termsPagesHtml = termsChunks.map((terms, pageIndex) => `
         <div style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background-color: #ffffff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
-            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin-bottom: 12px;"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Complemento do laudo</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Condições gerais</h2></div>
+            ${shareFinalTermWithConditions && pageIndex === 0 ? compactFinalTermHtml : ""}
+            <div style="border-bottom: 2px solid #004777; padding-bottom: 7px; margin: ${shareFinalTermWithConditions && pageIndex === 0 ? "14px 0 12px" : "0 0 12px"};"><span style="display: block; font-size: 8px; color: #708D81; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px;">Complemento do laudo</span><h2 style="font-size: 16px; color: #004777; margin: 0;">Condições gerais</h2></div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;">${terms.map((item: any) => `<section style="border: 1px solid #EEEEF3; border-radius: 6px; padding: 9px; background: #ffffff;"><h3 style="font-size: 8px; color: #004777; text-transform: uppercase; margin: 0 0 5px; line-height: 1.25;">${escapeHtml(item.titulo || "Condição geral")}</h3><p style="font-size: 8px; line-height: 1.45; color: #333; margin: 0; text-align: justify; overflow-wrap: anywhere;">${escapeHtml(item.conteudo || "Não informado")}</p></section>`).join("")}</div>
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Condições ${pageIndex + 1}</span></div>
           </div>
@@ -340,7 +378,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #EEEEF3; padding-top: 6px; margin-top: auto; font-size: 8px; color: #888; font-weight: bold;"><span>Laudo de Vistoria Técnica | Código: ${escapeHtml(vistoria.codigo)}</span><span>Anexos ${pageIndex + 1}</span></div>
           </div>
         </div>`).join("");
-      const finalTermPageHtml = `
+      const finalTermPageHtml = shareFinalTermWithConditions ? "" : `
         <div data-pdf-kind="closing" style="width: 210mm; height: 297mm; position: relative; box-sizing: border-box; background: #fff; overflow: hidden; page-break-before: always;">
           <div style="position: absolute; inset: 0; z-index: 0; pointer-events: none;"><img src="/lais.svg" alt="" style="width: 100%; height: 100%; object-fit: fill;" /></div>
           <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; padding: 4.6cm 2cm 2.2cm 3cm; box-sizing: border-box;">
@@ -653,7 +691,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
             </div>
           </div>
         </div>
-        ${roomPagesHtml}${termsPagesHtml}${attachmentPagesHtml}${finalTermPageHtml}${photoPagesHtml}
+        ${roomPagesHtml}${finalTermPageHtml}${termsPagesHtml}${attachmentPagesHtml}${photoPagesHtml}
       `;
 
       const wrapper = document.createElement("div");
@@ -899,22 +937,43 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
               pdf.setFont("helvetica", "bold");
               pdf.setFontSize(8);
               pdf.text(`REGISTRO FOTOGRÁFICO${roomPage.continuation ? " — CONTINUAÇÃO" : ""}`, 28, photoStartY);
-              const columns = 4;
-              const rows = Math.ceil(photos.length / columns);
-              const imageWidth = 37;
-              const imageHeight = rows > 0
-                ? Math.max(28, Math.min(56, (270 - (photoStartY + 7) - rows * 6) / rows))
-                : 0;
-              photos.forEach(({ image, photo }: { image: HTMLImageElement; photo: any }, photoIndex: number) => {
-                const column = photoIndex % columns;
-                const row = Math.floor(photoIndex / columns);
-                const x = 28 + column * 41.5;
-                const y = photoStartY + 7 + row * (imageHeight + 6);
-                pdf.addImage(image, "JPEG", x, y, imageWidth, imageHeight, undefined, "FAST");
+              const gridTop = photoStartY + 7;
+              const availablePhotoHeight = Math.max(1, 274 - gridTop);
+              const grid = getAdaptivePhotoGrid(photos.length, 162, availablePhotoHeight, 6);
+              const captionHeight = 4;
+              photos.forEach(({ image }: { image: HTMLImageElement }, photoIndex: number) => {
+                const column = photoIndex % grid.columns;
+                const row = Math.floor(photoIndex / grid.columns);
+                const cellX = 28 + column * (grid.cellWidth + 6);
+                const cellY = gridTop + row * (grid.cellHeight + 6);
+                const imageAreaHeight = Math.max(1, grid.cellHeight - captionHeight);
+                const fitted = fitImageInside(
+                  image.naturalWidth || image.width,
+                  image.naturalHeight || image.height,
+                  grid.cellWidth,
+                  imageAreaHeight
+                );
+
+                pdf.setFillColor(247, 248, 249);
+                pdf.roundedRect(cellX, cellY, grid.cellWidth, imageAreaHeight, 1.5, 1.5, "F");
+                pdf.addImage(
+                  image,
+                  "JPEG",
+                  cellX + fitted.offsetX,
+                  cellY + fitted.offsetY,
+                  fitted.width,
+                  fitted.height,
+                  undefined,
+                  "FAST"
+                );
                 pdf.setTextColor(85, 85, 85);
                 pdf.setFont("helvetica", "normal");
                 pdf.setFontSize(6.5);
-                pdf.text(`Foto ${photoIndex + 1}`, x, y + imageHeight + 3);
+                pdf.text(
+                  `Foto ${(roomPage.photoStartIndex || 0) + photoIndex + 1}`,
+                  cellX,
+                  cellY + grid.cellHeight - 1
+                );
               });
             }
 
