@@ -18,6 +18,7 @@ import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "
 
 import { formatImovelAddress } from "@/lib/vistorias/formatters";
 import { ChangeImovelModal } from "@/components/vistorias/ficha-vistoria/ChangeImovelModal";
+import { ChangeInquilinoModal } from "@/components/vistorias/ficha-vistoria/ChangeInquilinoModal";
 
 interface InfoGeralItem {
   id: number;
@@ -107,6 +108,12 @@ export default function FichaVistoriaPage() {
   const [imovelEndereco, setImovelEndereco] = useState<string>("");
   const [isChangeImovelModalOpen, setIsChangeImovelModalOpen] = useState(false);
 
+  // Estados para Inquilino vinculado
+  const [locatarioId, setLocatarioId] = useState<string>("");
+  const [inquilinoNome, setInquilinoNome] = useState<string>("");
+  const [inquilinoCpf, setInquilinoCpf] = useState<string>("");
+  const [isChangeInquilinoModalOpen, setIsChangeInquilinoModalOpen] = useState(false);
+
   const handleImovelUpdated = (updatedVistoriaData: any) => {
     if (updatedVistoriaData) {
       if (updatedVistoriaData.proprietario) {
@@ -123,6 +130,26 @@ export default function FichaVistoriaPage() {
                 imovelCodigo: updatedVistoriaData.imovel.codigo || "",
                 endereco: formatImovelAddress(updatedVistoriaData.imovel),
                 proprietario: updatedVistoriaData.proprietario || prev.proprietario,
+              }
+            : null
+        );
+      }
+    }
+  };
+
+  const handleInquilinoUpdated = (updatedVistoriaData: any) => {
+    if (updatedVistoriaData) {
+      const loc = updatedVistoriaData.locatario || updatedVistoriaData.data?.locatario;
+      if (loc) {
+        setLocatarioId(loc.id);
+        setInquilinoNome(loc.nome || "");
+        setInquilinoCpf(loc.cpfCnpj || "");
+        setAssociatedLocatarioId(loc.id);
+        setPdfVistoria((prev) =>
+          prev
+            ? {
+                ...prev,
+                inquilino: loc.nome || "Não vinculado",
               }
             : null
         );
@@ -279,6 +306,12 @@ export default function FichaVistoriaPage() {
         setImovelId(dbData.imovelId || dbData.imovel?.id || "");
         setImovelCodigo(dbData.imovel?.codigo || "");
         setImovelEndereco(dbData.imovel ? formatImovelAddress(dbData.imovel) : "");
+
+        const activeLocatario = dbData.locatario || dbData.locatariosAutorizados?.[0]?.locatario;
+        setLocatarioId(dbData.locatarioId || activeLocatario?.id || "");
+        setInquilinoNome(activeLocatario?.nome || "");
+        setInquilinoCpf(activeLocatario?.cpfCnpj || "");
+
         setAssinatura(dbData.assinatura || null);
         setTokenAcesso(dbData.tokenAcesso || null);
         setContestations(dbData.contestacaoVistorias || []);
@@ -1015,6 +1048,9 @@ export default function FichaVistoriaPage() {
               imovelCodigo={imovelCodigo}
               imovelEndereco={imovelEndereco}
               onOpenChangeImovelModal={() => setIsChangeImovelModalOpen(true)}
+              inquilinoNome={inquilinoNome}
+              inquilinoCpf={inquilinoCpf}
+              onOpenChangeInquilinoModal={() => setIsChangeInquilinoModalOpen(true)}
             />
           </div>
         </div>
@@ -1064,6 +1100,15 @@ export default function FichaVistoriaPage() {
         vistoriaId={vistoriaId}
         currentImovelId={imovelId}
         onImovelUpdated={handleImovelUpdated}
+      />
+
+      {/* Change Inquilino Modal */}
+      <ChangeInquilinoModal
+        isOpen={isChangeInquilinoModalOpen}
+        onClose={() => setIsChangeInquilinoModalOpen(false)}
+        vistoriaId={vistoriaId}
+        currentLocatarioId={locatarioId}
+        onInquilinoUpdated={handleInquilinoUpdated}
       />
 
       {/* Bottom Navigation for mobile screens */}

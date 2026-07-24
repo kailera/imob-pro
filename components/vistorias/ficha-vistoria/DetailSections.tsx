@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File, Building, MapPin, Edit3 } from "lucide-react";
+import { ClipboardList, Key, FileText, CheckSquare, Eye, Users, ShieldAlert, Image as ImageIcon, Download, File, Building, MapPin, Edit3, User } from "lucide-react";
 import { Room } from "./FloorPlanVisualizer";
 import { CommentData } from "./CommentsTimeline";
 import { PreviewableImage } from "./PreviewableImage";
@@ -31,6 +31,9 @@ interface DetailSectionsProps {
   imovelCodigo?: string;
   imovelEndereco?: string;
   onOpenChangeImovelModal?: () => void;
+  inquilinoNome?: string;
+  inquilinoCpf?: string;
+  onOpenChangeInquilinoModal?: () => void;
 }
 
 export function DetailSections({
@@ -50,7 +53,10 @@ export function DetailSections({
   assinatura = null,
   imovelCodigo = "",
   imovelEndereco = "",
-  onOpenChangeImovelModal
+  onOpenChangeImovelModal,
+  inquilinoNome = "",
+  inquilinoCpf = "",
+  onOpenChangeInquilinoModal
 }: DetailSectionsProps) {
 
   return (
@@ -64,18 +70,30 @@ export function DetailSections({
             <span>Informações da Vistoria</span>
           </h3>
 
-          {onOpenChangeImovelModal && (
-            <button
-              onClick={onOpenChangeImovelModal}
-              className="print:hidden text-xs font-bold text-[#004777] bg-[#004777]/5 hover:bg-[#004777]/10 px-3 py-1.5 rounded-lg border border-[#004777]/15 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>Alterar Imóvel</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {onOpenChangeImovelModal && (
+              <button
+                onClick={onOpenChangeImovelModal}
+                className="print:hidden text-xs font-bold text-[#004777] bg-[#004777]/5 hover:bg-[#004777]/10 px-3 py-1.5 rounded-lg border border-[#004777]/15 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Alterar Imóvel</span>
+              </button>
+            )}
+
+            {onOpenChangeInquilinoModal && (
+              <button
+                onClick={onOpenChangeInquilinoModal}
+                className="print:hidden text-xs font-bold text-[#004777] bg-[#004777]/5 hover:bg-[#004777]/10 px-3 py-1.5 rounded-lg border border-[#004777]/15 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Alterar Inquilino</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-sm">
           <div>
             <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Status</span>
             <span className="font-bold text-[#004777] uppercase text-xs">
@@ -94,7 +112,21 @@ export function DetailSections({
             <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Proprietário</span>
             <span className="font-bold text-[#280003]">{proprietario}</span>
           </div>
-          <div className="col-span-2 md:col-span-1">
+          <div>
+            <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Inquilino</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-[#280003] text-xs flex items-center gap-1 truncate" title={inquilinoNome}>
+                <User className="w-3.5 h-3.5 text-[#004777] shrink-0" />
+                <span>{inquilinoNome || "Não vinculado"}</span>
+              </span>
+              {inquilinoCpf && (
+                <span className="text-[11px] text-gray-500 font-medium truncate mt-0.5">
+                  CPF: {inquilinoCpf}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
             <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Imóvel & Endereço</span>
             <div className="flex flex-col">
               <span className="font-bold text-[#004777] text-xs flex items-center gap-1">

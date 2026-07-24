@@ -841,3 +841,16 @@ export const updateImovelLocacao = async (id: string, input: {
     }
 };
 
+export async function getAllLocatarios() {
+    try {
+        const list = await prisma.locatario.findMany({
+            orderBy: {
+                nome: "asc",
+            },
+        });
+        return { success: true, data: list };
+    } catch (error: any) {
+        console.error("Erro ao buscar todos os locatários:", error);
+        return { success: false, error: error.message || "Erro ao buscar locatários.", data: [] };
+    }
+}

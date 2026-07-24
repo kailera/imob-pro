@@ -959,3 +959,96 @@ export async function updateImovelDetails(
     }
 }
 
+export async function updateVistoriaInquilino(vistoriaId: string, locatarioId: string) {
+    try {
+        await prisma.$transaction(async (tx) => {
+            await tx.vistoriaLocatario.upsert({
+                where: { vistoriaId_locatarioId: { vistoriaId, locatarioId } },
+                create: { vistoriaId, locatarioId },
+                update: {},
+            });
+
+            await tx.vistoria.update({
+                where: { id: vistoriaId },
+                data: { locatarioId },
+            });
+        });
+
+        const updated = await prisma.vistoria.findUnique({
+            where: { id: vistoriaId },
+            include: {
+                imovel: true,
+                vistoriador: true,
+                operador: true,
+                locatario: true,
+            }
+        });
+
+        revalidatePath("/vistorias");
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("Erro ao vincular inquilino à vistoria:", error);
+        return { success: false, error: error.message || "Erro ao vincular inquilino." };
+    }
+}
+
+export async function updateInquilinoDetails(
+    locatarioId: string,
+    input: {
+        nome?: string;
+        cpfCnpj?: string;
+        email?: string;
+        telefone?: string;
+    }
+) {
+    try {
+        const dataToUpdate: any = {};
+        if (input.nome) dataToUpdate.nome = input.nome;
+        if (input.cpfCnpj) dataToUpdate.cpfCnpj = input.cpfCnpj;
+        if (input.email) dataToUpdate.email = input.email;
+        if (input.telefone) {
+            dataToUpdate.telefone = [{ tipo: "Celular", numero: input.telefone }];
+        }
+
+        const updatedLocatario = await prisma.locatario.update({
+            where: { id: locatarioId },
+            data: dataToUpdate
+        });
+
+        revalidatePath("/vistorias");
+        return { success: true, data: updatedLocatario };
+    } catch (error: any) {
+        console.error("Erro ao atualizar dados do inquilino:", error);
+        return { success: false, error: error.message || "Erro ao atualizar dados do inquilino." };
+    }
+}
+
+export async function createAndLinkInquilinoToVistoria(
+    vistoriaId: string,
+    input: {
+        nome: string;
+        cpfCnpj: string;
+        email: string;
+        telefone: string;
+    }
+) {
+    try {
+        const createRes = await createInquilino(input);
+        if (!createRes.success || !createRes.data) {
+            return { success: false, error: createRes.error || "Erro ao cadastrar inquilino." };
+        }
+
+        const linkRes = await updateVistoriaInquilino(vistoriaId, createRes.data.id);
+        if (!linkRes.success) {
+            return linkRes;
+        }
+
+        return { success: true, data: linkRes.data, locatario: createRes.data };
+    } catch (error: any) {
+        console.error("Erro ao cadastrar e vincular inquilino:", error);
+        return { success: false, error: error.message || "Erro ao cadastrar e vincular inquilino." };
+    }
+}
+
+

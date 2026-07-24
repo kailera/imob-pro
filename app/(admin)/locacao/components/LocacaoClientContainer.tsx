@@ -17,6 +17,7 @@ interface LocacaoClientContainerProps {
     initialCobrancas: any[];
     initialImoveis: any[];
     initialAgenda: AgendaLocacaoEvento[];
+    initialLocatarios?: any[];
     agendaAno: number;
     agendaMes: number;
 }
@@ -26,6 +27,7 @@ export default function LocacaoClientContainer({
     initialCobrancas,
     initialImoveis,
     initialAgenda,
+    initialLocatarios = [],
     agendaAno,
     agendaMes,
 }: LocacaoClientContainerProps) {
@@ -82,7 +84,9 @@ export default function LocacaoClientContainer({
     const removerDuplicados = (arr: any[]) =>
         Array.from(new Map(arr.map((item) => [item.id, item])).values());
 
-    const locatariosUnicos = removerDuplicados(allLocatarios);
+    const locatariosUnicos = removerDuplicados([...initialLocatarios, ...allLocatarios]).sort((a, b) =>
+        (a.nome || "").localeCompare(b.nome || "")
+    );
     const fiadoresUnicos = removerDuplicados(allFiadores);
     const locadoresUnicos = removerDuplicados(allLocador);
 
