@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import { criarDataVencimento } from "@/lib/locacao/financeiro";
+import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -16,7 +17,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         imovelLocacao: {
           include: {
             locadors: true,
-            periodos: true,
+            periodos: { orderBy: { dataInicio: "asc" } },
           },
         },
         locatarios: true,
@@ -25,6 +26,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
     });
 
     let geradosCount = 0;
+    let atualizadosCount = 0;
     const errors: string[] = [];
 
     // 2. Iterar por cada contrato para gerar a cobrança
@@ -33,21 +35,6 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
 
       try {
         // Verificar se já existe cobrança de aluguel para esse contrato nessa competência
-        const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
-          where: {
-            contratoId: contrato.id,
-            categoria: "ALUGUEL",
-            tipo: "RECEITA",
-          },
-        });
-
-        const jaBoleto = cobrancasExistentes.some((tx) => {
-          const meta = tx.metadata as any;
-          return meta && meta.competence === competence;
-        });
-
-        if (jaBoleto) continue; // Pula se já gerado
-
         const locacao = contrato.imovelLocacao;
         
         // Encontrar período vigente se houver sub-períodos cadastrados
@@ -67,8 +54,25 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         // Valor total da cobrança (Aluguel + encargos adicionais)
         const valorTotal = valorAluguel + (hasCondominio ? valorCondominio : 0) + (hasIPTU ? valorIPTU : 0);
 
+        const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
+          where: {
+            contratoId: contrato.id,
+            categoria: "ALUGUEL",
+            tipo: "RECEITA",
+          },
+        });
+        const cobrancaDaCompetencia = cobrancasExistentes.find((tx) => {
+          const meta = tx.metadata as Record<string, unknown> | null;
+          return meta?.competence === competence;
+        });
+        const metadataExistente = cobrancaDaCompetencia?.metadata as Record<string, unknown> | null;
+        const diaVencimentoExistente = Number(metadataExistente?.dueDay)
+          || cobrancaDaCompetencia?.dataVencimento.getUTCDate()
+          || null;
         const inquilinoNome = contrato.locatarios[0]?.nome || "Inquilino";
-        const diaVencimento = periodoAtivo?.diaVencimento ?? locacao.diaVencimento;
+        const diaVencimento = periodoAtivo?.diaVencimento
+          ?? locacao.diaVencimento
+          ?? diaVencimentoExistente;
         if (!diaVencimento) {
           throw new Error("Dia de vencimento não configurado. Edite o controle locatício antes de gerar a cobrança.");
         }
@@ -82,6 +86,22 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           dueDay: diaVencimento,
           periodId: periodoAtivo?.id ?? null,
         };
+
+        if (cobrancaDaCompetencia) {
+          if (periodoAtivo) {
+            const sincronizacao = await prisma.$transaction((tx) =>
+              sincronizarCobrancasPendentesDoPeriodo(tx, {
+                contratoIds: [contrato.id],
+                periodo: {
+                  ...periodoAtivo,
+                  diaVencimento,
+                },
+              }),
+            );
+            atualizadosCount += sincronizacao.atualizadas;
+          }
+          continue;
+        }
 
         await prisma.transacaoFinanceira.create({
           data: {
@@ -104,10 +124,109 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       }
     }
 
+    // 3. Contratos cadastrados no novo fluxo de locação.
+    const leases = await prisma.lease.findMany({
+      where: {
+        status: "ACTIVE",
+        startDate: { lte: new Date(Date.UTC(ano, mes, 0, 23, 59, 59)) },
+        endDate: { gte: new Date(Date.UTC(ano, mes - 1, 1)) },
+      },
+      include: {
+        property: true,
+        termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+        parties: {
+          where: { role: "TENANT" },
+          include: { person: true },
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
+      },
+    });
+
+    for (const lease of leases) {
+      try {
+        if (lease.termsPeriods.length === 0) {
+          throw new Error("Nenhum período locatício válido foi cadastrado.");
+        }
+
+        const referenceDate = new Date(Date.UTC(ano, mes - 1, 15));
+        const periodoAtivo = lease.termsPeriods.find(periodo =>
+          referenceDate >= periodo.effectiveFrom
+          && (!periodo.effectiveTo || referenceDate < periodo.effectiveTo),
+        );
+        if (!periodoAtivo) {
+          throw new Error(`A competência ${competence} não está coberta por um período locatício.`);
+        }
+
+        if (periodoAtivo.reviewStatus !== "REVIEWED") {
+          throw new Error(`O período da competência ${competence} ainda não foi conferido.`);
+        }
+
+        const dataVencimento = criarDataVencimento(ano, mes, periodoAtivo.paymentDueDay);
+        if (lease.billingStartDate && dataVencimento < lease.billingStartDate) continue;
+
+        const existingCharge = await prisma.leaseCharge.findUnique({
+          where: {
+            leaseId_competence_chargeType: {
+              leaseId: lease.id,
+              competence,
+              chargeType: "RENT",
+            },
+          },
+          select: { id: true },
+        });
+        if (existingCharge) continue;
+
+        const tenantName = lease.parties[0]?.person.name || "Inquilino";
+        const rentAmount = Number(periodoAtivo.rentAmount);
+        const metadata = {
+          competence,
+          leaseId: lease.id,
+          termsPeriodId: periodoAtivo.id,
+          rentValue: rentAmount,
+          dueDay: periodoAtivo.paymentDueDay,
+          source: "LEASE_TERMS_PERIOD",
+        };
+
+        await prisma.$transaction(async tx => {
+          await tx.leaseCharge.create({
+            data: {
+              leaseId: lease.id,
+              termsPeriodId: periodoAtivo.id,
+              competence,
+              description: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
+              chargeType: "RENT",
+              amount: periodoAtivo.rentAmount,
+              calculationData: metadata,
+              dueDate: dataVencimento,
+            },
+          });
+
+          await tx.transacaoFinanceira.create({
+            data: {
+              descricao: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
+              valor: rentAmount,
+              tipo: "RECEITA",
+              categoria: "ALUGUEL",
+              status: "PENDENTE",
+              dataVencimento,
+              leaseId: lease.id,
+              imovelId: lease.propertyId,
+              metadata,
+            },
+          });
+        });
+
+        geradosCount++;
+      } catch (err: any) {
+        console.error(`Erro ao processar novo contrato ${lease.code}:`, err);
+        errors.push(`Contrato ${lease.code}: ${err.message}`);
+      }
+    }
+
     revalidatePath("/cobrancas");
     revalidatePath("/financeiro");
 
-    return { success: true, geradosCount, errors };
+    return { success: true, geradosCount, atualizadosCount, errors };
   } catch (error: any) {
     console.error("Erro geral na geração de cobranças:", error);
     return { success: false, error: error.message || "Erro inesperado ao gerar cobranças." };

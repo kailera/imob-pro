@@ -7,10 +7,11 @@ import {
   updatePeriodoContratoLocacao,
   deletePeriodoContratoLocacao,
   calcularIndiceReajuste,
-} from "../actions";
+} from "../actions/actions";
 import { adicionarDiasUTC, calcularFaixaPeriodo, formatarDataInput } from "@/lib/locacao/periodos";
 import { FormattedNumberInput } from "@/components/shared/FormattedNumberInput";
 import { parseNumeroFlexivel } from "@/lib/locacao/financeiro";
+import { INDICES_REAJUSTE, normalizarCodigoIndice } from "@/lib/indices/catalogo";
 
 interface Periodo {
   id: string;
@@ -92,7 +93,7 @@ export default function ControleLocaticioClient({
   const [diasCarenciaMulta, setDiasCarenciaMulta] = useState("");
   const [jurosAtrasoPercentual, setJurosAtrasoPercentual] = useState("");
   const [diasCarenciaJuros, setDiasCarenciaJuros] = useState("");
-  const [indiceReajuste, setIndiceReajuste] = useState("IGPM");
+  const [indiceReajuste, setIndiceReajuste] = useState("IGP-M");
   const [valorAluguelAnterior, setValorAluguelAnterior] = useState("");
   const [percentualReajuste, setPercentualReajuste] = useState("");
   const [reajusteAutomatico, setReajusteAutomatico] = useState(false);
@@ -149,7 +150,7 @@ export default function ControleLocaticioClient({
     setDiasCarenciaMulta(ultimoPeriodo?.diasCarenciaMulta?.toString() || "");
     setJurosAtrasoPercentual(ultimoPeriodo?.jurosAtrasoPercentual?.toString() || "");
     setDiasCarenciaJuros(ultimoPeriodo?.diasCarenciaJuros?.toString() || "");
-    setIndiceReajuste(ultimoPeriodo?.indiceReajuste || "IGPM");
+    setIndiceReajuste(normalizarCodigoIndice(ultimoPeriodo?.indiceReajuste) || "IGP-M");
     setValorAluguelAnterior(ultimoPeriodo?.valorAluguel?.toFixed(2) || "");
     setPercentualReajuste("");
     setReajusteAutomatico(false);
@@ -177,7 +178,7 @@ export default function ControleLocaticioClient({
     setDiasCarenciaMulta(p.diasCarenciaMulta?.toString() || "");
     setJurosAtrasoPercentual(p.jurosAtrasoPercentual?.toString() || "");
     setDiasCarenciaJuros(p.diasCarenciaJuros?.toString() || "");
-    setIndiceReajuste(p.indiceReajuste || "IGPM");
+    setIndiceReajuste(normalizarCodigoIndice(p.indiceReajuste) || "IGP-M");
     setValorAluguelAnterior(p.valorAluguelAnterior?.toString() || "");
     setPercentualReajuste(p.percentualReajuste?.toString() || "");
     setReajusteAutomatico(p.reajusteAutomatico ?? false);
@@ -277,7 +278,7 @@ export default function ControleLocaticioClient({
         setPercentualReajuste(percentual);
         aplicarPercentual(percentual);
         setReajusteAutomatico(true);
-        const origem = resultado.fonte === "CONTINGENCIA_BCB" ? "contingência oficial local" : "Banco Central online";
+        const origem = resultado.fonte === "CACHE_BANCO_CENTRAL" ? "histórico local sincronizado" : "Banco Central online";
         setCalculoInfo(`Aplicado via ${origem}: ${resultado.mesesConsiderados} competências, de ${resultado.competenciaInicial} a ${resultado.competenciaFinal}.`);
       } else {
         setReajusteAutomatico(false);
@@ -375,11 +376,10 @@ export default function ControleLocaticioClient({
                 <button
                   key={p.id}
                   onClick={() => setSelectedPeriodoId(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${isSelected
                       ? "bg-[#004777]/10 text-[#004777] border-[#004777]/20"
                       : "bg-gray-50 text-gray-500 border-gray-150 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {formatDate(p.dataInicio)}
                 </button>
@@ -610,12 +610,9 @@ export default function ControleLocaticioClient({
                   onChange={(e) => { setIndiceReajuste(e.target.value); void calcularAutomaticamente(e.target.value); }}
                   className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#004777] font-semibold bg-white cursor-pointer"
                 >
-                  <option value="IGP">IGP</option>
-                  <option value="IGPM">IGPM</option>
-                  <option value="INPC">INPC</option>
-                  <option value="IPC">IPC</option>
-                  <option value="IPC-DI">IPC-DI</option>
-                  <option value="IPCA">IPCA</option>
+                  {INDICES_REAJUSTE.map((indice) => (
+                    <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
+                  ))}
                 </select>
                 <button type="button" disabled={isCalculating || !valorAluguelAnterior} onClick={() => void calcularAutomaticamente()} className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#004777]/20 bg-white px-3 py-2 font-bold text-[#004777] disabled:opacity-50">
                   {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}

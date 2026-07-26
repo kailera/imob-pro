@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { DataTable, Column } from '@/components/shared/DataTable';
 import { adicionarDiasUTC } from '@/lib/locacao/periodos';
 
-// Podemos exportar a interface para reuso, caso o pai precise dela
 export interface Contrato {
     id?: string;
     contrato: string;
@@ -19,10 +18,9 @@ export interface Contrato {
 
 interface ContratosTabContentProps {
     contratos: Contrato[];
-    onOpenModal: () => void; // Passamos a função do botão via prop
 }
 
-export default function ContratosTabContent({ contratos, onOpenModal }: ContratosTabContentProps) {
+export default function ContratosTabContent({ contratos }: ContratosTabContentProps) {
 
     // Definição das colunas adaptadas para o modelo Prisma Real
     const columns: Column<any>[] = [
@@ -31,10 +29,12 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             accessorKey: 'id',
             cell: (item: any) => (
                 <Link
-                    href={`/locacao/view-locacao/${item.id}`}
+                    href={item.recordType === 'LEASE'
+                        ? `/locacao/contratos/${item.id}/editar`
+                        : `/locacao/view-locacao/${item.id}`}
                     className="text-[#004777] hover:text-[#002f50] font-bold hover:underline"
                 >
-                    {item.id}
+                    {item.legacyCode || item.code || item.id}
                 </Link>
             )
         },
@@ -64,6 +64,10 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             accessorKey: 'vencimento',
             cell: (item: any) => {
                 // Tenta buscar da relação imovelLocacao direta (se inclusa) ou do imovel.imovelLocacaos
+                if (item.recordType === 'LEASE') {
+                    if (!item.endDate) return 'Não informado';
+                    return new Date(item.endDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                }
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 if (!locacao?.dataFim) return 'Não informado';
                 return new Date(locacao.dataFim).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
@@ -73,6 +77,11 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             header: 'Próximo reajuste',
             accessorKey: 'proximoReajuste',
             cell: (item: any) => {
+                if (item.recordType === 'LEASE') {
+                    const ultimo = item.termsPeriods?.at(-1);
+                    if (!ultimo?.effectiveTo || (item.endDate && new Date(ultimo.effectiveTo) > new Date(item.endDate))) return '—';
+                    return new Date(ultimo.effectiveTo).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                }
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 if (!locacao) return 'Não informado';
                 const periodos = [...(locacao.periodos || [])].sort(
@@ -89,7 +98,11 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             accessorKey: 'historicoPeriodosStatus',
             cell: (item: any) => {
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
-                const status = locacao?.historicoPeriodosStatus || 'NAO_INICIADO';
+                const status = item.recordType === 'LEASE'
+                    ? item.termsPeriods?.length > 0 && item.termsPeriods.every((period: any) => period.reviewStatus === 'REVIEWED')
+                        ? 'COMPLETO'
+                        : item.termsPeriods?.length > 0 ? 'PARCIAL' : 'NAO_INICIADO'
+                    : locacao?.historicoPeriodosStatus || 'NAO_INICIADO';
                 const config: Record<string, { label: string; classe: string }> = {
                     COMPLETO: { label: 'Completo', classe: 'bg-emerald-50 text-emerald-700' },
                     PARCIAL: { label: 'Parcial', classe: 'bg-amber-50 text-amber-700' },
@@ -106,10 +119,12 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             cell: (item: any) => {
                 // Determina um status com base no vencimento se não houver campo específico
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
-                let statusVal = 'Ativo';
-                if (locacao?.dataFim && new Date(locacao.dataFim) < new Date()) {
-                    statusVal = 'Encerrado';
-                }
+                let statusVal = item.recordType === 'LEASE'
+                    ? item.status === 'ACTIVE' ? 'Ativo'
+                        : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                            : 'Pendente'
+                    : 'Ativo';
+                if (item.recordType !== 'LEASE' && locacao?.dataFim && new Date(locacao.dataFim) < new Date()) statusVal = 'Encerrado';
                 
                 let bgClass = 'bg-gray-100 text-gray-700';
                 if (statusVal === 'Ativo') bgClass = 'bg-[#708D81]/10 text-[#708D81]';
@@ -129,18 +144,21 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
             cell: (item: any) => {
                 return (
                     <div className="flex flex-wrap items-center justify-end gap-2 md:justify-start">
+                        {item.recordType === 'LEASE' && (
+                            <Link
+                                href={`/locacao/view-locacao/${item.id}`}
+                                className="inline-flex items-center gap-1 text-[#004777] hover:text-[#002f50] font-semibold text-xs hover:underline"
+                            >
+                                Visualizar
+                            </Link>
+                        )}
                         <Link
-                            href={`/locacao/view-locacao/${item.id}`}
-                            className="inline-flex items-center gap-1 text-[#004777] hover:text-[#002f50] font-semibold text-xs hover:underline"
-                        >
-                            Visualizar
-                        </Link>
-                        <span className="text-gray-300">|</span>
-                        <Link
-                            href={`/locacao/view-locacao/${item.id}?edit=true`}
+                            href={item.recordType === 'LEASE'
+                                ? `/locacao/contratos/${item.id}/editar`
+                                : `/locacao/view-locacao/${item.id}`}
                             className="inline-flex items-center gap-1 text-amber-600 hover:text-amber-800 font-semibold text-xs hover:underline"
                         >
-                            Editar
+                            {item.recordType === 'LEASE' ? 'Editar' : 'Visualizar legado'}
                         </Link>
                     </div>
                 );
@@ -154,7 +172,6 @@ export default function ContratosTabContent({ contratos, onOpenModal }: Contrato
                 title="Contratos de Locação"
                 data={contratos}
                 columns={columns}
-                onAddClick={onOpenModal} // O clique sobe para o LocacaoClientContainer abrir o modal!
                 responsiveCards
             />
         </div>

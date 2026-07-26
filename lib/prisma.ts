@@ -7,21 +7,21 @@ const globalForPrisma = globalThis as unknown as {
   prismaPool?: pg.Pool;
 };
 
+function createPrismaClient() {
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
+}
+
 let prisma: PrismaClient;
 
 if (process.env.NODE_ENV === "production") {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  const adapter = new PrismaPg(pool);
-  prisma = new PrismaClient({ adapter });
+  prisma = createPrismaClient();
 } else {
   if (!globalForPrisma.prisma) {
-    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new PrismaPg(pool);
-    globalForPrisma.prisma = new PrismaClient({ adapter });
-    globalForPrisma.prismaPool = pool;
+    globalForPrisma.prisma = createPrismaClient();
   }
   prisma = globalForPrisma.prisma;
 }
 
 export { prisma };
-

@@ -17,6 +17,7 @@ import {
   formatarPercentual,
   parseNumeroFlexivel,
 } from '@/lib/locacao/financeiro';
+import { normalizarCodigoIndice } from '@/lib/indices/catalogo';
 
 interface UseNovoContratoFormProps {
   isOpen: boolean;
@@ -192,7 +193,7 @@ export function useNovoContratoForm({
   const [periodoCarencia, setPeriodoCarencia] = useState<string>('NAO_GARANTIR');
   const [abrangenciaGarantia, setAbrangenciaGarantia] = useState<string>('SOMENTE_ALUGUEL');
   const [periodicidadeReajuste, setPeriodicidadeReajuste] = useState<string>('12');
-  const [indiceReajuste, setIndiceReajuste] = useState<string>('IGPM');
+  const [indiceReajuste, setIndiceReajuste] = useState<string>('IGP-M');
 
   // Novos campos adicionais
   const [taxaAdministracao, setTaxaAdministracao] = useState<string>('10,00');
@@ -271,7 +272,7 @@ export function useNovoContratoForm({
 
     if (imovel.aluguelDados) {
       const d = imovel.aluguelDados;
-      if (d.indiceReajuste) setIndiceReajuste(d.indiceReajuste);
+      if (d.indiceReajuste) setIndiceReajuste(normalizarCodigoIndice(d.indiceReajuste) || 'IGP-M');
       if (d.descontoPontualidade) setDescontoPontualidade(d.descontoPontualidade);
       if (d.diasDescontoPontualidade) setValidadeDescontoPontualidade(d.diasDescontoPontualidade);
       if (d.multaRescisao || d.multaQuebraValor) setMultaQuebraContrato(d.multaRescisao || d.multaQuebraValor);

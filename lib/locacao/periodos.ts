@@ -61,6 +61,38 @@ export function calcularFaixaPeriodo(
   };
 }
 
+export function sugerirLacunaPeriodo(
+  inicioContrato: string | Date,
+  fimContrato: string | Date,
+  periodos: Array<{ dataInicio: string | Date; dataFim: string | Date }>,
+  periodicidadeMeses = 12,
+) {
+  const inicio = normalizarDataUTC(inicioContrato);
+  const limite = normalizarDataUTC(fimContrato);
+  const ordenados = periodos
+    .map((periodo) => ({
+      dataInicio: normalizarDataUTC(periodo.dataInicio),
+      dataFim: normalizarDataUTC(periodo.dataFim),
+    }))
+    .sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
+
+  let cursor = inicio;
+  for (const periodo of ordenados) {
+    if (periodo.dataFim < cursor || periodo.dataInicio > limite) continue;
+    if (periodo.dataInicio > cursor) {
+      return {
+        dataInicio: cursor,
+        dataFim: adicionarDiasUTC(periodo.dataInicio, -1),
+      };
+    }
+    if (periodo.dataFim >= cursor) cursor = adicionarDiasUTC(periodo.dataFim, 1);
+    if (cursor > limite) return null;
+  }
+
+  if (cursor > limite) return null;
+  return calcularFaixaPeriodo(cursor, periodicidadeMeses, limite);
+}
+
 export function datasSaoConsecutivas(fimAnterior: string | Date, inicioSeguinte: string | Date) {
   return adicionarDiasUTC(fimAnterior, 1).getTime() === normalizarDataUTC(inicioSeguinte).getTime();
 }
@@ -68,6 +100,23 @@ export function datasSaoConsecutivas(fimAnterior: string | Date, inicioSeguinte:
 export function calcularPercentualEntreValores(valorAnterior: number, novoValor: number) {
   if (!Number.isFinite(valorAnterior) || valorAnterior <= 0 || !Number.isFinite(novoValor)) return null;
   return Number((((novoValor / valorAnterior) - 1) * 100).toFixed(4));
+}
+
+export function calcularIntervaloCompetenciasReajuste(
+  inicioPeriodo: string | Date,
+  fimPeriodo: string | Date,
+) {
+  const inicio = normalizarDataUTC(inicioPeriodo);
+  const inicioNovoPeriodo = adicionarDiasUTC(fimPeriodo, 1);
+
+  return {
+    dataInicio: new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), 1)),
+    dataFim: new Date(Date.UTC(
+      inicioNovoPeriodo.getUTCFullYear(),
+      inicioNovoPeriodo.getUTCMonth(),
+      0,
+    )),
+  };
 }
 
 export function inicioMesUTC(ano: number, mes: number) {

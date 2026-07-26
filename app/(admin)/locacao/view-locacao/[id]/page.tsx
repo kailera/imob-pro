@@ -1,5 +1,6 @@
 import { Fiador, Locador, Locatario, TransacaoFinanceira } from "@/generated/prisma"
-import { getCompleteContratoLocacao } from "../../actions"
+import { getCompleteContratoLocacao } from "../../actions/actions"
+import { getContratoForEdit } from "../../actions/getContratoForEdit"
 import Link from "next/link"
 import ControleLocaticioClient from "../../components/ControleLocaticioClient"
 import DadosVigenciaFormClient from "../../components/DadosVigenciaFormClient"
@@ -19,7 +20,8 @@ import {
     TrendingUp,
     Clock,
     UserCheck,
-    CheckCircle
+    CheckCircle,
+    Download
 } from "lucide-react"
 import { TelefoneContato, EnderecoDetalhado, DocumentoUpload } from "@/lib/interfaces"
 
@@ -45,7 +47,7 @@ const parseEndereco = (field: any): EnderecoDetalhado | null => {
 const parseDocumentos = (field: any): DocumentoUpload[] => {
     if (!field) return []
     let parsed: any = null
-    
+
     if (typeof field === "string") {
         try { parsed = JSON.parse(field) } catch { return [] }
     } else {
@@ -61,13 +63,13 @@ const parseDocumentos = (field: any): DocumentoUpload[] => {
 
     if (typeof parsed === "object" && parsed !== null) {
         const list: DocumentoUpload[] = []
-        
+
         if (parsed.docPessoal) list.push({ nome: "Documento Pessoal", url: parsed.docPessoal })
         if (parsed.comprovanteResidencia) list.push({ nome: "Comprovante de Residência", url: parsed.comprovanteResidencia })
         if (parsed.holeriteConjuge) list.push({ nome: "Holerite do Cônjuge", url: parsed.holeriteConjuge })
         if (parsed.holerite1Nilson) list.push({ nome: "Holerite 1", url: parsed.holerite1Nilson })
         if (parsed.holerite2Nilson) list.push({ nome: "Holerite 2", url: parsed.holerite2Nilson })
-        
+
         if (Array.isArray(parsed.uploadedFinalDocs)) {
             parsed.uploadedFinalDocs.forEach((doc: any) => {
                 list.push({
@@ -76,22 +78,211 @@ const parseDocumentos = (field: any): DocumentoUpload[] => {
                 })
             })
         }
-        
+
         return list
     }
 
     return []
 }
 
+type LeaseViewData = NonNullable<Awaited<ReturnType<typeof getContratoForEdit>>>
 
-export default async function ViewLocacao({ 
+const leasePartyRoleLabels: Record<string, string> = {
+    TENANT: "Locatário principal",
+    CO_TENANT: "Locatário adicional",
+    LANDLORD: "Locador / proprietário",
+    GUARANTOR: "Fiador",
+    SPOUSE: "Cônjuge",
+    LEGAL_REPRESENTATIVE: "Representante legal",
+}
+
+function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
+    const formatDate = (value: string | null | undefined) => {
+        if (!value) return "Não informado"
+        return new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR")
+    }
+    const formatCurrency = (value: number | null | undefined) => (
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value ?? 0)
+    )
+    const property = contrato.imovel
+    const attachmentGroups = [
+        { label: "IPTU", attachments: contrato.iptu?.attachments ?? [] },
+        { label: "Condomínio", attachments: contrato.condominium?.attachments ?? [] },
+        ...contrato.utilities.map(utility => ({
+            label: utility.type === "WATER" ? "Água" : utility.type === "ELECTRICITY" ? "Energia" : "Gás",
+            attachments: utility.attachments,
+        })),
+    ].filter(group => group.attachments.length > 0)
+
+    return (
+        <main className="min-h-screen bg-[#EEEEF3] p-4 lg:p-8">
+            <div className="mx-auto max-w-6xl space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <Link href="/locacao" className="text-xs font-semibold text-[#004777] hover:underline">
+                            ← Voltar para contratos
+                        </Link>
+                        <h1 className="mt-2 text-2xl font-bold text-gray-900">
+                            Contrato {contrato.legacyCode || contrato.codigo}
+                        </h1>
+                        <p className="mt-1 text-xs text-gray-500">Dados salvos no novo cadastro de locação.</p>
+                    </div>
+                    <Link
+                        href={`/locacao/contratos/${contrato.id}/editar`}
+                        className="inline-flex min-h-11 items-center rounded-xl bg-[#004777] px-5 text-xs font-bold text-white hover:bg-[#003355]"
+                    >
+                        Editar contrato
+                    </Link>
+                </div>
+
+                <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">
+                        Identificação
+                    </h2>
+                    <dl className="mt-4 grid gap-4 text-xs md:grid-cols-2 lg:grid-cols-3">
+                        <ViewField label="Tipo da locação" value={contrato.tipoLocacao || "Não informado"} />
+                        <ViewField label="Data de início" value={formatDate(contrato.dataInicio)} />
+                        <ViewField label="Data de término" value={formatDate(contrato.dataFim)} />
+                        <ViewField label="Prazo" value={contrato.prazoMeses ? `${contrato.prazoMeses} meses` : "Não informado"} />
+                        <ViewField label="Código no SICADI" value={contrato.legacyCode || "Não informado"} />
+                        <ViewField label="Cobranças a partir de" value={formatDate(contrato.billingStartDate)} />
+                        <div className="md:col-span-2 lg:col-span-3">
+                            <ViewField label="Finalidade" value={contrato.finalidade || "Não informada"} />
+                        </div>
+                    </dl>
+                </section>
+
+                {attachmentGroups.length > 0 && (
+                    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">
+                            Arquivos
+                        </h2>
+                        <div className="mt-4 space-y-5">
+                            {attachmentGroups.map(group => (
+                                <div key={group.label}>
+                                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">{group.label}</h3>
+                                    <ul className="mt-2 grid gap-2 md:grid-cols-2">
+                                        {group.attachments.map(attachment => (
+                                            <li key={attachment.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-xs font-bold text-gray-900">{attachment.title}</p>
+                                                    <p className="truncate text-[11px] text-gray-500">{attachment.fileName}</p>
+                                                </div>
+                                                <a
+                                                    href={attachment.url}
+                                                    download={attachment.fileName}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    aria-label={`Baixar ${attachment.title}`}
+                                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#004777] hover:bg-sky-50"
+                                                >
+                                                    <Download className="h-4 w-4" aria-hidden="true" />
+                                                </a>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">
+                        Imóvel e endereço
+                    </h2>
+                    {property ? (
+                        <dl className="mt-4 grid gap-4 text-xs md:grid-cols-2 lg:grid-cols-3">
+                            <ViewField label="Imóvel" value={`${property.codigo} — ${property.tipo ?? "Tipo não informado"}`} />
+                            <ViewField label="CEP" value={property.cep ? String(property.cep).padStart(8, "0").replace(/^(\d{5})(\d{3})$/, "$1-$2") : "Não informado"} />
+                            <ViewField label="Logradouro" value={property.logradouro || "Não informado"} />
+                            <ViewField label="Número" value={String(property.numero ?? "Não informado")} />
+                            <ViewField label="Complemento" value={property.complemento || "Não informado"} />
+                            <ViewField label="Bairro" value={property.bairro || "Não informado"} />
+                            <ViewField label="Cidade" value={property.cidade || "Não informada"} />
+                            <ViewField label="Estado" value={property.uf || "Não informado"} />
+                        </dl>
+                    ) : (
+                        <p className="mt-4 text-xs text-gray-500">Nenhum imóvel vinculado.</p>
+                    )}
+                </section>
+
+                <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h2 className="text-sm font-bold text-gray-900">Participantes</h2>
+                        <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-[#004777]">
+                            {contrato.participantes.length}
+                        </span>
+                    </div>
+                    {contrato.participantes.length ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {contrato.participantes.map(participant => (
+                                <article key={participant.id} className="rounded-xl border border-gray-200 p-4 text-xs">
+                                    <h3 className="text-sm font-bold text-gray-900">{participant.pessoa.nome}</h3>
+                                    <p className="mt-1 font-semibold text-[#004777]">
+                                        {leasePartyRoleLabels[participant.papel] ?? "Participante"}
+                                    </p>
+                                    <dl className="mt-3 space-y-2 text-gray-600">
+                                        <ViewField label="CPF/CNPJ" value={participant.pessoa.cpfCnpj} />
+                                        <ViewField label="E-mail" value={participant.pessoa.email || "Não informado"} />
+                                        <ViewField
+                                            label="Categoria"
+                                            value={participant.pessoa.categoria === "JURIDICA" ? "Pessoa jurídica" : "Pessoa física"}
+                                        />
+                                    </dl>
+                                </article>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="mt-4 text-xs text-gray-500">Nenhum participante cadastrado.</p>
+                    )}
+                </section>
+
+                <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">
+                        Controle locatício
+                    </h2>
+                    {contrato.terms ? (
+                        <dl className="mt-4 grid gap-4 text-xs md:grid-cols-2 lg:grid-cols-3">
+                            <ViewField label="Aluguel" value={formatCurrency(contrato.terms.rentValue)} />
+                            <ViewField label="Dia de vencimento" value={String(contrato.terms.paymentDueDay)} />
+                            <ViewField label="Índice de reajuste" value={contrato.terms.readjustmentIndex} />
+                            <ViewField label="Periodicidade" value={`${contrato.terms.readjustmentPeriodM} meses`} />
+                            <ViewField label="Próximo reajuste" value={formatDate(contrato.terms.nextReadjustmentDate)} />
+                            <ViewField label="Períodos cadastrados" value={String(contrato.termsPeriods.length)} />
+                        </dl>
+                    ) : (
+                        <p className="mt-4 text-xs text-gray-500">Controle locatício ainda não preenchido.</p>
+                    )}
+                </section>
+            </div>
+        </main>
+    )
+}
+
+function ViewField({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
+            <dd className="mt-0.5 font-medium text-gray-800">{value}</dd>
+        </div>
+    )
+}
+
+
+export default async function ViewLocacao({
     params,
-    searchParams 
-}: { 
+    searchParams
+}: {
     params: Promise<{ id: string }>;
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const { id } = await params;
+    const leaseContrato = await getContratoForEdit(id)
+    if (leaseContrato) {
+        return <LeaseContractView contrato={leaseContrato} />
+    }
+
     const { edit } = await searchParams;
     const isEditMode = edit === "true";
     const contrato = await getCompleteContratoLocacao(id)
@@ -148,19 +339,20 @@ export default async function ViewLocacao({
                         <div>
                             <div className="flex items-center gap-3">
                                 <h1 className="text-2xl lg:text-3xl font-bold text-[#280003]">
-                                    {isEditMode ? "Editar Contrato" : "Detalhes do Contrato"}
+                                    Detalhes do Contrato
                                 </h1>
                                 <span className="px-3 py-1 bg-emerald-55/10 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold uppercase tracking-wider">
                                     Ativo
                                 </span>
-                                {isEditMode && (
-                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-xs font-bold uppercase tracking-wider">
-                                        Modo Edição
-                                    </span>
-                                )}
                             </div>
                             <p className="text-xs text-gray-500 mt-1">ID do Contrato: {contrato.id}</p>
                         </div>
+                        <Link
+                            href={`/locacao/contratos/${contrato.id}/editar`}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#004777] text-white rounded-xl text-xs font-semibold hover:bg-[#003355] transition-all w-fit"
+                        >
+                            Editar Contrato
+                        </Link>
                     </div>
                 </div>
 

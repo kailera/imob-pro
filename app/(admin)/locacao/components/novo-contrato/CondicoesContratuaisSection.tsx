@@ -9,6 +9,7 @@ import {
   formatarPercentual,
   parseNumeroFlexivel,
 } from '@/lib/locacao/financeiro';
+import { INDICES_REAJUSTE } from '@/lib/indices/catalogo';
 
 interface CondicoesContratuaisSectionProps {
   selectedFiadorIndex: string;
@@ -233,12 +234,9 @@ export function CondicoesContratuaisSection({
             required
             className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white"
           >
-            <option value="IGP">IGP</option>
-            <option value="IGPM">IGPM</option>
-            <option value="INPC">INPC</option>
-            <option value="IPC">IPC</option>
-            <option value="IPC-DI">IPC-DI</option>
-            <option value="IPCA">IPCA</option>
+            {INDICES_REAJUSTE.map((indice) => (
+              <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
+            ))}
           </select>
         </div>
 

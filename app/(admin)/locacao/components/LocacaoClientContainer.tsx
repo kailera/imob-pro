@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Key, DollarSign, FileText, Plus } from 'lucide-react';
 
 // O componente de Cobranças que você já isolou antes!
@@ -9,14 +10,14 @@ import CobrancasTabContent from './CobrancasTabContent';
 // Futuros componentes (vamos criá-los nos próximos passos)
 import ContratosTabContent from './ContratosTabContent';
 import ModelosTabContent, { ContractTemplate } from './ModelosTabContent';
-import NovoContratoModal from './NovoContratoModal';
 import AgendaVencimentosLocacao from './AgendaVencimentosLocacao';
-import type { AgendaLocacaoEvento } from '../actions';
+import type { AgendaLocacaoEvento, PainelIndiceReajuste } from '../actions/actions';
 interface LocacaoClientContainerProps {
     initialContratos: any[];
     initialCobrancas: any[];
     initialImoveis: any[];
     initialAgenda: AgendaLocacaoEvento[];
+    initialIndices: PainelIndiceReajuste[];
     initialLocatarios?: any[];
     agendaAno: number;
     agendaMes: number;
@@ -27,6 +28,7 @@ export default function LocacaoClientContainer({
     initialCobrancas,
     initialImoveis,
     initialAgenda,
+    initialIndices,
     initialLocatarios = [],
     agendaAno,
     agendaMes,
@@ -34,7 +36,6 @@ export default function LocacaoClientContainer({
 
     // 1. Estados que controlam a interface geral da página
     const [activeTab, setActiveTab] = useState<'contratos' | 'cobrancas' | 'modelos'>('contratos');
-    const [isAddContractModalOpen, setIsAddContractModalOpen] = useState(false);
     const [contractFields, setContractFields] = useState<Record<string, string>>({});
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
@@ -54,12 +55,6 @@ export default function LocacaoClientContainer({
         const updated = templates.map(t => t.id === id ? { ...t, name, content } : t);
         setTemplates(updated);
         localStorage.setItem('imob-pro-contract-templates', JSON.stringify(updated)); // opcional
-    };
-    const handleContratoGerado = (newContract: any, fields: Record<string, string>, templateId: string) => {
-        setIsAddContractModalOpen(false);
-        setContractFields(fields);
-        setSelectedTemplateId(templateId);
-        setActiveTab('modelos'); // Joga o usuário automaticamente pra aba de modelos!
     };
     // Extrai inquilinos, fiadores e proprietários dos contratos existentes
     const { allLocatarios, allFiadores, allLocador } = initialContratos.reduce(
@@ -142,13 +137,13 @@ export default function LocacaoClientContainer({
 
                 {/* Botão de Novo Contrato: só aparece na aba de contratos */}
                 {activeTab === 'contratos' && (
-                    <button
-                        onClick={() => setIsAddContractModalOpen(true)}
+                    <Link
+                        href="/locacao/contratos/novo"
                         className="flex items-center gap-2 bg-[#004777] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm hover:bg-[#003355] transition-all cursor-pointer mb-2"
                     >
                         <Plus className="w-4 h-4" />
-                        Vincular Novo Inquilino e Contrato
-                    </button>
+                        Novo Contrato
+                    </Link>
                 )}
             </div>
 
@@ -159,12 +154,12 @@ export default function LocacaoClientContainer({
                     initialAno={agendaAno}
                     initialMes={agendaMes}
                     initialEventos={initialAgenda}
+                    initialIndices={initialIndices}
                 />
             )}
             {activeTab === 'contratos' && (
                 <ContratosTabContent
                     contratos={initialContratos}
-                    onOpenModal={() => setIsAddContractModalOpen(true)}
                 />
             )}
             {/* O seu componente de Cobranças já está pronto e sendo usado aqui! */}
@@ -184,16 +179,6 @@ export default function LocacaoClientContainer({
                     onSaveTemplate={handleSaveTemplate}
                 />
             )}
-
-            <NovoContratoModal
-                isOpen={isAddContractModalOpen}
-                onClose={() => setIsAddContractModalOpen(false)}
-                allLocatarios={locatariosUnicos}
-                allFiadores={fiadoresUnicos}
-                allLocador={locadoresUnicos}
-                templates={templates}
-                onSuccess={handleContratoGerado}
-            />
         </div>
     );
 }

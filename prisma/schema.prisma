@@ -4,7 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -39,6 +39,8 @@ model Imob {
   configuracaoInter      ConfiguracaoInter?
   prestadorServicos      PrestadorServico[]
   manutencoes            Manutencao[]
+  persons                Person[]
+  leases                 Lease[]
 
   @@map("imob")
 }
@@ -76,6 +78,7 @@ model Imovel {
   id              String     @id @default(uuid())
   codigo          String     @unique
   numero          Int
+  complemento     String?
   logradouro      String?
   bairro          String
   cidade          String
@@ -118,6 +121,7 @@ model Imovel {
   contratoImovelLocacaos ContratoImovelLocacao[]
   transacoes             TransacaoFinanceira[]
   manutencoes            Manutencao[]
+  leases                 Lease[]
 
   @@map("imovel")
 }
@@ -150,7 +154,7 @@ model ImovelLocacao {
   // --- REAJUSTE ---
   proximoReajuste       DateTime?
   periodicidadeReajuste Int? // Salva em meses. Ex: 12
-  indiceReajuste        String? // Ex: "IGPM", "IPCA", "INPC"
+  indiceReajuste        String? // Ex: "IGP-M", "IPCA", "INPC"
 
   // --- QUALIDADE DO HISTORICO LOCATICIO ---
   historicoPeriodosStatus String    @default("NAO_INICIADO") // NAO_INICIADO, PARCIAL, COMPLETO, DIVERGENTE
@@ -178,6 +182,8 @@ model ImovelLocacao {
   locadors               Locador[]
   contratoImovelLocacaos ContratoImovelLocacao[]
   parcelasIntermediacao  ParcelaIntermediacao[]
+  person                 Person?                 @relation(fields: [personId], references: [id])
+  personId               String?
 
   @@map("imovel_locacao")
 }
@@ -201,19 +207,21 @@ model PeriodoContratoLocacao {
   tipoDesconto         String? // "PERCENTUAL" ou "VALOR"
   diasAntecedenciaDesc Int?
 
-  multaAtrasoPercentual Float?
-  diasCarenciaMulta     Int?
-  jurosAtrasoPercentual Float?
-  diasCarenciaJuros     Int?
-  indiceReajuste        String?
-  valorAluguelAnterior  Float?
-  percentualReajuste    Float?
-  reajusteAutomatico    Boolean   @default(false)
-  manterValorDeflacao   Boolean   @default(true)
-  dataCalculoReajuste   DateTime?
-  tipoPeriodo           String    @default("REAJUSTE") // BASE ou REAJUSTE
-  origemPeriodo         String    @default("MANUAL") // MANUAL, SICADI_PROVISORIO ou CALCULO_SISTEMA
-  diaVencimento         Int?
+  multaAtrasoPercentual    Float?
+  diasCarenciaMulta        Int?
+  jurosAtrasoPercentual    Float?
+  diasCarenciaJuros        Int?
+  indiceReajuste           String?
+  valorAluguelAnterior     Float?
+  percentualReajuste       Float?
+  reajusteAutomatico       Boolean   @default(false)
+  manterValorDeflacao      Boolean   @default(true)
+  dataCalculoReajuste      DateTime?
+  reajusteExecutadoPorId   String?
+  reajusteExecutadoPorNome String?
+  tipoPeriodo              String    @default("REAJUSTE") // BASE ou REAJUSTE
+  origemPeriodo            String    @default("MANUAL") // MANUAL, SICADI_PROVISORIO ou CALCULO_SISTEMA
+  diaVencimento            Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -221,6 +229,21 @@ model PeriodoContratoLocacao {
   @@index([dataFim])
   @@index([imovelLocacaoId, dataInicio, dataFim])
   @@map("periodo_contrato_locacao")
+}
+
+model IndiceEconomicoValor {
+  id           String   @id @default(cuid())
+  codigo       String
+  competencia  DateTime
+  taxaMensal   Decimal  @db.Decimal(12, 8)
+  fonte        String   @default("BCB_SGS")
+  consultadoEm DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([codigo, competencia])
+  @@index([competencia])
+  @@map("indice_economico_valor")
 }
 
 model ParcelaIntermediacao {
@@ -239,6 +262,7 @@ model ParcelaIntermediacao {
   @@map("parcela_intermediacao")
 }
 
+// pessoa
 model Locador {
   id            String @id @default(uuid())
   nome          String
@@ -257,6 +281,405 @@ model Locador {
   documentoUrl    Json? // objeto com lista de urls (documentos feitos uploads com url e nome do documentos)
   imovelLocacaoId String?
   imovelLocacao   ImovelLocacao? @relation(fields: [imovelLocacaoId], references: [id], onDelete: Cascade)
+}
+
+enum PersonCategory {
+  FISICA
+  JURIDICA
+}
+
+model Person {
+  id             String         @id @default(cuid())
+  imobId         String
+  imob           Imob           @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  type           PersonType
+  category       PersonCategory @default(FISICA)
+  name           String
+  cpfCnpj        String
+  secondaryEmail String?
+  email          String?
+
+  // --- Pessoa Física ---
+  rg            String?
+  issuingAgency String?
+  birthDate     DateTime?
+  nationality   String?
+  profession    String?
+  maritalStatus String?
+  gender        String?
+  monthlyIncome Decimal?
+  rne           String?
+
+  // --- Pessoa Jurídica ---
+  stateRegistration     String?
+  municipalRegistration String?
+  activity              String?
+  icmsTaxpayerType      String?
+  optantSimples         Boolean?
+
+  // --- Responsável Legal (PJ) ---
+  legalRepName              String?
+  legalRepCpf               String?
+  legalRepRg                String?
+  legalRepIssuingAgency     String?
+  legalRepEmail             String?
+  legalRepPhoneMobile       String?
+  legalRepPhoneMobileDesc   String?
+  legalRepPhoneLandline     String?
+  legalRepPhoneLandlineDesc String?
+
+  // --- Contato Financeiro (PJ) ---
+  financialName              String?
+  financialEmail             String?
+  financialPhoneMobile       String?
+  financialPhoneMobileDesc   String?
+  financialPhoneLandline     String?
+  financialPhoneLandlineDesc String?
+
+  createdAt    DateTime        @default(now())
+  phones       PersonPhone[]
+  addresses    PersonAddress[]
+  contratos    ImovelLocacao[]
+  leaseParties LeaseParty[]
+
+  @@map("person")
+}
+
+enum PersonType {
+  LOCADOR
+  LOCATARIO
+  FIADOR
+}
+
+model PersonPhone {
+  id          String  @id @default(cuid())
+  personId    String
+  person      Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  phone       String
+  type        String
+  observation String?
+
+  @@map("person_phone")
+}
+
+model PersonAddress {
+  id          String  @id @default(cuid())
+  personId    String
+  person      Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  cep         String
+  logradouro  String
+  numero      String
+  complemento String?
+  bairro      String
+  municipio   String
+  estado      String
+
+  @@map("person_address")
+}
+
+enum LeaseStatus {
+  DRAFT
+  REVIEW_PENDING
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+  CANCELLED
+}
+
+enum RentalType {
+  RESIDENTIAL
+  COMMERCIAL
+  SEASONAL
+}
+
+model Lease {
+  id               String      @id @default(cuid())
+  tenantId         String
+  imob             Imob        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code             String      @unique
+  status           LeaseStatus @default(DRAFT)
+  purpose          String?
+  rentalType       RentalType?
+  propertyId       String?
+  property         Imovel?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  startDate        DateTime?
+  endDate          DateTime?
+  legacySystem     String?
+  legacyCode       String?
+  migratedAt       DateTime?
+  reviewedAt       DateTime?
+  billingStartDate DateTime?
+  version          Int         @default(1)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  parties      LeaseParty[]
+  terms        LeaseTerms?
+  termsPeriods LeaseTermsPeriod[]
+  charges      LeaseCharge[]
+  transacoes   TransacaoFinanceira[]
+  guarantee    LeaseGuarantee?
+  clauses      LeaseClause[]
+  documents    LeaseDocument[]
+  iptu         LeaseIptu?
+  utilities    LeaseUtility[]
+  condominium  LeaseCondominium?
+
+  @@unique([tenantId, legacySystem, legacyCode])
+  @@index([tenantId, status])
+  @@index([tenantId, billingStartDate])
+  @@map("lease")
+}
+
+model LeaseIptu {
+  id               String    @id @default(cuid())
+  leaseId          String    @unique
+  lease            Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  inscription      String?
+  sequentialNumber String?
+  bookletHolder    String?
+  responsibleParty String?
+  lastCheckedDate  DateTime?
+  documentUrl      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lease_iptu")
+}
+
+model LeaseUtility {
+  id              String    @id @default(cuid())
+  leaseId         String
+  lease           Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  type            String
+  identification  String?
+  lastCheckedDate DateTime?
+  observation     String?   @db.Text
+  documentUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leaseId, type])
+  @@map("lease_utility")
+}
+
+model LeaseCondominium {
+  id               String    @id @default(cuid())
+  leaseId          String    @unique
+  lease            Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  condoName        String?
+  adminName        String?
+  adminPhone       String?
+  adminEmail       String?
+  adminWebsite     String?
+  syndicName       String?
+  syndicPhone      String?
+  responsibleParty String?
+  lastCheckedDate  DateTime?
+  documentUrl      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lease_condominium")
+}
+
+model LeaseParty {
+  id            String         @id @default(cuid())
+  leaseId       String
+  personId      String
+  role          LeasePartyRole
+  jointlyLiable Boolean        @default(false)
+  isPrimary     Boolean        @default(false)
+  participation Decimal?
+
+  lease  Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leaseId, personId, role])
+  @@index([leaseId])
+  @@index([personId])
+  @@map("lease_party")
+}
+
+enum LeasePartyRole {
+  TENANT
+  CO_TENANT
+  LANDLORD
+  GUARANTOR
+  SPOUSE
+  LEGAL_REPRESENTATIVE
+}
+
+model LeaseTerms {
+  id      String @id @default(cuid())
+  leaseId String @unique
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  // --- Dados do contrato ---
+  contractMonths       Int?      @default(30)
+  contractPenaltyValue Decimal?  @db.Decimal(15, 2)
+  contractPenaltyType  String?   @default("PERCENT")
+  penaltyBeforeDate    DateTime?
+  readjustmentPeriodM  Int?      @default(12)
+  readjustmentIndex    String?   @default("IGP-M")
+
+  // --- Aluguel & Vencimentos ---
+  rentValue            Decimal   @db.Decimal(15, 2)
+  paymentDueDay        Int       @default(10)
+  firstPeriodStartDate DateTime?
+  firstPeriodEndDay    String?
+  firstPeriodDueDate   DateTime?
+  nextReadjustmentDate DateTime?
+
+  // --- Pontualidade ---
+  earlyPaymentDiscount Decimal? @db.Decimal(15, 2)
+  discountType         String?  @default("PERCENT")
+  discountDaysBefore   Int?     @default(1)
+
+  // --- Multa e outros encargos ---
+  lateFeePercentage   Decimal? @db.Decimal(5, 2)
+  lateFeeDays         Int?     @default(1)
+  lateInterestMonthly Decimal? @db.Decimal(5, 2)
+  lateInterestDays    Int?     @default(1)
+  lawyerFeePercentage Decimal? @db.Decimal(5, 2)
+  lawyerFeeGraceDays  Int?     @default(90)
+
+  // --- Repasse ---
+  transferGraceDays Int?    @default(10)
+  guaranteedPeriod  String? @default("Não garantir")
+  guaranteeScope    String? @default("Somente o aluguel")
+
+  // --- Administração ---
+  adminFeePercentage      Decimal? @db.Decimal(5, 2)
+  adminFeeFinesPercentage Decimal? @db.Decimal(5, 2)
+  brokerageFeePercentage  Decimal? @db.Decimal(5, 2)
+
+  // --- Retenção IRRF ---
+  irrfRetentionResponsibility String? @default("LOCATARIO")
+
+  // --- Forma de cobrança ---
+  billingMethod String? @default("NONE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lease_terms")
+}
+
+model LeaseTermsPeriod {
+  id      String @id @default(cuid())
+  leaseId String
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  rentAmount    Decimal @db.Decimal(15, 2)
+  paymentDueDay Int
+
+  adjustmentIndex      String?
+  adjustmentPercentage Decimal? @db.Decimal(8, 4)
+  previousRentAmount   Decimal? @db.Decimal(15, 2)
+
+  earlyPaymentDiscount Decimal? @db.Decimal(15, 2)
+  discountType         String?
+  discountDaysBefore   Int?
+
+  lateFeePercentage   Decimal? @db.Decimal(5, 2)
+  lateFeeDays         Int?
+  lateInterestMonthly Decimal? @db.Decimal(5, 2)
+  lateInterestDays    Int?
+
+  lawyerFeePercentage Decimal? @db.Decimal(5, 2)
+  lawyerFeeGraceDays  Int?
+
+  transferGraceDays Int?
+  guaranteedPeriod  String?
+  guaranteeScope    String?
+
+  adminFeePercentage      Decimal? @db.Decimal(5, 2)
+  adminFeeFinesPercentage Decimal? @db.Decimal(5, 2)
+  brokerageFeePercentage  Decimal? @db.Decimal(5, 2)
+
+  source       String  @default("MANUAL")
+  externalId   String?
+  reviewStatus String  @default("PENDING")
+  notes        String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  charges LeaseCharge[]
+
+  @@unique([leaseId, effectiveFrom])
+  @@index([leaseId, effectiveFrom, effectiveTo])
+  @@map("lease_terms_period")
+}
+
+model LeaseCharge {
+  id              String            @id @default(cuid())
+  leaseId         String
+  lease           Lease             @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  termsPeriodId   String?
+  termsPeriod     LeaseTermsPeriod? @relation(fields: [termsPeriodId], references: [id], onDelete: SetNull)
+  competence      String?
+  description     String
+  chargeType      String
+  amount          Decimal           @db.Decimal(15, 2)
+  calculationData Json?
+  dueDate         DateTime
+  paidDate        DateTime?
+  status          String            @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leaseId, competence, chargeType])
+  @@index([termsPeriodId])
+  @@map("lease_charge")
+}
+
+model LeaseGuarantee {
+  id        String   @id @default(cuid())
+  leaseId   String   @unique
+  lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  type      String
+  details   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lease_guarantee")
+}
+
+model LeaseClause {
+  id        String   @id @default(cuid())
+  leaseId   String
+  lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  title     String
+  content   String   @db.Text
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lease_clause")
+}
+
+model LeaseDocument {
+  id        String   @id @default(cuid())
+  leaseId   String
+  lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  type      String?
+  createdAt DateTime @default(now())
+
+  @@map("lease_document")
 }
 
 model ContratoImovelLocacao {
@@ -328,10 +751,10 @@ model Locatario {
   conjugeRne           String?
   conjugeTelefone      Json? // [{ tipo: string, numero: string, observacao?: string }]
 
-  documentoUrl Json? // Objeto/lista JSON mapeando documentos digitalizados por categoria/nome
-  contratoId   String?
-  contrato     ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Cascade)
-  vistorias    Vistoria[]
+  documentoUrl    Json? // Objeto/lista JSON mapeando documentos digitalizados por categoria/nome
+  contratoId      String?
+  contrato        ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  vistorias       Vistoria[]
   acessosVistoria VistoriaLocatario[]
 }
 
@@ -478,13 +901,13 @@ model Vistoria {
   // ==========================================
   // ABA: GEOLOCALIZAÇÃO (Para auditoria de presença do vistoriador)
   // ==========================================
-  latitude             Float?
-  longitude            Float?
-  fotoItems            FotoItem[]
-  contestacaoVistorias ContestacaoVistoria[]
-  tokenAcesso          String?               @unique
-  locatarioId          String?
-  locatario            Locatario?            @relation(fields: [locatarioId], references: [id], onDelete: SetNull)
+  latitude              Float?
+  longitude             Float?
+  fotoItems             FotoItem[]
+  contestacaoVistorias  ContestacaoVistoria[]
+  tokenAcesso           String?               @unique
+  locatarioId           String?
+  locatario             Locatario?            @relation(fields: [locatarioId], references: [id], onDelete: SetNull)
   locatariosAutorizados VistoriaLocatario[]
 
   @@map("vistoria")
@@ -493,9 +916,9 @@ model Vistoria {
 model VistoriaLocatario {
   vistoriaId  String
   locatarioId String
-  vistoria    Vistoria   @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+  vistoria    Vistoria  @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
   locatario   Locatario @relation(fields: [locatarioId], references: [id], onDelete: Cascade)
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
 
   @@id([vistoriaId, locatarioId])
   @@index([locatarioId])
@@ -802,6 +1225,8 @@ model TransacaoFinanceira {
   usuario    Users?                 @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   contratoId String?
   contrato   ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+  leaseId    String?
+  lease      Lease?                 @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   // Vínculos
   comissao     Comissao[]
@@ -826,6 +1251,7 @@ model TransacaoFinanceira {
   interValorRecebido     Decimal?             @db.Decimal(15, 2) // para confronto
   descontosManutencao    DescontoManutencao[]
 
+  @@index([leaseId])
   @@map("transacao_financeira")
 }
 

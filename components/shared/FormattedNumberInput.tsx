@@ -32,7 +32,7 @@ export function FormattedNumberInput({
       {...props}
       type="text"
       inputMode="decimal"
-      value={focused ? value : formatDisplay(value, format)}
+      value={focused ? value : formatDisplay(value, format, decimals)}
       onChange={(event) => {
         onValueChange(event.target.value);
       }}
@@ -52,10 +52,14 @@ export function FormattedNumberInput({
   );
 }
 
-function formatDisplay(value: string, format: FormattedNumberInputProps["format"]) {
+function formatDisplay(
+  value: string,
+  format: FormattedNumberInputProps["format"],
+  decimals: number,
+) {
   const parsed = parseNumeroFlexivel(value);
   if (parsed === null) return "";
   if (format === "currency") return formatarMoeda(parsed);
   if (format === "percentage") return formatarPercentual(parsed);
-  return formatarNumeroEditavel(parsed);
+  return formatarNumeroEditavel(parsed, decimals);
 }

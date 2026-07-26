@@ -15,7 +15,8 @@ import {
   formatarPercentual,
   parseNumeroFlexivel,
 } from "@/lib/locacao/financeiro";
-import { updateImovelLocacao } from "../actions";
+import { updateImovelLocacao } from "../actions/actions";
+import { INDICES_REAJUSTE, normalizarCodigoIndice } from "@/lib/indices/catalogo";
 
 interface PeriodoResumo {
   dataInicio: string | Date;
@@ -101,7 +102,9 @@ export default function DadosVigenciaFormClient({ imovelLocacao, isEditMode, ven
   const [hasIPTU, setHasIPTU] = useState(imovelLocacao?.hasIPTU ?? false);
   const [diaVencimento, setDiaVencimento] = useState(String(imovelLocacao?.diaVencimento ?? vencimentoDia ?? ""));
   const [periodicidadeReajuste, setPeriodicidadeReajuste] = useState(String(imovelLocacao?.periodicidadeReajuste ?? 12));
-  const [indiceReajuste, setIndiceReajuste] = useState(imovelLocacao?.indiceReajuste ?? "");
+  const [indiceReajuste, setIndiceReajuste] = useState(
+    normalizarCodigoIndice(imovelLocacao?.indiceReajuste) ?? "",
+  );
   const [taxaAdministracao, setTaxaAdministracao] = useState(numericString(imovelLocacao?.taxaAdministracao));
   const [taxaMultasEncargos, setTaxaMultasEncargos] = useState(numericString(imovelLocacao?.taxaMultasEncargos));
   const [taxaIntermediacao, setTaxaIntermediacao] = useState(numericString(imovelLocacao?.taxaIntermediacao));
@@ -151,13 +154,13 @@ export default function DadosVigenciaFormClient({ imovelLocacao, isEditMode, ven
     : multaEntrada;
   const multaPreview = dataInicio && dataFim
     ? calcularMultaQuebra({
-        aluguelPeriodo: aluguelPeriodoAtual,
-        percentual: multaPercentual,
-        dataInicioContrato: dataInicio,
-        dataFimContrato: dataFim,
-        dataRescisao: formatarDataLocalISO(),
-        proporcional: multaQuebraProporcional,
-      })
+      aluguelPeriodo: aluguelPeriodoAtual,
+      percentual: multaPercentual,
+      dataInicioContrato: dataInicio,
+      dataFimContrato: dataFim,
+      dataRescisao: formatarDataLocalISO(),
+      proporcional: multaQuebraProporcional,
+    })
     : null;
   const descontoAtual = calcularDescontoPontualidade(
     aluguelPeriodoAtual,
@@ -356,7 +359,7 @@ function BooleanSelect({ value, onChange }: { value: boolean; onChange: (value: 
 }
 
 function IndexSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}><option value="">Não definido</option>{["IGP", "IGPM", "INPC", "IPC", "IPC-DI", "IPCA"].map((index) => <option key={index} value={index}>{index}</option>)}</select>;
+  return <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}><option value="">Não definido</option>{INDICES_REAJUSTE.map((indice) => <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>)}</select>;
 }
 
 function GuaranteeSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {

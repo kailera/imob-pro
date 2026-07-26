@@ -238,6 +238,24 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
             },
           },
         },
+        lease: {
+          include: {
+            property: true,
+            termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+            parties: {
+              where: { role: "TENANT" },
+              include: {
+                person: {
+                  include: {
+                    addresses: true,
+                    phones: true,
+                  },
+                },
+              },
+              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+            },
+          },
+        },
       },
     });
 
@@ -245,7 +263,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Transação não encontrada." };
     }
 
-    let finalImobId = transacao.contrato?.imobId;
+    let finalImobId = transacao.contrato?.imobId ?? transacao.lease?.tenantId;
     if (!finalImobId) {
       const firstImob = await prisma.imob.findFirst();
       if (!firstImob) {
@@ -255,6 +273,29 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     }
 
     let locatario = transacao.contrato?.locatarios?.[0] as any;
+    const leaseTenant = transacao.lease?.parties[0]?.person;
+    if (!locatario && leaseTenant) {
+      const address = leaseTenant.addresses[0];
+      locatario = {
+        id: leaseTenant.id,
+        nome: leaseTenant.name,
+        cpfCnpj: leaseTenant.cpfCnpj,
+        email: leaseTenant.email,
+        telefone: JSON.stringify(leaseTenant.phones.map(phone => ({
+          telefone: phone.phone,
+          qualificacao: phone.type,
+        }))),
+        endereco: address ? JSON.stringify({
+          logradouro: address.logradouro,
+          numero: address.numero,
+          complemento: address.complemento,
+          bairro: address.bairro,
+          municipio: address.municipio,
+          estado: address.estado,
+          cep: address.cep,
+        }) : null,
+      };
+    }
     if (!locatario) {
       // Fallback para inquilino de teste caso a transação tenha sido criada sem contrato
       const nomePagador = transacao.descricao.replace("Aluguel - ", "");
@@ -323,7 +364,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
     // Fallback dinâmico para endereço do imóvel
     if (!enderecoObj.logradouro || !enderecoObj.cep || enderecoObj.cep.length !== 8 || enderecoObj.cep === "00000000") {
-      const imovel = transacao.imovel || transacao.contrato?.imovel;
+      const imovel = transacao.imovel || transacao.contrato?.imovel || transacao.lease?.property;
       if (imovel) {
         let rawAddress = "";
         if (imovel.descricao && imovel.descricao.includes("Endereço completo importado:")) {
@@ -436,6 +477,50 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
             codigo: "PERCENTUALDATAINFORMAR",
             taxa: descPontualidade,
             dataLimite: limiteStr,
+          };
+        }
+      }
+    } else if (transacao.lease) {
+      const metadata = (transacao.metadata ?? {}) as Record<string, unknown>;
+      const periodId = typeof metadata.termsPeriodId === "string" ? metadata.termsPeriodId : null;
+      const termsPeriod = periodId
+        ? transacao.lease.termsPeriods.find(period => period.id === periodId)
+        : transacao.lease.termsPeriods.find(period =>
+            transacao.dataVencimento >= period.effectiveFrom
+            && (!period.effectiveTo || transacao.dataVencimento < period.effectiveTo),
+          );
+
+      if (!termsPeriod) {
+        return { success: false, error: "Período locatício da cobrança não encontrado." };
+      }
+
+      const lateFee = Number(termsPeriod.lateFeePercentage ?? 0);
+      if (lateFee > 0) {
+        payload.multa = { codigo: "PERCENTUAL", taxa: lateFee };
+      }
+
+      const lateInterest = Number(termsPeriod.lateInterestMonthly ?? 0);
+      if (lateInterest > 0) {
+        payload.mora = { codigo: "TAXAMENSAL", taxa: lateInterest };
+      }
+
+      const discount = Number(termsPeriod.earlyPaymentDiscount ?? 0);
+      if (discount > 0) {
+        const limiteDate = calcularDataLimiteDesconto(
+          dataVencimentoStr,
+          termsPeriod.discountDaysBefore ?? 0,
+        );
+        if (termsPeriod.discountType === "FIXED") {
+          payload.desconto = {
+            codigo: "VALORFIXODATAINFORMAR",
+            valor: discount,
+            dataLimite: limiteDate.toISOString().split("T")[0],
+          };
+        } else {
+          payload.desconto = {
+            codigo: "PERCENTUALDATAINFORMAR",
+            taxa: discount,
+            dataLimite: limiteDate.toISOString().split("T")[0],
           };
         }
       }

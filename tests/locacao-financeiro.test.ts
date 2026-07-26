@@ -11,6 +11,10 @@ import {
   parseNumeroFlexivel,
 } from "../lib/locacao/financeiro";
 import { resolverPeriodoDaCobranca } from "../lib/locacao/resolverPeriodoCobranca";
+import {
+  calcularComposicaoPeriodo,
+  cobrancaPodeSerSincronizada,
+} from "../lib/locacao/sincronizarCobrancas";
 
 test("aceita números digitados nos formatos comum e brasileiro", () => {
   assert.equal(parseNumeroFlexivel("1050"), 1050);
@@ -71,4 +75,45 @@ test("usa a competência para cobranças antigas sem identificação do período
     { id: "reajuste", dataInicio: "2026-01-20", dataFim: "2027-01-19" },
   ];
   assert.equal(resolverPeriodoDaCobranca(periodos, { competence: "2026-01" }, "2026-01-27")?.id, "base");
+});
+
+test("recalcula a cobrança com aluguel e encargos do período reajustado", () => {
+  const composicao = calcularComposicaoPeriodo({
+    id: "reajuste",
+    dataInicio: new Date("2026-07-14T00:00:00.000Z"),
+    dataFim: new Date("2027-07-13T00:00:00.000Z"),
+    valorAluguel: 2063.55,
+    hasCondominio: true,
+    valorCondominio: 150,
+    hasIPTU: false,
+    valorIPTU: 80,
+    diaVencimento: 15,
+  });
+  assert.deepEqual(composicao, {
+    aluguel: 2063.55,
+    condominio: 150,
+    iptu: 0,
+    total: 2213.55,
+  });
+});
+
+test("só permite sincronizar cobrança pendente ainda não enviada ao banco", () => {
+  const pendente = {
+    status: "PENDENTE",
+    metadata: { competence: "2026-08" },
+    interNossoNumero: null,
+    interCodigoSolicitacao: null,
+    interTxId: null,
+    interBarcode: null,
+  };
+  assert.equal(cobrancaPodeSerSincronizada(pendente), true);
+  assert.equal(cobrancaPodeSerSincronizada({ ...pendente, status: "LIQUIDADO" }), false);
+  assert.equal(cobrancaPodeSerSincronizada({ ...pendente, interNossoNumero: "123" }), false);
+  assert.equal(cobrancaPodeSerSincronizada({
+    ...pendente,
+    metadata: {
+      fonte: "dataset-scatolin-cobranca-csv",
+      situacaoOriginal: "Recepcionado",
+    },
+  }), false);
 });

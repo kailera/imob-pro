@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   adicionarDiasUTC,
+  calcularIntervaloCompetenciasReajuste,
   calcularFaixaPeriodo,
   calcularPercentualEntreValores,
   datasSaoConsecutivas,
   formatarDataInput,
   inicioMesUTC,
   proximoMesUTC,
+  sugerirLacunaPeriodo,
 } from "../lib/locacao/periodos";
 
 test("calcula período anual inclusivo no padrão usado pelo Sicadi", () => {
@@ -44,4 +46,36 @@ test("intervalo mensal é semiaberto e não perde eventos na virada do mês", ()
 
   assert.equal(reajusteEmJulho >= inicio && reajusteEmJulho < fimExclusivo, true);
   assert.equal(reajusteEmAgosto >= inicio && reajusteEmAgosto < fimExclusivo, false);
+});
+
+test("reajuste mensal usa competências fechadas até o mês anterior", () => {
+  const intervaloDiaQuatorze = calcularIntervaloCompetenciasReajuste("2025-07-14", "2026-07-13");
+  assert.equal(intervaloDiaQuatorze.dataInicio.toISOString().slice(0, 10), "2025-07-01");
+  assert.equal(intervaloDiaQuatorze.dataFim.toISOString().slice(0, 10), "2026-06-30");
+
+  const intervaloViradaMes = calcularIntervaloCompetenciasReajuste("2025-07-01", "2026-06-30");
+  assert.equal(intervaloViradaMes.dataInicio.toISOString().slice(0, 10), "2025-07-01");
+  assert.equal(intervaloViradaMes.dataFim.toISOString().slice(0, 10), "2026-06-30");
+});
+
+test("sugere o período inicial quando o histórico ainda não começou", () => {
+  const faixa = sugerirLacunaPeriodo("2025-07-14", "2028-07-13", [], 12);
+  assert.equal(formatarDataInput(faixa!.dataInicio), "2025-07-14");
+  assert.equal(formatarDataInput(faixa!.dataFim), "2026-07-13");
+});
+
+test("sugere a primeira lacuna entre períodos já cadastrados", () => {
+  const faixa = sugerirLacunaPeriodo("2024-01-01", "2027-12-31", [
+    { dataInicio: "2024-01-01", dataFim: "2024-12-31" },
+    { dataInicio: "2026-01-01", dataFim: "2026-12-31" },
+  ]);
+  assert.equal(formatarDataInput(faixa!.dataInicio), "2025-01-01");
+  assert.equal(formatarDataInput(faixa!.dataFim), "2025-12-31");
+});
+
+test("não sugere período quando toda a vigência está coberta", () => {
+  const faixa = sugerirLacunaPeriodo("2025-01-01", "2025-12-31", [
+    { dataInicio: "2025-01-01", dataFim: "2025-12-31" },
+  ]);
+  assert.equal(faixa, null);
 });

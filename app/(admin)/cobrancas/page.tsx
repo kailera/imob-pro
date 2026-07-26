@@ -121,7 +121,12 @@ export default function CobrancasPage() {
   const [genMonth, setGenMonth] = useState(new Date().getMonth() + 1);
   const [genYear, setGenYear] = useState(new Date().getFullYear());
   const [isGenerating, setIsGenerating] = useState(false);
-  const [genResult, setGenResult] = useState<{ success: boolean; count?: number; error?: string } | null>(null);
+  const [genResult, setGenResult] = useState<{
+    success: boolean;
+    count?: number;
+    updatedCount?: number;
+    error?: string;
+  } | null>(null);
 
   const handleGenerateMonthlyBillings = async () => {
     setIsGenerating(true);
@@ -129,7 +134,11 @@ export default function CobrancasPage() {
     try {
       const res = await gerarCobrançasMensaisAction(Number(genMonth), Number(genYear));
       if (res.success) {
-        setGenResult({ success: true, count: res.geradosCount });
+        setGenResult({
+          success: true,
+          count: res.geradosCount,
+          updatedCount: res.atualizadosCount,
+        });
         loadData();
       } else {
         setGenResult({ success: false, error: res.error });
@@ -606,6 +615,15 @@ export default function CobrancasPage() {
                       <p className="text-sm text-gray-600">
                         Foram geradas com sucesso <span className="font-extrabold text-[#280003]">{genResult.count}</span> novas cobranças para a competência {String(genMonth).padStart(2, '0')}/{genYear}.
                       </p>
+                      {(genResult.updatedCount ?? 0) > 0 && (
+                        <p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-[#004777]">
+                          <span className="font-extrabold">{genResult.updatedCount}</span>{" "}
+                          {genResult.updatedCount === 1
+                            ? "cobrança pendente foi sincronizada"
+                            : "cobranças pendentes foram sincronizadas"}{" "}
+                          com o período contratual vigente.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">

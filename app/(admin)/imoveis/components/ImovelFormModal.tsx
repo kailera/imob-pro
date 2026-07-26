@@ -7,6 +7,7 @@ import { saveOrUpdateImovelAction, getLocadores, createLocador } from "@/app/act
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
 import { formatBRL, formatCEP, formatCpfCnpj } from "@/app/(admin)/locacao/utils/formatters";
 import { PropertyCard, Property } from "@/components/public/PropertyCard";
+import { INDICES_REAJUSTE, normalizarCodigoIndice } from "@/lib/indices/catalogo";
 
 interface Imovel {
   id: string;
@@ -94,7 +95,7 @@ export default function ImovelFormModal({
   const [condDocDescricao, setCondDocDescricao] = useState("");
 
   // Detailed Rental States
-  const [indiceReajuste, setIndiceReajuste] = useState("8,33");
+  const [indiceReajuste, setIndiceReajuste] = useState("IGP-M");
   const [multaRescisao, setMultaRescisao] = useState("");
   // Estados para suportar Multa em Porcentagem / Meses
   const [multaQuebraTipo, setMultaQuebraTipo] = useState<"VALOR" | "PERCENTUAL" | "MESES">("VALOR");
@@ -200,7 +201,7 @@ export default function ImovelFormModal({
 
       // Load aluguelDados
       const d = editingImovel.aluguelDados as any || {};
-      setIndiceReajuste(d.indiceReajuste || "IGPM");
+      setIndiceReajuste(normalizarCodigoIndice(d.indiceReajuste) || "IGP-M");
       setMultaRescisao(d.multaRescisao ? formatBRL(d.multaRescisao.replace(/\D/g, "")) : "");
       setDataVenceQuebra(d.dataVenceQuebra || "2027-11-19");
 
@@ -267,7 +268,7 @@ export default function ImovelFormModal({
       setCondResponsavelPag("");
       setCondDataChecagem("");
       setCondDocDescricao("");
-      setIndiceReajuste("IGPM");
+      setIndiceReajuste("IGP-M");
       setMultaRescisao("");
       setDataVenceQuebra("2027-11-19");
       setDescontoPontualidade("9,44");
@@ -1046,12 +1047,9 @@ export default function ImovelFormModal({
                             onChange={(e) => setIndiceReajuste(e.target.value)}
                             className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                           >
-                            <option value="IGP">IGP</option>
-                            <option value="IGPM">IGPM</option>
-                            <option value="INPC">INPC</option>
-                            <option value="IPC">IPC</option>
-                            <option value="IPC-DI">IPC-DI</option>
-                            <option value="IPCA">IPCA</option>
+                            {INDICES_REAJUSTE.map((indice) => (
+                              <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
+                            ))}
                           </select>
                         </div>
 

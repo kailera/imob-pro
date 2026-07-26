@@ -34,3 +34,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Sincronização dos índices de reajuste
+
+Configure `CRON_SECRET` no ambiente e faça uma chamada diária:
+
+```bash
+curl -X POST https://SEU_DOMINIO/api/indices/sync \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+O endpoint atualiza os últimos 18 meses de IGP-M, IGP-DI, INPC, IPC-Fipe,
+IPC-DI e IPCA usando as séries mensais do SGS/BCB. Ao calcular um reajuste,
+o sistema usa o histórico salvo e tenta buscar somente competências ausentes.
+O reajuste é bloqueado se o intervalo mensal estiver incompleto.
