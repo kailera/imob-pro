@@ -5,8 +5,13 @@ node_modules
 out
 dist
 *.log
+tsconfig.tsbuildinfo
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Dados brutos usados somente pelos scripts locais de importação.
+# As imagens servidas pela aplicação ficam em public/ e continuam no build.
+imoveis_scatolin_cheerio
