@@ -24,10 +24,12 @@ import {
   getAgendaVencimentosLocacao,
   getPainelIndicesReajuste,
   type AgendaLocacaoEvento,
+  type OpcoesReajusteAgenda,
   type PainelIndiceReajuste,
 } from "../actions/actions";
 import { normalizarCodigoIndice } from "@/lib/indices/catalogo";
 import { CriarPeriodoAgendaForm } from "./CriarPeriodoAgendaForm";
+import { ReajusteAgendaForm } from "./ReajusteAgendaForm";
 
 interface AgendaVencimentosLocacaoProps {
   initialAno: number;
@@ -99,10 +101,17 @@ export default function AgendaVencimentosLocacao({
     carregarMes(referencia.getUTCFullYear(), referencia.getUTCMonth() + 1);
   };
 
-  const reajustarAutomaticamente = (evento: AgendaLocacaoEvento) => {
+  const reajustarAutomaticamente = (
+    evento: AgendaLocacaoEvento,
+    opcoes: OpcoesReajusteAgenda = {},
+  ) => {
     if (!evento.periodoId || !evento.podeReajustar) return;
+    const ajusteManual = opcoes.percentualManual != null || opcoes.valorManual != null;
+    const indice = opcoes.indice || evento.indiceReajuste;
     const confirmado = window.confirm(
-      `Reajustar automaticamente o contrato de ${evento.inquilino} pelo ${evento.indiceReajuste}?`
+      ajusteManual
+        ? `Confirmar o reajuste manual do contrato de ${evento.inquilino} pelo ${indice}?`
+        : `Reajustar automaticamente o contrato de ${evento.inquilino} pelo ${indice}?`
     );
     if (!confirmado) return;
 
@@ -110,7 +119,7 @@ export default function AgendaVencimentosLocacao({
     setSucesso("");
     setExecutandoId(evento.id);
     startTransition(async () => {
-      const resultado = await executarReajusteAutomatico(evento.periodoId!);
+      const resultado = await executarReajusteAutomatico(evento.periodoId!, opcoes);
       if (!resultado.success) {
         setErro(resultado.error || "Não foi possível executar o reajuste.");
         setExecutandoId(null);
@@ -398,6 +407,14 @@ export default function AgendaVencimentosLocacao({
                         <strong>Esta é apenas uma prévia.</strong> {evento.motivoBloqueio} Abra o contrato e complete o histórico antes de aplicar o reajuste.
                       </p>
                     </div>
+                  )}
+                  {evento.podeReajustar && (
+                    <ReajusteAgendaForm
+                      evento={evento}
+                      indices={indices}
+                      pending={isPending || executandoId === evento.id}
+                      onApply={opcoes => reajustarAutomaticamente(evento, opcoes)}
+                    />
                   )}
                 </div>
               )}

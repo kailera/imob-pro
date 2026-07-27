@@ -567,7 +567,16 @@ export const calcularIndiceReajuste = async (indice: string, dataInicio: string,
     }
 };
 
-export const executarReajusteAutomatico = async (periodoId: string) => {
+export interface OpcoesReajusteAgenda {
+    indice?: string;
+    percentualManual?: number | null;
+    valorManual?: number | null;
+}
+
+export const executarReajusteAutomatico = async (
+    periodoId: string,
+    opcoes: OpcoesReajusteAgenda = {},
+) => {
     if (!periodoId?.trim()) {
         return { success: false as const, error: "Período de referência inválido." };
     }
@@ -615,29 +624,61 @@ export const executarReajusteAutomatico = async (periodoId: string) => {
             return { success: false as const, error: "O contrato já chegou ao fim da vigência." };
         }
 
-        const indice = normalizarCodigoIndice(periodoAnterior.indiceReajuste || locacao.indiceReajuste);
+        const indice = normalizarCodigoIndice(
+            opcoes.indice || periodoAnterior.indiceReajuste || locacao.indiceReajuste,
+        );
         if (!indice) {
             return { success: false as const, error: "Defina um índice oficial compatível antes de reajustar." };
         }
 
-        const calculo = await calcularIndiceReajuste(
-            indice,
-            normalizarDataUTC(periodoAnterior.dataInicio).toISOString().slice(0, 10),
-            normalizarDataUTC(periodoAnterior.dataFim).toISOString().slice(0, 10),
-        );
-        if (!calculo.success || calculo.percentual === undefined) {
-            return {
-                success: false as const,
-                error: calculo.error || "Não foi possível calcular o índice do período.",
-            };
-        }
-
         const manterValorDeflacao = periodoAnterior.manterValorDeflacao;
-        const percentualAplicado = calculo.percentual;
-        const valorCalculado = percentualAplicado < 0 && manterValorDeflacao
-            ? periodoAnterior.valorAluguel
-            : periodoAnterior.valorAluguel * (1 + percentualAplicado / 100);
-        const novoValorAluguel = Number(valorCalculado.toFixed(2));
+        const ajusteManual = opcoes.percentualManual != null || opcoes.valorManual != null;
+        let percentualAplicado: number;
+        let novoValorAluguel: number;
+        let fonteCalculo: string;
+
+        if (ajusteManual) {
+            if (opcoes.valorManual != null) {
+                if (!Number.isFinite(opcoes.valorManual) || opcoes.valorManual <= 0) {
+                    return { success: false as const, error: "Informe um valor corrigido maior que zero." };
+                }
+                novoValorAluguel = Number(opcoes.valorManual.toFixed(2));
+                percentualAplicado = Number(
+                    (((novoValorAluguel / periodoAnterior.valorAluguel) - 1) * 100).toFixed(4),
+                );
+            } else {
+                if (
+                    opcoes.percentualManual == null
+                    || !Number.isFinite(opcoes.percentualManual)
+                    || opcoes.percentualManual <= -100
+                ) {
+                    return { success: false as const, error: "Informe um percentual manual válido." };
+                }
+                percentualAplicado = Number(opcoes.percentualManual.toFixed(4));
+                novoValorAluguel = Number(
+                    (periodoAnterior.valorAluguel * (1 + percentualAplicado / 100)).toFixed(2),
+                );
+            }
+            fonteCalculo = "MANUAL";
+        } else {
+            const calculo = await calcularIndiceReajuste(
+                indice,
+                normalizarDataUTC(periodoAnterior.dataInicio).toISOString().slice(0, 10),
+                normalizarDataUTC(periodoAnterior.dataFim).toISOString().slice(0, 10),
+            );
+            if (!calculo.success || calculo.percentual === undefined) {
+                return {
+                    success: false as const,
+                    error: calculo.error || "Não foi possível calcular o índice do período.",
+                };
+            }
+            percentualAplicado = calculo.percentual;
+            const valorCalculado = percentualAplicado < 0 && manterValorDeflacao
+                ? periodoAnterior.valorAluguel
+                : periodoAnterior.valorAluguel * (1 + percentualAplicado / 100);
+            novoValorAluguel = Number(valorCalculado.toFixed(2));
+            fonteCalculo = calculo.fonte;
+        }
         const periodicidade = Math.max(1, locacao.periodicidadeReajuste || 12);
         const fimCalculado = adicionarDiasUTC(adicionarMesesUTC(dataInicioNovoPeriodo, periodicidade), -1);
         const dataFimNovoPeriodo = fimCalculado > fimContrato ? fimContrato : fimCalculado;
@@ -677,13 +718,13 @@ export const executarReajusteAutomatico = async (periodoId: string) => {
                     indiceReajuste: indice,
                     valorAluguelAnterior: periodoAnterior.valorAluguel,
                     percentualReajuste: percentualAplicado,
-                    reajusteAutomatico: true,
+                    reajusteAutomatico: !ajusteManual,
                     manterValorDeflacao,
                     dataCalculoReajuste: new Date(),
                     reajusteExecutadoPorId: userId,
                     reajusteExecutadoPorNome: executadoPorNome,
                     tipoPeriodo: "REAJUSTE",
-                    origemPeriodo: "CALCULO_SISTEMA",
+                    origemPeriodo: ajusteManual ? "MANUAL" : "CALCULO_SISTEMA",
                     diaVencimento: periodoAnterior.diaVencimento || locacao.diaVencimento,
                 },
             });
@@ -702,7 +743,7 @@ export const executarReajusteAutomatico = async (periodoId: string) => {
                 indice,
                 executadoEm: novoPeriodo.dataCalculoReajuste?.toISOString() || new Date().toISOString(),
                 executadoPor: executadoPorNome,
-                fonte: calculo.fonte,
+                fonte: fonteCalculo,
             },
         };
     } catch (error: unknown) {

@@ -31,8 +31,8 @@ test("interpreta explicitamente as datas dd/MM/yyyy do BCB", () => {
   assert.throws(() => parseDataBcb("31/02/2026"), /Data inválida/);
 });
 
-test("soma as taxas mensais conforme a regra do SICADI", () => {
+test("compõe as taxas mensais para calcular a prévia acumulada", () => {
   const resultado = calcularVariacaoSicadi([1, 1]);
-  assert.equal(resultado.percentual, 2);
-  assert.equal(resultado.fator, 1.02);
+  assert.equal(resultado.percentual, 2.01);
+  assert.equal(resultado.fator, 1.0201);
 });
