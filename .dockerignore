@@ -12,6 +12,11 @@ tsconfig.tsbuildinfo
 .env.test.local
 .env.production.local
 
-# Dados brutos usados somente pelos scripts locais de importação.
-# As imagens servidas pela aplicação ficam em public/ e continuam no build.
+# Dados brutos e gerados
 imoveis_scatolin_cheerio
+generated
+.agent
+.agents
+openspec
+tests
+*.csv
