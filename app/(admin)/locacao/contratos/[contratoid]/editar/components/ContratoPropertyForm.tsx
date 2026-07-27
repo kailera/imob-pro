@@ -24,7 +24,6 @@ type Property = PropertyData | null
 type Props = {
   contratoId: string
   property: Property
-  availableProperties: PropertyData[]
 }
 
 const initialState: PropertyActionState = {
@@ -44,9 +43,8 @@ function formatCep(value: string | number | null | undefined, padStoredValue = f
 export function ContratoPropertyForm({
   contratoId,
   property,
-  availableProperties,
 }: Props) {
-  const [selectedPropertyId, setSelectedPropertyId] = useState(property?.id ?? '')
+  const [propertyType, setPropertyType] = useState(property?.tipo || 'CASA')
   const [formDataState, setFormDataState] = useState({
     cep: formatCep(property?.cep, true),
     logradouro: property?.logradouro || '',
@@ -88,22 +86,6 @@ export function ContratoPropertyForm({
     if (formDataState.cep.replace(/\D/g, '') !== '00000000') return
     setCepMessage(null)
     setFormDataState(previous => ({ ...previous, cep: '' }))
-  }
-
-  const handlePropertyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const propertyId = event.target.value
-    const selectedProperty = availableProperties.find(item => item.id === propertyId)
-    setSelectedPropertyId(propertyId)
-    setCepMessage(null)
-    setFormDataState({
-      cep: formatCep(selectedProperty?.cep, true),
-      logradouro: selectedProperty?.logradouro || '',
-      numero: selectedProperty?.numero?.toString() || '',
-      complemento: selectedProperty?.complemento || '',
-      bairro: selectedProperty?.bairro || '',
-      cidade: selectedProperty?.cidade || '',
-      estado: selectedProperty?.estado || selectedProperty?.uf || '',
-    })
   }
 
   useEffect(() => {
@@ -158,25 +140,28 @@ export function ContratoPropertyForm({
       </div>
 
       <div className="space-y-4 text-xs">
-        <div>
-          <label htmlFor="propertyId" className="block font-medium text-gray-700 mb-1">
-            Imóvel vinculado ao contrato*
-          </label>
-          <select
-            id="propertyId"
-            name="propertyId"
-            value={selectedPropertyId}
-            onChange={handlePropertyChange}
-            className="w-full min-h-11 px-3 py-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#004777]"
-          >
-            <option value="">Selecione um imóvel</option>
-            {availableProperties.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.codigo} — {item.logradouro || 'Endereço não informado'}, {item.numero ?? 'S/N'}
-              </option>
-            ))}
-          </select>
-          <FieldErrors errors={state.errors?.propertyId} />
+        <input type="hidden" name="propertyId" value={property?.id ?? ''} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="md:col-span-1">
+            <label htmlFor="propertyType" className="block font-medium text-gray-700 mb-1">
+              Tipo do imóvel*
+            </label>
+            <select
+              id="propertyType"
+              name="tipo"
+              value={propertyType}
+              onChange={event => setPropertyType(event.target.value)}
+              className="w-full min-h-11 px-3 py-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#004777]"
+            >
+              <option value="CASA">Casa</option>
+              <option value="CONDOMINIO">Condomínio</option>
+              <option value="LOTE">Lote</option>
+              <option value="COMERCIAL">Comercial</option>
+              <option value="RURAL">Rural</option>
+              <option value="KITNET">Kitnet</option>
+            </select>
+            <FieldErrors errors={state.errors?.tipo} />
+          </div>
         </div>
 
         {/* Campos de Endereço */}
@@ -291,7 +276,9 @@ export function ContratoPropertyForm({
           disabled={pending}
           className="py-2.5 px-6 bg-[#004777] hover:bg-[#003355] text-white font-semibold rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
         >
-          {pending ? 'Salvando...' : 'Salvar imóvel'}
+          {pending
+            ? 'Salvando...'
+            : property?.id ? 'Salvar imóvel' : 'Criar imóvel'}
         </button>
 
         {state.message && (
@@ -305,6 +292,7 @@ export function ContratoPropertyForm({
           </p>
         )}
       </div>
+
     </form>
   )
 }

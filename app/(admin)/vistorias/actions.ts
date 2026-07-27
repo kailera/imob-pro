@@ -917,7 +917,8 @@ export async function createAndLinkImovelToVistoria(
     }
 }
 
-export async function updateImovelDetails(
+export async function updateVistoriaImovelDetails(
+    vistoriaId: string,
     imovelId: string,
     input: {
         codigo?: string;
@@ -931,9 +932,22 @@ export async function updateImovelDetails(
     }
 ) {
     try {
-        const updatedImovel = await prisma.imovel.update({
-            where: { id: imovelId },
-            data: {
+        const updatedVistoria = await prisma.$transaction(async (tx) => {
+            const vistoria = await tx.vistoria.findUnique({
+                where: { id: vistoriaId },
+                select: { imovelId: true, codigo: true },
+            });
+            if (!vistoria || vistoria.imovelId !== imovelId) {
+                throw new Error("O imovel informado nao esta vinculado a esta vistoria.");
+            }
+
+            const imovel = await tx.imovel.findUnique({ where: { id: imovelId } });
+            if (!imovel) throw new Error("Imovel nao encontrado.");
+
+            const otherVistorias = await tx.vistoria.count({
+                where: { imovelId, id: { not: vistoriaId } },
+            });
+            const changes = {
                 ...(input.codigo ? { codigo: input.codigo } : {}),
                 ...(input.logradouro !== undefined ? { logradouro: input.logradouro || null } : {}),
                 ...(input.numero !== undefined ? { numero: input.numero } : {}),
@@ -941,18 +955,63 @@ export async function updateImovelDetails(
                 ...(input.cidade ? { cidade: input.cidade } : {}),
                 ...(input.uf ? { uf: input.uf } : {}),
                 ...(input.tipo ? { tipo: input.tipo } : {}),
-            }
+            };
+
+            // Preserve other inspections' address history when this property is shared.
+            const updatedImovel = otherVistorias > 0
+                ? await tx.imovel.create({
+                    data: {
+                        codigo: `${imovel.codigo}-V-${vistoria.codigo}`,
+                        numero: imovel.numero,
+                        complemento: imovel.complemento,
+                        logradouro: imovel.logradouro,
+                        bairro: imovel.bairro,
+                        cidade: imovel.cidade,
+                        uf: imovel.uf,
+                        cep: imovel.cep,
+                        latitude: imovel.latitude,
+                        longitude: imovel.longitude,
+                        tipo: imovel.tipo,
+                        forVenda: imovel.forVenda,
+                        forLocacao: imovel.forLocacao,
+                        valorAluguel: imovel.valorAluguel,
+                        valorCondominio: imovel.valorCondominio,
+                        valorIPTU: imovel.valorIPTU,
+                        valorVenda: imovel.valorVenda,
+                        valorTotal: imovel.valorTotal,
+                        area: imovel.area,
+                        titulo: imovel.titulo,
+                        descricao: imovel.descricao,
+                        imagens: imovel.imagens,
+                        quartos: imovel.quartos,
+                        banheiros: imovel.banheiros,
+                        vagas: imovel.vagas,
+                        publicado: imovel.publicado,
+                        loteamentoId: imovel.loteamentoId,
+                        quadra: imovel.quadra,
+                        loteNumero: imovel.loteNumero,
+                        topografia: imovel.topografia,
+                        statusLote: imovel.statusLote,
+                        aluguelDados: imovel.aluguelDados ?? undefined,
+                        imobId: imovel.imobId,
+                        ...changes,
+                    },
+                })
+                : await tx.imovel.update({ where: { id: imovelId }, data: changes });
+
+            return tx.vistoria.update({
+                where: { id: vistoriaId },
+                data: {
+                    imovelId: updatedImovel.id,
+                    ...(input.proprietario ? { proprietario: input.proprietario } : {}),
+                },
+                include: { imovel: true, vistoriador: true, operador: true },
+            });
         });
 
-        if (input.proprietario) {
-            await prisma.vistoria.updateMany({
-                where: { imovelId },
-                data: { proprietario: input.proprietario }
-            });
-        }
-
         revalidatePath("/vistorias");
-        return { success: true, data: updatedImovel };
+        revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
+        return { success: true, data: updatedVistoria };
     } catch (error: any) {
         console.error("Erro ao atualizar dados do imóvel:", error);
         return { success: false, error: error.message || "Erro ao atualizar imóvel." };

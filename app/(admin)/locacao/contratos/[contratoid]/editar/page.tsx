@@ -95,7 +95,6 @@ export default async function EditContratoPage({
                             key={`imovel-${contrato.version}-${contrato.imovel?.id ?? 'sem-imovel'}`}
                             contratoId={contrato.id}
                             property={contrato.imovel}
-                            availableProperties={contrato.imoveisDisponiveis}
                         />
                     </section>
 

@@ -1,7 +1,9 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { updateLeaseIptu, type IptuActionState } from '@/app/(admin)/locacao/actions/updateLeaseIptu'
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput'
+import { formatarNumeroEditavel } from '@/lib/locacao/financeiro'
 import type { LeaseAttachment } from '@/lib/locacao/anexos'
 import { LeaseAttachmentsField } from './LeaseAttachmentsField'
 
@@ -19,6 +21,9 @@ type Props = {
         bookletHolder: string
         responsibleParty: string
         lastCheckedDate: string
+        amount: number | null
+        paymentStartDate: string
+        installments: string
         attachments: LeaseAttachment[]
     } | null
 }
@@ -26,6 +31,7 @@ type Props = {
 export function ContratoIptuForm({ contratoId, iptu }: Props) {
     const action = updateLeaseIptu.bind(null, contratoId)
     const [state, formAction, pending] = useActionState(action, initialState)
+    const [amount, setAmount] = useState(formatarNumeroEditavel(iptu?.amount))
 
     return (
         <form action={formAction} id="sec-iptu" className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
@@ -36,6 +42,46 @@ export function ContratoIptuForm({ contratoId, iptu }: Props) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                    <label htmlFor="iptuAmount" className="block font-medium text-gray-700 mb-1">Valor do IPTU:</label>
+                    <FormattedNumberInput
+                        id="iptuAmount"
+                        name="amount"
+                        value={amount}
+                        onValueChange={setAmount}
+                        format="currency"
+                        placeholder="R$ 0,00"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    {state.errors.amount?.map(error => <p key={error} className="mt-1 text-red-600">{error}</p>)}
+                </div>
+
+                <div>
+                    <label htmlFor="iptuPaymentStartDate" className="block font-medium text-gray-700 mb-1">Pagamento a partir de:</label>
+                    <input
+                        id="iptuPaymentStartDate"
+                        type="date"
+                        name="paymentStartDate"
+                        defaultValue={iptu?.paymentStartDate}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    {state.errors.paymentStartDate?.map(error => <p key={error} className="mt-1 text-red-600">{error}</p>)}
+                </div>
+
+                <div>
+                    <label htmlFor="iptuInstallments" className="block font-medium text-gray-700 mb-1">Quantidade de parcelas:</label>
+                    <input
+                        id="iptuInstallments"
+                        type="text"
+                        inputMode="numeric"
+                        name="installments"
+                        defaultValue={iptu?.installments}
+                        placeholder="Ex.: 10"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    {state.errors.installments?.map(error => <p key={error} className="mt-1 text-red-600">{error}</p>)}
+                </div>
+
                 <div>
                     <label className="block font-medium text-gray-700 mb-1">Inscrição:</label>
                     <input

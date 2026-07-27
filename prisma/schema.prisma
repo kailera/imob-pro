@@ -441,6 +441,9 @@ model LeaseIptu {
   responsibleParty String?
   lastCheckedDate  DateTime?
   documentUrl      String?
+  amount           Decimal?  @db.Decimal(15, 2)
+  paymentStartDate DateTime?
+  installments     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

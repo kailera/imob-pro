@@ -6,6 +6,7 @@ import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import { criarDataVencimento } from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
+import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -133,6 +134,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       },
       include: {
         property: true,
+        iptu: true,
         termsPeriods: { orderBy: { effectiveFrom: "asc" } },
         parties: {
           where: { role: "TENANT" },
@@ -178,11 +180,16 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
 
         const tenantName = lease.parties[0]?.person.name || "Inquilino";
         const rentAmount = Number(periodoAtivo.rentAmount);
+        const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento);
+        const totalAmount = Number((rentAmount + iptu.valor).toFixed(2));
         const metadata = {
           competence,
           leaseId: lease.id,
           termsPeriodId: periodoAtivo.id,
           rentValue: rentAmount,
+          iptuValue: iptu.valor,
+          iptuInstallment: iptu.numeroParcela,
+          iptuInstallments: iptu.quantidadeParcelas,
           dueDay: periodoAtivo.paymentDueDay,
           source: "LEASE_TERMS_PERIOD",
         };
@@ -195,7 +202,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               competence,
               description: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
               chargeType: "RENT",
-              amount: periodoAtivo.rentAmount,
+              amount: totalAmount,
               calculationData: metadata,
               dueDate: dataVencimento,
             },
@@ -204,7 +211,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           await tx.transacaoFinanceira.create({
             data: {
               descricao: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
-              valor: rentAmount,
+              valor: totalAmount,
               tipo: "RECEITA",
               categoria: "ALUGUEL",
               status: "PENDENTE",

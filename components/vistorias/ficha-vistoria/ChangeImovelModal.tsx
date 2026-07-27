@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Search, Plus, Building, MapPin, AlertTriangle, Loader2, Check, Edit2, Save, ArrowLeft } from "lucide-react";
 import { formatImovelAddress } from "@/lib/vistorias/formatters";
-import { getImoveisForVistoria, updateVistoriaImovel, createAndLinkImovelToVistoria, updateImovelDetails } from "@/app/(admin)/vistorias/actions";
+import { getImoveisForVistoria, updateVistoriaImovel, createAndLinkImovelToVistoria, updateVistoriaImovelDetails } from "@/app/(admin)/vistorias/actions";
 
 interface ChangeImovelModalProps {
   isOpen: boolean;
@@ -118,7 +118,7 @@ export function ChangeImovelModal({
     setSavingEdit(true);
     setErrorMessage("");
     try {
-      const res = await updateImovelDetails(editingImovelId, {
+      const res = await updateVistoriaImovelDetails(vistoriaId, editingImovelId, {
         logradouro: editLogradouro || undefined,
         numero: typeof editNumero === "number" ? editNumero : 0,
         bairro: editBairro,
@@ -130,10 +130,7 @@ export function ChangeImovelModal({
 
       if (res.success && res.data) {
         // Se o imóvel editado é o atualmente vinculado a esta vistoria, vincula/recarrega
-        const updateVistoriaRes = await updateVistoriaImovel(vistoriaId, editingImovelId, editProprietario);
-        if (updateVistoriaRes.success && updateVistoriaRes.data) {
-          onImovelUpdated(updateVistoriaRes.data);
-        }
+        onImovelUpdated(res.data);
         await loadImoveis();
         setEditingImovelId(null);
       } else {

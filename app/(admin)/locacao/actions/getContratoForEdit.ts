@@ -62,23 +62,6 @@ export async function getContratoForEdit(
     return null
   }
 
-  const availableProperties = await prisma.imovel.findMany({
-    where: { imobId: context.tenantId },
-    orderBy: { codigo: 'asc' },
-    select: {
-      id: true,
-      codigo: true,
-      tipo: true,
-      logradouro: true,
-      numero: true,
-      complemento: true,
-      bairro: true,
-      cidade: true,
-      uf: true,
-      cep: true,
-    },
-  })
-
   const startDateStr = lease.startDate ? lease.startDate.toISOString().slice(0, 10) : ''
   const endDateStr = lease.endDate ? lease.endDate.toISOString().slice(0, 10) : ''
   let prazoMeses = ''
@@ -105,7 +88,6 @@ export async function getContratoForEdit(
     reviewedAt: lease.reviewedAt?.toISOString() ?? null,
     billingStartDate: lease.billingStartDate ? lease.billingStartDate.toISOString().slice(0, 10) : '',
     imovel: lease.property,
-    imoveisDisponiveis: availableProperties,
     participantes: lease.parties.map(item => ({
       id: item.id,
       papel: item.role,
@@ -245,6 +227,11 @@ export async function getContratoForEdit(
       bookletHolder: lease.iptu.bookletHolder ?? '',
       responsibleParty: lease.iptu.responsibleParty ?? '',
       lastCheckedDate: lease.iptu.lastCheckedDate ? lease.iptu.lastCheckedDate.toISOString().slice(0, 10) : '',
+      amount: lease.iptu.amount ? Number(lease.iptu.amount) : null,
+      paymentStartDate: lease.iptu.paymentStartDate
+        ? lease.iptu.paymentStartDate.toISOString().slice(0, 10)
+        : '',
+      installments: lease.iptu.installments ?? '',
       attachments: parseLeaseAttachments(lease.iptu.documentUrl),
     } : null,
     utilities: lease.utilities.map(u => ({

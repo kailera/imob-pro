@@ -275,7 +275,7 @@ export default function CobrancasPage() {
             valor: tx.valor,
             cedente: 'Imob Pro',
             sacadoNome: tx.descricao.replace('Aluguel - ', ''),
-            sacadoCpf: '***.***.***-**',
+            sacadoCpf: locatarioObj?.cpfCnpj || '***.***.***-**',
             sacadoTelefone,
             pagamentoData: formatShortDate(tx.dataPagamento),
             pagamentoValor: tx.status === 'LIQUIDADO' ? tx.valor : null,

@@ -15,10 +15,26 @@ export async function GET(req: NextRequest) {
     const limit = searchParams.get('limit') || '10';
 
     const where: any = {};
+    const searchTerm = search?.trim();
+    const searchDocumentDigits = searchTerm?.replace(/\D/g, '') || '';
+    const searchDocumentVariants = new Set(
+      [
+        searchTerm,
+        searchDocumentDigits,
+        searchDocumentDigits.length === 11
+          ? searchDocumentDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+          : '',
+        searchDocumentDigits.length === 14
+          ? searchDocumentDigits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+          : '',
+      ].filter(Boolean)
+    );
 
     if (tipo) where.tipo = tipo;
     if (categoria) where.categoria = categoria;
-    if (status && status !== 'Todas') {
+    // A busca do sacado deve localizar todas as cobranças correspondentes,
+    // sem restringir o resultado por situação ou período.
+    if (!searchTerm && status && status !== 'Todas') {
       // Map situations from page view if needed, or query directly
       if (status === 'Pendente') {
         where.status = 'PENDENTE';
@@ -31,11 +47,28 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (search) {
-      where.descricao = {
-        contains: search,
-        mode: 'insensitive'
-      };
+    if (searchTerm) {
+      const documentSearch = Array.from(searchDocumentVariants).map((document) => ({
+        cpfCnpj: { contains: document, mode: 'insensitive' },
+      }));
+
+      where.OR = [
+        { descricao: { contains: searchTerm, mode: 'insensitive' } },
+        {
+          contrato: {
+            is: {
+              locatarios: {
+                some: {
+                  OR: [
+                    { nome: { contains: searchTerm, mode: 'insensitive' } },
+                    ...documentSearch,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ];
     }
 
     const fieldMap: Record<string, string> = {
@@ -46,7 +79,7 @@ export async function GET(req: NextRequest) {
     };
     const dbField = fieldMap[dateField] || 'dataVencimento';
 
-    if (startDate || endDate) {
+    if (!searchTerm && (startDate || endDate)) {
       where[dbField] = {};
       if (startDate) where[dbField].gte = new Date(startDate);
       if (endDate) where[dbField].lte = new Date(endDate);
@@ -73,7 +106,7 @@ export async function GET(req: NextRequest) {
             contrato: {
               include: {
                 locatarios: {
-                  select: { telefone: true }
+                  select: { telefone: true, cpfCnpj: true }
                 }
               }
             }
@@ -139,7 +172,7 @@ export async function GET(req: NextRequest) {
         contrato: {
           include: {
             locatarios: {
-              select: { telefone: true }
+              select: { telefone: true, cpfCnpj: true }
             }
           }
         }

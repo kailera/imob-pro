@@ -3,7 +3,7 @@ import https from "https";
 import axios from "axios";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, bucketName } from "@/lib/storage";
-import { calcularDataLimiteDesconto } from "@/lib/locacao/financeiro";
+import { criarDescontoInterV3, criarInstrucoesBoletoInter } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
 // Interface para estruturar o retorno das chamadas do Inter
@@ -463,22 +463,12 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
           ?? 0;
         const tipoDesconto = periodoCobranca?.tipoDesconto
           ?? imovelLocacao.tipoDesconto;
-        const limiteDate = calcularDataLimiteDesconto(dataVencimentoStr, diasAntecedencia);
-        const limiteStr = limiteDate.toISOString().split("T")[0];
-        
-        if (tipoDesconto === "VALOR") {
-          payload.desconto = {
-            codigo: "VALORFIXODATAINFORMAR",
-            valor: descPontualidade,
-            dataLimite: limiteStr,
-          };
-        } else if (tipoDesconto === "PERCENTUAL") {
-          payload.desconto = {
-            codigo: "PERCENTUALDATAINFORMAR",
-            taxa: descPontualidade,
-            dataLimite: limiteStr,
-          };
-        }
+        const desconto = criarDescontoInterV3({
+          valor: descPontualidade,
+          tipo: tipoDesconto,
+          diasAntesDoVencimento: diasAntecedencia,
+        });
+        if (desconto) payload.desconto = desconto;
       }
     } else if (transacao.lease) {
       const metadata = (transacao.metadata ?? {}) as Record<string, unknown>;
@@ -506,24 +496,23 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
       const discount = Number(termsPeriod.earlyPaymentDiscount ?? 0);
       if (discount > 0) {
-        const limiteDate = calcularDataLimiteDesconto(
-          dataVencimentoStr,
-          termsPeriod.discountDaysBefore ?? 0,
-        );
-        if (termsPeriod.discountType === "FIXED") {
-          payload.desconto = {
-            codigo: "VALORFIXODATAINFORMAR",
-            valor: discount,
-            dataLimite: limiteDate.toISOString().split("T")[0],
-          };
-        } else {
-          payload.desconto = {
-            codigo: "PERCENTUALDATAINFORMAR",
-            taxa: discount,
-            dataLimite: limiteDate.toISOString().split("T")[0],
-          };
-        }
+        const desconto = criarDescontoInterV3({
+          valor: discount,
+          tipo: termsPeriod.discountType,
+          diasAntesDoVencimento: termsPeriod.discountDaysBefore,
+        });
+        if (desconto) payload.desconto = desconto;
       }
+    }
+
+    const instrucoes = criarInstrucoesBoletoInter({
+      desconto: payload.desconto,
+      multaPercentual: payload.multa?.taxa,
+      dataVencimento: dataVencimentoStr,
+    });
+    if (instrucoes.length > 0) {
+      const mensagemBoleto = [...instrucoes, transacao.descricao].filter(Boolean).join(" ");
+      payload.mensagem = formatMensagemInter(mensagemBoleto);
     }
 
     console.log("[gerarBolePixAction] Enviando POST para:", `${baseUrl}/cobranca/v3/cobrancas`);

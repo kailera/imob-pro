@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
 export const contratoPropertySchema = z.object({
-    propertyId: z.string().min(1, 'Selecione um imóvel'),
+    propertyId: z.preprocess(
+        value => typeof value === 'string' && value.trim() ? value.trim() : undefined,
+        z.string().optional(),
+    ),
+    tipo: z.enum(['CASA', 'CONDOMINIO', 'LOTE', 'COMERCIAL', 'RURAL', 'KITNET']),
     cep: z.string().transform(value => value.replace(/\D/g, '')).pipe(
         z.string().length(8, 'Informe um CEP válido'),
     ),
