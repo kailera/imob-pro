@@ -50,3 +50,20 @@ export function criarInstrucoesBoletoInter(input: {
 
   return instrucoes;
 }
+
+export function criarEstadoParaNovaEmissaoInter() {
+  return {
+    interNossoNumero: null,
+    interCodigoSolicitacao: null,
+    interSeuNumero: null,
+    interTxId: null,
+    interPixCode: null,
+    interBarcode: null,
+    interPdfKey: null,
+    interStatus: null,
+    interOrigemRecebimento: null,
+    interDataRecebimento: null,
+    interValorRecebido: null,
+    status: "PENDENTE" as const,
+  };
+}

@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { criarEstadoParaNovaEmissaoInter } from "@/lib/inter-cobranca";
 import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
@@ -411,7 +412,7 @@ export async function renegociarCobrancaAction(
     }
 
     // Se possui boleto no Inter, realiza o cancelamento primeiro
-    if (tx.interNossoNumero) {
+    if (tx.interCodigoSolicitacao) {
       const { cancelarBolePixAction } = await import("@/lib/inter");
       const cancelRes = await cancelarBolePixAction(cobrancaId);
       if (!cancelRes.success) {
@@ -425,12 +426,7 @@ export async function renegociarCobrancaAction(
       data: {
         dataVencimento: new Date(novoVencimentoStr),
         valor: novoValor,
-        interNossoNumero: null,
-        interPixCode: null,
-        interBarcode: null,
-        interPdfKey: null,
-        interStatus: null,
-        status: "PENDENTE",
+        ...criarEstadoParaNovaEmissaoInter(),
       },
     });
 

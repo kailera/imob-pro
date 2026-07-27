@@ -188,6 +188,15 @@ export async function gerarBolePixWrapperAction(transacaoId: string) {
   return result;
 }
 
+export async function reemitirBolePixWrapperAction(transacaoId: string) {
+  const { reemitirBolePixAction } = await import("@/lib/inter");
+  const result = await reemitirBolePixAction(transacaoId);
+  revalidatePath("/cobrancas");
+  revalidatePath("/financeiro");
+  revalidatePath("/locacao");
+  return result;
+}
+
 export async function consultarBolePixWrapperAction(transacaoId: string) {
   const { consultarBolePixAction } = await import("@/lib/inter");
   const result = await consultarBolePixAction(transacaoId);
@@ -398,5 +407,4 @@ export async function getAgreementTransactionsAction() {
     return { success: false, error: error.message || "Erro ao obter acordos." };
   }
 }
-
 

@@ -280,6 +280,7 @@ export default function CobrancasPage() {
             pagamentoData: formatShortDate(tx.dataPagamento),
             pagamentoValor: tx.status === 'LIQUIDADO' ? tx.valor : null,
             interNossoNumero: tx.interNossoNumero,
+            interCodigoSolicitacao: tx.interCodigoSolicitacao,
             interPixCode: tx.interPixCode,
             interBarcode: tx.interBarcode,
             interPdfKey: tx.interPdfKey,

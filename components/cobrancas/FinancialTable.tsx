@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { 
   gerarBolePixWrapperAction, 
+  reemitirBolePixWrapperAction,
   consultarBolePixWrapperAction, 
   simularPagamentoBolePixWrapperAction, 
   getInterPdfUrlAction 
@@ -43,6 +44,7 @@ export interface BilletData {
   
   // Banco Inter Fields
   interNossoNumero?: string | null;
+  interCodigoSolicitacao?: string | null;
   interPixCode?: string | null;
   interBarcode?: string | null;
   interPdfKey?: string | null;
@@ -148,6 +150,29 @@ export default function FinancialTable({
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Erro inesperado.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReemitirBoleto = async (transacaoId: string) => {
+    const confirmou = window.confirm(
+      "O boleto anterior será cancelado no Banco Inter e substituído por um novo. Deseja continuar?"
+    );
+    if (!confirmou) return;
+
+    setActionLoading(transacaoId);
+    setErrorMessage(null);
+    try {
+      const res = await reemitirBolePixWrapperAction(transacaoId);
+      if (res.success) {
+        setSelectedBillet(null);
+        if (onRefresh) onRefresh();
+      } else {
+        setErrorMessage(res.error || "Falha ao cancelar e gerar novamente o boleto.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erro inesperado ao gerar novamente o boleto.");
     } finally {
       setActionLoading(null);
     }
@@ -297,14 +322,16 @@ export default function FinancialTable({
                   {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' ? (
                     !item.interNossoNumero ? (
                       <button
-                        onClick={() => handleGerarBoleto(item.id)}
+                        onClick={() => item.interCodigoSolicitacao
+                          ? handleReemitirBoleto(item.id)
+                          : handleGerarBoleto(item.id)}
                         disabled={actionLoading !== null}
                         className="px-3 py-1.5 rounded-lg bg-[#280003]/5 hover:bg-[#280003]/10 text-[#280003] text-xs font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
                       >
                         {actionLoading === item.id ? (
                           <div className="w-3.5 h-3.5 border-2 border-[#280003]/30 border-t-[#280003] rounded-full animate-spin"></div>
                         ) : null}
-                        Gerar Boleto Inter
+                        {item.interCodigoSolicitacao ? "Gerar novamente" : "Gerar Boleto Inter"}
                       </button>
                     ) : (
                       <div className="flex justify-center gap-1.5">
@@ -336,6 +363,14 @@ export default function FinancialTable({
                           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-all cursor-pointer"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${actionLoading === item.id ? "animate-spin" : ""}`} />
+                        </button>
+                        <button
+                          onClick={() => handleReemitirBoleto(item.id)}
+                          disabled={actionLoading !== null}
+                          title="Cancelar o boleto atual e gerar novamente"
+                          className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )

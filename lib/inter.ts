@@ -3,7 +3,11 @@ import https from "https";
 import axios from "axios";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, bucketName } from "@/lib/storage";
-import { criarDescontoInterV3, criarInstrucoesBoletoInter } from "@/lib/inter-cobranca";
+import {
+  criarDescontoInterV3,
+  criarEstadoParaNovaEmissaoInter,
+  criarInstrucoesBoletoInter,
+} from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
 // Interface para estruturar o retorno das chamadas do Inter
@@ -927,4 +931,54 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
       error: err.response?.data?.title || err.response?.data?.message || err.message || "Erro inesperado ao cancelar boleto.",
     };
   }
+}
+
+/**
+ * Cancela a cobrança anterior, limpa integralmente o vínculo local com o Inter
+ * e emite uma nova cobrança para a mesma transação financeira.
+ */
+export async function reemitirBolePixAction(transacaoId: string): Promise<{
+  success: boolean;
+  nossoNumero?: string;
+  pixCopiaECola?: string;
+  codigoBarras?: string;
+  pdfUrl?: string;
+  error?: string;
+}> {
+  const transacao = await prisma.transacaoFinanceira.findUnique({
+    where: { id: transacaoId },
+  });
+
+  if (!transacao) {
+    return { success: false, error: "Transação não encontrada." };
+  }
+  if (transacao.status === "LIQUIDADO") {
+    return { success: false, error: "Não é possível reemitir uma cobrança já paga." };
+  }
+
+  const statusSemCobrancaAtiva = new Set(["CANCELADO", "FALHA_EMISSAO", "EXPIRADO"]);
+  if (
+    transacao.interCodigoSolicitacao
+    && !statusSemCobrancaAtiva.has(transacao.interStatus ?? "")
+  ) {
+    const cancelamento = await cancelarBolePixAction(transacaoId);
+    if (!cancelamento.success) {
+      return {
+        success: false,
+        error: `Não foi possível cancelar o boleto anterior: ${cancelamento.error}`,
+      };
+    }
+  } else if (transacao.interNossoNumero && !transacao.interCodigoSolicitacao) {
+    return {
+      success: false,
+      error: "Este boleto não possui o identificador V3 necessário para cancelamento automático.",
+    };
+  }
+
+  await prisma.transacaoFinanceira.update({
+    where: { id: transacaoId },
+    data: criarEstadoParaNovaEmissaoInter(),
+  });
+
+  return gerarBolePixAction(transacaoId);
 }
