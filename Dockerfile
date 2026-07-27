@@ -6,7 +6,7 @@ FROM node:${NODE_VERSION} AS deps
 WORKDIR /app
 
 # Instalar dependências necessárias para o Prisma (openssl)
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -18,7 +18,7 @@ FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 
 # Instalar openssl no builder também
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -43,6 +43,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Compilar a aplicação Next.js
 RUN npm run build
+RUN touch /tmp/build-complete
 
 # ============================================
 # Stage 3: Run Next.js application
@@ -50,8 +51,13 @@ RUN npm run build
 FROM node:${NODE_VERSION} AS runner
 WORKDIR /app
 
-# Instala o openssl e ffmpeg, necessários para o Prisma e compressão de vídeo no Linux
-RUN apt-get update && apt-get install -y openssl ffmpeg && rm -rf /var/lib/apt/lists/*
+# Aguarda o build terminar antes de instalar os pacotes do runner.
+# Sem esta dependência o BuildKit executa ffmpeg e Next.js em paralelo,
+# podendo esgotar a memória de hosts menores.
+COPY --from=builder /tmp/build-complete /tmp/build-complete
+
+# Instala somente os pacotes necessários para o Prisma e compressão de vídeo.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ffmpeg && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
