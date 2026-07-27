@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { buscarValoresIndiceBcb } from "./bcb";
-import { calcularVariacaoComposta } from "./calculo";
+import { calcularVariacaoSicadi } from "./calculo";
 import {
   INDICES_REAJUSTE,
   type CodigoIndiceReajuste,
@@ -121,7 +121,7 @@ export async function obterVariacaoAcumulada(
     throw new Error(`Faltam competências publicadas para ${codigo}: ${referencias}.`);
   }
 
-  const variacao = calcularVariacaoComposta(valores.map((valor) => valor.taxaMensal.toString()));
+  const variacao = calcularVariacaoSicadi(valores.map((valor) => valor.taxaMensal.toString()));
   return {
     percentual: variacao.percentual,
     fator: variacao.fator,

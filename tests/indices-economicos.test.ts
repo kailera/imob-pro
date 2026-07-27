@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseDataBcb } from "../lib/indices/bcb";
-import { calcularVariacaoComposta } from "../lib/indices/calculo";
+import { calcularVariacaoSicadi } from "../lib/indices/calculo";
 import {
   INDICES_REAJUSTE,
   normalizarCodigoIndice,
@@ -31,8 +31,8 @@ test("interpreta explicitamente as datas dd/MM/yyyy do BCB", () => {
   assert.throws(() => parseDataBcb("31/02/2026"), /Data inválida/);
 });
 
-test("compõe percentuais mensais em vez de somá-los", () => {
-  const resultado = calcularVariacaoComposta([1, 1]);
-  assert.equal(resultado.percentual, 2.01);
-  assert.equal(resultado.fator, 1.0201);
+test("soma as taxas mensais conforme a regra do SICADI", () => {
+  const resultado = calcularVariacaoSicadi([1, 1]);
+  assert.equal(resultado.percentual, 2);
+  assert.equal(resultado.fator, 1.02);
 });
