@@ -44,7 +44,7 @@ RUN npx prisma generate
 RUN echo 'export * from "./client";' > generated/prisma/index.ts
 
 # Compilar a aplicação Next.js
-RUN npm run build
+RUN npm run build || (cat .next/standalone/server.js 2>/dev/null; exit 1)
 RUN touch /tmp/build-complete
 
 # ============================================
