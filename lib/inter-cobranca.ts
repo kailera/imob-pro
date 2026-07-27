@@ -17,7 +17,11 @@ export function criarDescontoInterV3(input: {
   if (input.tipo === "VALOR" || input.tipo === "FIXED") {
     return { codigo: "VALORFIXODATAINFORMADA", quantidadeDias, valor: input.valor };
   }
-  if (input.tipo === "PERCENTUAL" || input.tipo === "PERCENTAGE") {
+  if (
+    input.tipo === "PERCENTUAL"
+    || input.tipo === "PERCENTAGE"
+    || input.tipo === "PERCENT"
+  ) {
     return { codigo: "PERCENTUALDATAINFORMADA", quantidadeDias, taxa: input.valor };
   }
   return undefined;
@@ -65,5 +69,21 @@ export function criarEstadoParaNovaEmissaoInter() {
     interDataRecebimento: null,
     interValorRecebido: null,
     status: "PENDENTE" as const,
+  };
+}
+
+export function resolverBonificacaoLease(input: {
+  valorPeriodo: unknown;
+  tipoPeriodo: string | null | undefined;
+  diasPeriodo: number | null | undefined;
+  valorContrato: unknown;
+  tipoContrato: string | null | undefined;
+  diasContrato: number | null | undefined;
+}) {
+  const usarPeriodo = input.valorPeriodo !== null && input.valorPeriodo !== undefined;
+  return {
+    valor: Number(usarPeriodo ? input.valorPeriodo : (input.valorContrato ?? 0)),
+    tipo: usarPeriodo ? input.tipoPeriodo : input.tipoContrato,
+    diasAntesDoVencimento: usarPeriodo ? input.diasPeriodo : input.diasContrato,
   };
 }

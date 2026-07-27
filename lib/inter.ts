@@ -7,6 +7,7 @@ import {
   criarDescontoInterV3,
   criarEstadoParaNovaEmissaoInter,
   criarInstrucoesBoletoInter,
+  resolverBonificacaoLease,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
@@ -245,6 +246,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         lease: {
           include: {
             property: true,
+            terms: true,
             termsPeriods: { orderBy: { effectiveFrom: "asc" } },
             parties: {
               where: { role: "TENANT" },
@@ -488,22 +490,37 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         return { success: false, error: "Período locatício da cobrança não encontrado." };
       }
 
-      const lateFee = Number(termsPeriod.lateFeePercentage ?? 0);
+      const lateFee = Number(
+        termsPeriod.lateFeePercentage
+        ?? transacao.lease.terms?.lateFeePercentage
+        ?? 0
+      );
       if (lateFee > 0) {
         payload.multa = { codigo: "PERCENTUAL", taxa: lateFee };
       }
 
-      const lateInterest = Number(termsPeriod.lateInterestMonthly ?? 0);
+      const lateInterest = Number(
+        termsPeriod.lateInterestMonthly
+        ?? transacao.lease.terms?.lateInterestMonthly
+        ?? 0
+      );
       if (lateInterest > 0) {
         payload.mora = { codigo: "TAXAMENSAL", taxa: lateInterest };
       }
 
-      const discount = Number(termsPeriod.earlyPaymentDiscount ?? 0);
-      if (discount > 0) {
+      const bonificacao = resolverBonificacaoLease({
+        valorPeriodo: termsPeriod.earlyPaymentDiscount,
+        tipoPeriodo: termsPeriod.discountType,
+        diasPeriodo: termsPeriod.discountDaysBefore,
+        valorContrato: transacao.lease.terms?.earlyPaymentDiscount,
+        tipoContrato: transacao.lease.terms?.discountType,
+        diasContrato: transacao.lease.terms?.discountDaysBefore,
+      });
+      if (bonificacao.valor > 0) {
         const desconto = criarDescontoInterV3({
-          valor: discount,
-          tipo: termsPeriod.discountType,
-          diasAntesDoVencimento: termsPeriod.discountDaysBefore,
+          valor: bonificacao.valor,
+          tipo: bonificacao.tipo,
+          diasAntesDoVencimento: bonificacao.diasAntesDoVencimento,
         });
         if (desconto) payload.desconto = desconto;
       }
