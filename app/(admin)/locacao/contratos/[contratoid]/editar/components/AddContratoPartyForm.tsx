@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import { addContratoParty, type AddPartyActionState } from '../../../../actions/contratoPartiesSection'
+import { findPersonByCpfCnpj, type PersonDocumentResult } from '@/app/(admin)/locacao/actions/searchActions'
 
 const initialState: AddPartyActionState = {
     success: false,
@@ -104,6 +105,48 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
     const [municipio, setMunicipio] = useState(party?.pessoa.endereco?.municipio ?? '')
     const [estado, setEstado] = useState(party?.pessoa.endereco?.estado ?? '')
     const [isLoadingCep, setIsLoadingCep] = useState(false)
+    const [documentMessage, setDocumentMessage] = useState<string | null>(null)
+    const [isSearchingDocument, startDocumentSearch] = useTransition()
+
+    const applyPerson = (person: PersonDocumentResult) => {
+        setCategory(person.category)
+        setPhones(person.phones.length ? person.phones : [emptyPhone()])
+        setCep(person.address?.cep ?? '')
+        setLogradouro(person.address?.logradouro ?? '')
+        setBairro(person.address?.bairro ?? '')
+        setMunicipio(person.address?.municipio ?? '')
+        setEstado(person.address?.estado ?? '')
+
+        window.setTimeout(() => {
+            const form = formRef.current
+            if (!form) return
+            Object.entries({
+                ...person.values,
+                numero: person.address?.numero ?? '',
+                complemento: person.address?.complemento ?? '',
+            }).forEach(([name, value]) => {
+                const control = form.elements.namedItem(name)
+                if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) {
+                    control.value = value
+                }
+            })
+        }, 0)
+    }
+
+    const handleDocumentBlur = (value: string) => {
+        const document = value.replace(/\D/g, '')
+        if (document.length !== 11 && document.length !== 14) return
+
+        startDocumentSearch(async () => {
+            const person = await findPersonByCpfCnpj(document)
+            if (!person) {
+                setDocumentMessage('Nenhuma pessoa cadastrada com este CPF/CNPJ.')
+                return
+            }
+            applyPerson(person)
+            setDocumentMessage('Dados da pessoa cadastrada foram preenchidos.')
+        })
+    }
 
     const handleCepBlur = async () => {
         const cleanCep = cep.replace(/\D/g, '')
@@ -253,9 +296,15 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
                         name="cpfCnpj"
                         required
                         defaultValue={party?.pessoa.cpfCnpj ?? ''}
+                        onBlur={event => handleDocumentBlur(event.target.value)}
                         placeholder={category === 'FISICA' ? '000.000.000-00' : '00.000.000/0000-00'}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#004777]"
                     />
+                    {(isSearchingDocument || documentMessage) && (
+                        <p role="status" className={`mt-1 text-[11px] ${documentMessage?.startsWith('Dados') ? 'text-emerald-600' : 'text-gray-500'}`}>
+                            {isSearchingDocument ? 'Buscando pessoa cadastrada...' : documentMessage}
+                        </p>
+                    )}
                 </div>
 
                 <div>

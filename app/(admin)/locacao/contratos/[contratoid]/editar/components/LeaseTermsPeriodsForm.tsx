@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
 import { INDICES_REAJUSTE, normalizarCodigoIndice } from '@/lib/indices/catalogo'
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput'
 import {
     deleteLeaseTermsPeriod,
     saveLeaseTermsPeriod,
@@ -236,6 +237,28 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
         </div>
     )
 
+    const formattedField = (
+        name: keyof PeriodDraft,
+        label: string,
+        format: 'currency' | 'percentage',
+        options: { decimals?: number; required?: boolean } = {},
+    ) => (
+        <div>
+            <label htmlFor={`period-${name}`} className="mb-1 block font-medium text-gray-700">{label}</label>
+            <FormattedNumberInput
+                id={`period-${name}`}
+                name={name}
+                required={options.required}
+                value={String(draft[name] ?? '')}
+                onValueChange={value => setDraft(current => ({ ...current, [name]: value }))}
+                format={format}
+                decimals={options.decimals}
+                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 outline-none focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/20"
+            />
+            <FieldErrors errors={state.errors[name]} />
+        </div>
+    )
+
     return (
         <section id="periodos" className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <header className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -292,7 +315,7 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {field('effectiveFrom', 'Início do período', { type: 'date', required: true })}
                     {field('effectiveTo', 'Fim do período (inclusive)', { type: 'date', required: true })}
-                    {field('rentAmount', 'Valor do aluguel', { step: '0.01', min: 0, required: true })}
+                    {formattedField('rentAmount', 'Valor do aluguel', 'currency', { required: true })}
                     {field('paymentDueDay', 'Dia do vencimento', { min: 1, max: 31, required: true })}
 
                     <div>
@@ -312,9 +335,9 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                             <option value="OUTRO">Outro</option>
                         </select>
                     </div>
-                    {field('adjustmentPercentage', 'Percentual aplicado no reajuste', { step: '0.0001' })}
-                    {field('previousRentAmount', 'Aluguel do período anterior', { step: '0.01' })}
-                    {field('earlyPaymentDiscount', 'Desconto de pontualidade', { step: '0.01' })}
+                    {formattedField('adjustmentPercentage', 'Percentual aplicado no reajuste', 'percentage', { decimals: 4 })}
+                    {formattedField('previousRentAmount', 'Aluguel do período anterior', 'currency')}
+                    {formattedField('earlyPaymentDiscount', 'Desconto de pontualidade', draft.discountType === 'FIXED' ? 'currency' : 'percentage')}
                 </div>
 
                 <details className="rounded-lg border border-gray-200">
@@ -336,16 +359,16 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                             </select>
                         </div>
                         {field('discountDaysBefore', 'Dias de antecedência para desconto', { min: 0 })}
-                        {field('lateFeePercentage', 'Multa por atraso (%)', { step: '0.01', min: 0 })}
+                        {formattedField('lateFeePercentage', 'Multa por atraso (%)', 'percentage')}
                         {field('lateFeeDays', 'Cobrar multa após (dias)', { min: 0 })}
-                        {field('lateInterestMonthly', 'Juros mensal (%)', { step: '0.01', min: 0 })}
+                        {formattedField('lateInterestMonthly', 'Juros mensal (%)', 'percentage')}
                         {field('lateInterestDays', 'Cobrar juros após (dias)', { min: 0 })}
-                        {field('lawyerFeePercentage', 'Honorários advocatícios (%)', { step: '0.01', min: 0 })}
+                        {formattedField('lawyerFeePercentage', 'Honorários advocatícios (%)', 'percentage')}
                         {field('lawyerFeeGraceDays', 'Carência dos honorários (dias)', { min: 0 })}
                         {field('transferGraceDays', 'Carência para repasse (dias)', { min: 0 })}
-                        {field('adminFeePercentage', 'Taxa de administração (%)', { step: '0.01', min: 0 })}
-                        {field('adminFeeFinesPercentage', 'Taxa sobre multas (%)', { step: '0.01', min: 0 })}
-                        {field('brokerageFeePercentage', 'Taxa de intermediação (%)', { step: '0.01', min: 0 })}
+                        {formattedField('adminFeePercentage', 'Taxa de administração (%)', 'percentage')}
+                        {formattedField('adminFeeFinesPercentage', 'Taxa sobre multas (%)', 'percentage')}
+                        {formattedField('brokerageFeePercentage', 'Taxa de intermediação (%)', 'percentage')}
                         <div>
                             <label htmlFor="period-guaranteedPeriod" className="mb-1 block font-medium text-gray-700">Período garantido</label>
                             <input

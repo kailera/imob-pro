@@ -1,11 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState, useState } from 'react'
+import { updateLeaseDocuments, type LeaseDocumentsActionState } from '@/app/(admin)/locacao/actions/updateLeaseDocuments'
+import { LeaseAttachmentsField } from './LeaseAttachmentsField'
+import type { LeaseAttachment } from '@/lib/locacao/anexos'
 
 type ContratoClausesDocumentsFormProps = {
     contratoId: string
     clauses?: Array<{ id: string; title: string; content: string }>
-    documents?: Array<{ id: string; name: string; url: string }>
+    documents?: Array<{ id: string; name: string; url: string; type?: string | null }>
+}
+
+const initialDocumentsState: LeaseDocumentsActionState = {
+    success: false,
+    message: null,
 }
 
 export function ContratoClausesDocumentsForm({
@@ -14,9 +22,18 @@ export function ContratoClausesDocumentsForm({
     documents = [],
 }: ContratoClausesDocumentsFormProps) {
     const [clauseList, setClauseList] = useState(clauses)
-    const [docList, setDocList] = useState(documents)
     const [newTitle, setNewTitle] = useState('')
     const [newContent, setNewContent] = useState('')
+    const action = updateLeaseDocuments.bind(null, contratoId)
+    const [documentsState, documentsFormAction, documentsPending] = useActionState(action, initialDocumentsState)
+
+    const initialAttachments: LeaseAttachment[] = documents.map(document => ({
+        id: document.id,
+        title: document.name,
+        fileName: document.name,
+        url: document.url,
+        mimeType: document.type || 'application/octet-stream',
+    }))
 
     const handleAddClause = (e: React.FormEvent) => {
         e.preventDefault()
@@ -90,36 +107,31 @@ export function ContratoClausesDocumentsForm({
                     Documentos Digitalizados
                 </h2>
 
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-xs space-y-2 bg-gray-50">
-                    <p className="text-gray-600 font-medium">
-                        Arraste e solte arquivos aqui, ou clique para fazer upload de contratos assinados, comprovantes, etc.
-                    </p>
-                    <input type="file" multiple className="hidden" id="docUploadInput" />
-                    <label
-                        htmlFor="docUploadInput"
-                        className="inline-block py-2 px-4 bg-white border border-gray-200 rounded-lg text-gray-700 font-medium shadow-sm hover:bg-gray-100 cursor-pointer"
-                    >
-                        Selecionar Arquivos
-                    </label>
-                </div>
+                <form action={documentsFormAction} className="space-y-3">
+                    <LeaseAttachmentsField
+                        leaseId={contratoId}
+                        name="documentsAttachments"
+                        title="Arquivos do contrato"
+                        description="Anexe contratos assinados, comprovantes e outros documentos relacionados à locação."
+                        initialAttachments={initialAttachments}
+                    />
 
-                {docList.length > 0 && (
-                    <ul className="divide-y divide-gray-100 text-xs">
-                        {docList.map(d => (
-                            <li key={d.id} className="py-2 flex items-center justify-between">
-                                <span className="font-medium text-gray-800">{d.name}</span>
-                                <a
-                                    href={d.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[#004777] hover:underline"
-                                >
-                                    Visualizar
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="submit"
+                            disabled={documentsPending}
+                            className="py-2 px-5 bg-[#004777] hover:bg-[#003355] text-white font-semibold rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                            {documentsPending ? 'Salvando...' : 'Salvar documentos'}
+                        </button>
+                    </div>
+
+                    {documentsState.message && (
+                        <p role="status" className={`text-xs font-medium ${documentsState.success ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {documentsState.message}
+                        </p>
+                    )}
+                </form>
             </div>
         </div>
     )

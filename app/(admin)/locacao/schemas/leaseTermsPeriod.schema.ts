@@ -1,13 +1,14 @@
 import { z } from 'zod'
+import { parseNumeroFlexivel } from '@/lib/locacao/financeiro'
 
 const requiredMoney = z.preprocess(
-    value => typeof value === 'string' ? value.replace(',', '.') : value,
+    value => typeof value === 'string' ? parseNumeroFlexivel(value) ?? value : value,
     z.coerce.number().positive('Informe um valor maior que zero.'),
 )
 
 const optionalNumber = z.preprocess(
     value => value === '' || value === null ? undefined
-        : typeof value === 'string' ? value.replace(',', '.')
+        : typeof value === 'string' ? parseNumeroFlexivel(value) ?? value
             : value,
     z.coerce.number().optional(),
 )

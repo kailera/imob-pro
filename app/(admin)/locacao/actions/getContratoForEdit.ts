@@ -237,6 +237,7 @@ export async function getContratoForEdit(
       id: d.id,
       name: d.name,
       url: d.url,
+      type: d.type,
     })),
     iptu: lease.iptu ? {
       inscription: lease.iptu.inscription ?? '',
