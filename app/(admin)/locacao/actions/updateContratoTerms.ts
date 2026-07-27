@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requireUserContext } from '@/lib/auth'
 import { parseNumeroFlexivel } from '@/lib/locacao/financeiro'
 import type { ActionState } from '../types/action-state'
+import { sincronizarPeriodoInicialLease } from '@/lib/locacao/sincronizarPeriodoInicialLease'
 
 export type TermsActionState = ActionState<string>
 
@@ -136,6 +137,7 @@ export async function updateContratoTerms(
             billingMethod,
         },
     })
+    await sincronizarPeriodoInicialLease(contratoId)
 
     revalidatePath(`/locacao/contratos/${contratoId}/editar`)
 

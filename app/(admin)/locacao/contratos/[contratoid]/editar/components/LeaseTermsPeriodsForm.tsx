@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
+import { useActionState, useMemo, useState, useTransition } from 'react'
 import { INDICES_REAJUSTE, normalizarCodigoIndice } from '@/lib/indices/catalogo'
 import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput'
 import {
@@ -158,12 +158,6 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
     const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
     const [deleting, startDeleting] = useTransition()
 
-    useEffect(() => {
-        if (!state.success) return
-        const last = orderedPeriods.at(-1)
-        if (last) setDraft({ ...last })
-    }, [state.success, orderedPeriods])
-
     const gaps = useMemo(() => {
         const messages: string[] = []
         orderedPeriods.forEach((period, index) => {
@@ -265,7 +259,7 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Períodos locatícios</h2>
                     <p className="mt-1 text-xs text-gray-500">
-                        Cada período guarda uma fotografia das condições usadas na cobrança.
+                        Reconstrua aqui os períodos do contrato importado do sistema legado e confira-os com o SICADI.
                     </p>
                 </div>
                 <button

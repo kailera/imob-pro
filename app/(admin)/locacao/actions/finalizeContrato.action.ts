@@ -3,9 +3,19 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireUserContext } from '@/lib/auth'
+import { sincronizarPeriodoInicialLease } from '@/lib/locacao/sincronizarPeriodoInicialLease'
 
 export async function finalizeContrato(contratoId: string) {
     const context = await requireUserContext()
+
+    const scopedLease = await prisma.lease.findFirst({
+        where: { id: contratoId, tenantId: context.tenantId },
+        select: { id: true },
+    })
+    if (!scopedLease) {
+        return { success: false, message: 'Contrato não encontrado.' }
+    }
+    await sincronizarPeriodoInicialLease(scopedLease.id)
 
     const lease = await prisma.lease.findFirst({
         where: {
@@ -14,6 +24,7 @@ export async function finalizeContrato(contratoId: string) {
         },
         include: {
             parties: { select: { role: true } },
+            terms: true,
             termsPeriods: { orderBy: { effectiveFrom: 'asc' } },
         },
     })
@@ -28,7 +39,8 @@ export async function finalizeContrato(contratoId: string) {
     if (!lease.startDate || !lease.endDate) missing.push('vigência')
     if (!lease.parties.some(party => party.role === 'TENANT')) missing.push('locatário principal')
     if (!lease.parties.some(party => party.role === 'LANDLORD')) missing.push('locador')
-    if (lease.termsPeriods.length === 0) missing.push('período locatício')
+    if (!lease.terms || Number(lease.terms.rentValue) <= 0) missing.push('controle locatício')
+    if (lease.legacyCode && lease.termsPeriods.length === 0) missing.push('períodos do contrato legado')
     if (lease.legacyCode && !lease.billingStartDate) missing.push('data de início das cobranças')
 
     if (missing.length > 0) {
@@ -38,14 +50,14 @@ export async function finalizeContrato(contratoId: string) {
         }
     }
 
-    if (lease.termsPeriods.some(period => period.reviewStatus !== 'REVIEWED')) {
+    if (lease.legacyCode && lease.termsPeriods.some(period => period.reviewStatus !== 'REVIEWED')) {
         return {
             success: false,
             message: 'Confira todos os períodos com o SICADI antes de ativar o contrato.',
         }
     }
 
-    if (lease.billingStartDate) {
+    if (lease.billingStartDate && lease.termsPeriods.length > 0) {
         const covered = lease.termsPeriods.some(period =>
             lease.billingStartDate! >= period.effectiveFrom
             && (!period.effectiveTo || lease.billingStartDate! < period.effectiveTo),

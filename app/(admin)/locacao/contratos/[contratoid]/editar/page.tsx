@@ -44,7 +44,7 @@ export default async function EditContratoPage({
         locatariosSolidarios: contrato.participantes.some(p => p.papel === 'CO_TENANT'),
         garantia: contrato.participantes.some(p => p.papel === 'GUARANTOR'),
         locador: contrato.participantes.some(p => p.papel === 'LANDLORD'),
-        controleLocaticio: contrato.termsPeriods.length > 0,
+        controleLocaticio: Boolean(contrato.terms?.rentValue && contrato.terms.rentValue > 0),
         clausulas: contrato.clauses.length > 0,
         cobranca: Boolean(contrato.terms?.paymentDueDay),
         comissionamento: Boolean(contrato.terms?.adminFeePercentage),
@@ -139,14 +139,16 @@ export default async function EditContratoPage({
                         />
                     </section>
 
-                    <LeaseTermsPeriodsForm
-                        leaseId={contrato.id}
-                        leaseStartDate={contrato.dataInicio}
-                        leaseEndDate={contrato.dataFim}
-                        legacyCode={contrato.legacyCode}
-                        periods={contrato.termsPeriods}
-                        defaults={contrato.terms}
-                    />
+                    {contrato.legacyCode && (
+                        <LeaseTermsPeriodsForm
+                            leaseId={contrato.id}
+                            leaseStartDate={contrato.dataInicio}
+                            leaseEndDate={contrato.dataFim}
+                            legacyCode={contrato.legacyCode}
+                            periods={contrato.termsPeriods}
+                            defaults={contrato.terms}
+                        />
+                    )}
 
                     {/* 8. Cláusulas Adicionais e Documentos */}
                     <section id="documentos">

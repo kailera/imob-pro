@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { contratoIdentificationSchema } from '../schemas/contratoIdentification.schema'
 import type { ActionState } from '../types/action-state'
 import { requireUserContext } from '@/lib/auth'
+import { sincronizarPeriodoInicialLease } from '@/lib/locacao/sincronizarPeriodoInicialLease'
 
 type IdentificationField =
     | 'tipoLocacao'
@@ -117,6 +118,7 @@ export async function updateContratoIdentification(
             version: { increment: 1 },
         },
     })
+    await sincronizarPeriodoInicialLease(contratoId)
 
     revalidatePath(`/locacao/contratos/${contratoId}/editar`)
     revalidatePath('/locacao')
