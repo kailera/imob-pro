@@ -87,3 +87,12 @@ export function resolverBonificacaoLease(input: {
     diasAntesDoVencimento: usarPeriodo ? input.diasPeriodo : input.diasContrato,
   };
 }
+
+export function respostaInterIndicaCobrancaCancelada(data: unknown) {
+  if (!data || typeof data !== "object") return false;
+  const resposta = data as Record<string, unknown>;
+  const texto = [resposta.title, resposta.detail, resposta.message]
+    .filter((valor): valor is string => typeof valor === "string")
+    .join(" ");
+  return /situa[cç][aã]o\s+CANCELADO/i.test(texto);
+}

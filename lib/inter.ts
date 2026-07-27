@@ -8,6 +8,7 @@ import {
   criarEstadoParaNovaEmissaoInter,
   criarInstrucoesBoletoInter,
   resolverBonificacaoLease,
+  respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
@@ -942,6 +943,18 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
 
     return { success: true };
   } catch (err: any) {
+    if (respostaInterIndicaCobrancaCancelada(err.response?.data)) {
+      console.info("[inter-cancelamento] Cobrança já estava cancelada no Banco Inter.");
+      await prisma.transacaoFinanceira.update({
+        where: { id: transacaoId },
+        data: {
+          interStatus: "CANCELADO",
+          status: "CANCELADO",
+        },
+      });
+      return { success: true };
+    }
+
     console.error("Erro ao cancelar BolePix no Banco Inter:", err.response?.data || err.message);
     return {
       success: false,
