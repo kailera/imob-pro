@@ -91,6 +91,27 @@ services:
       - "traefik.http.routers.imob-pro-inter-webhook.middlewares=interWebhookInternalAuth@file"
       - "traefik.http.routers.imob-pro-inter-webhook.service=imob-pro"
 
+  # Serviço manual, desativado por padrão. Para rodar uma vez no Portainer,
+  # habilite o profile `legacy-migration` e defina MIGRATE_LEGACY_CONFIRM=true.
+  # Ele só lê tabelas legadas e cria Person/Lease/LeaseParty; não altera
+  # vistorias ou contratos legados.
+  legacy-migration:
+    profiles: ["legacy-migration"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    command: ["npm", "run", "migrate:legacy-leases"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - imob_internal_network
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - MIGRATE_LEGACY_CONFIRM=${MIGRATE_LEGACY_CONFIRM:-false}
+
   rustfs:
     image: rustfs/rustfs:latest
     container_name: imobpro-storages3

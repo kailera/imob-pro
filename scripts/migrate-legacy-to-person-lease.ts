@@ -1,5 +1,10 @@
 import 'dotenv/config'
-import { prisma } from '../lib/prisma'
+import { PrismaClient } from '../generated/prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter: new PrismaPg(pool) })
 
 function cleanCpfCnpj(val: string | null | undefined): string {
     if (!val) return ''
@@ -7,11 +12,18 @@ function cleanCpfCnpj(val: string | null | undefined): string {
 }
 
 async function migrateLegacyToPersonLease() {
+    if (process.env.MIGRATE_LEGACY_CONFIRM !== 'true') {
+        throw new Error(
+            'Migração bloqueada. Defina MIGRATE_LEGACY_CONFIRM=true para executá-la.'
+        )
+    }
+
     console.log('🚀 Iniciando script de migração ETL de dados legados para Person/Lease...')
 
     let personsCreated = 0
     let personsReused = 0
     let leasesCreated = 0
+    let leasesReused = 0
     let leasePartiesCreated = 0
 
     // 1. Obter imobiliária padrão ou iterar sobre imobs
@@ -256,24 +268,42 @@ async function migrateLegacyToPersonLease() {
 
     for (const c of contratosLegados) {
         const tenantId = c.imobId || imobs[0].id
-        const count = await prisma.lease.count({ where: { tenantId } })
-        const code = `LOC-${(count + 1).toString().padStart(4, '0')}`
-
         const startDate = c.imovelLocacao?.dataInicio || new Date()
         const endDate = c.imovelLocacao?.dataFim || new Date()
 
-        const lease = await prisma.lease.create({
+        // A chave de origem torna a operação segura para repetir: um contrato
+        // legado já migrado é reutilizado, sem criar outra Lease.
+        const legacySystem = 'IMOB_PRO_LEGACY'
+        const existingLease = await prisma.lease.findUnique({
+            where: {
+                tenantId_legacySystem_legacyCode: {
+                    tenantId,
+                    legacySystem,
+                    legacyCode: c.id,
+                },
+            },
+        })
+
+        const lease = existingLease ?? await prisma.lease.create({
             data: {
                 tenantId,
-                code,
+                code: `LEGACY-${c.id}`,
                 status: 'ACTIVE',
                 rentalType: 'RESIDENTIAL',
                 propertyId: c.imovelId,
                 startDate,
-                endDate
+                endDate,
+                legacySystem,
+                legacyCode: c.id,
+                migratedAt: new Date(),
             }
         })
-        leasesCreated++
+
+        if (existingLease) {
+            leasesReused++
+        } else {
+            leasesCreated++
+        }
 
         // Vincular Locatários
         for (const loc of c.locatarios) {
@@ -353,6 +383,7 @@ async function migrateLegacyToPersonLease() {
     console.log(`- Pessoas criadas: ${personsCreated}`)
     console.log(`- Pessoas reaproveitadas (deduplicadas): ${personsReused}`)
     console.log(`- Contratos Lease criados: ${leasesCreated}`)
+    console.log(`- Contratos Lease já existentes: ${leasesReused}`)
     console.log(`- Vínculos LeaseParty criados: ${leasePartiesCreated}`)
 }
 
@@ -363,4 +394,5 @@ migrateLegacyToPersonLease()
     })
     .finally(async () => {
         await prisma.$disconnect()
+        await pool.end()
     })

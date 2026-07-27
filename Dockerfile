@@ -48,6 +48,15 @@ RUN npx tsc --noEmit
 RUN npm run build
 RUN touch /tmp/build-complete
 
+# Target usado somente pelo serviço manual de migração de dados legados.
+# Não inicia a aplicação e não executa o build do Next.js.
+FROM node:${NODE_VERSION} AS migrator
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
+
 # ============================================
 # Stage 3: Run Next.js application
 # ============================================
