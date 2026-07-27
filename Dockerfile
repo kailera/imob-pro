@@ -41,10 +41,11 @@ ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npx prisma generate
 
 # Garantir a existência do index.ts para que os imports '@/generated/prisma' funcionem perfeitamente
-RUN echo 'export * from "./client";' > generated/prisma/index.ts
+# 1. Verificação explícita de tipos TypeScript (se falhar, o Portainer mostra o erro exato nesta etapa)
+RUN npx tsc --noEmit
 
-# Compilar a aplicação Next.js
-RUN npm run build || (cat .next/standalone/server.js 2>/dev/null; exit 1)
+# 2. Compilar a aplicação Next.js
+RUN npm run build
 RUN touch /tmp/build-complete
 
 # ============================================
