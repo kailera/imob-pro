@@ -20,6 +20,30 @@ interface ContratosTabContentProps {
     contratos: Contrato[];
 }
 
+type PropertyAddress = {
+    logradouro?: string | null;
+    descricao?: string | null;
+    codigo?: string | null;
+    numero?: number | null;
+    complemento?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    uf?: string | null;
+    cep?: number | string | null;
+}
+
+function formatPropertyAddress(property: PropertyAddress) {
+    if (!property) return 'Não informado';
+    const street = property.logradouro?.trim() || property.descricao?.trim() || property.codigo || 'Endereço não informado';
+    const number = property.numero ? `, ${property.numero}` : '';
+    const complement = property.complemento ? `, ${property.complemento}` : '';
+    const neighborhood = property.bairro ? ` — ${property.bairro}` : '';
+    const cityState = [property.cidade, property.uf].filter(Boolean).join('/');
+    const city = cityState ? `, ${cityState}` : '';
+    const zipCode = property.cep ? `, CEP ${String(property.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '';
+    return `${street}${number}${complement}${neighborhood}${city}${zipCode}`;
+}
+
 export default function ContratosTabContent({ contratos }: ContratosTabContentProps) {
 
     // Definição das colunas adaptadas para o modelo Prisma Real
@@ -51,7 +75,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
             accessorKey: 'imovel',
             cell: (item: any) => {
                 if (!item.imovel) return 'Não informado';
-                const desc = item.imovel.descricao || item.imovel.codigo || 'Não informado';
+                const desc = formatPropertyAddress(item.imovel);
                 return (
                     <div className="max-w-[280px] truncate" title={desc}>
                         {desc}

@@ -105,6 +105,14 @@ function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value ?? 0)
     )
     const property = contrato.imovel
+    const today = new Date().toISOString().slice(0, 10)
+    const billingReferenceDate = contrato.billingStartDate && contrato.billingStartDate > today
+        ? contrato.billingStartDate
+        : today
+    const billingPeriod = contrato.termsPeriods.find(period => (
+        period.effectiveFrom <= billingReferenceDate
+        && (!period.effectiveTo || period.effectiveTo >= billingReferenceDate)
+    )) ?? null
     const attachmentGroups = [
         { label: "IPTU", attachments: contrato.iptu?.attachments ?? [] },
         { label: "Condomínio", attachments: contrato.condominium?.attachments ?? [] },
@@ -242,6 +250,26 @@ function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
                     <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">
                         Controle locatício
                     </h2>
+                    {billingPeriod && (
+                        <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs" data-slot="billing-period">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p className="font-bold text-[#004777]">Período vigente para gerar as cobranças</p>
+                                    <p className="mt-1 text-[11px] text-sky-800">
+                                        Referência da cobrança: {formatDate(billingReferenceDate)}
+                                    </p>
+                                </div>
+                                <span className="rounded-full bg-white px-3 py-1 font-semibold text-[#004777]">
+                                    {formatDate(billingPeriod.effectiveFrom)} a {formatDate(billingPeriod.effectiveTo)}
+                                </span>
+                            </div>
+                            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+                                <ViewField label="Aluguel do período" value={formatCurrency(billingPeriod.rentAmount)} />
+                                <ViewField label="Vencimento" value={`Dia ${billingPeriod.paymentDueDay}`} />
+                                <ViewField label="Índice de reajuste" value={billingPeriod.adjustmentIndex || "Não informado"} />
+                            </dl>
+                        </div>
+                    )}
                     {contrato.terms ? (
                         <dl className="mt-4 grid gap-4 text-xs md:grid-cols-2 lg:grid-cols-3">
                             <ViewField label="Aluguel" value={formatCurrency(contrato.terms.rentValue)} />

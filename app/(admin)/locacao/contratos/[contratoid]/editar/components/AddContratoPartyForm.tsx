@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import { addContratoParty, type AddPartyActionState } from '../../../../actions/contratoPartiesSection'
 import { findPersonByCpfCnpj, type PersonDocumentResult } from '@/app/(admin)/locacao/actions/searchActions'
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput'
 
 const initialState: AddPartyActionState = {
     success: false,
@@ -87,6 +88,9 @@ const emptyPhone = (): PhoneItem => ({
 export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit }: Props) {
     const formRef = useRef<HTMLFormElement>(null)
     const [category, setCategory] = useState<'FISICA' | 'JURIDICA'>(party?.pessoa.categoria ?? 'FISICA')
+    const [monthlyIncome, setMonthlyIncome] = useState(
+        party?.pessoa.rendaMensal == null ? '' : String(party.pessoa.rendaMensal),
+    )
     const [phones, setPhones] = useState<PhoneItem[]>(
         party?.pessoa.telefones?.length
             ? party.pessoa.telefones.map(phone => ({
@@ -107,31 +111,38 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
     const [isLoadingCep, setIsLoadingCep] = useState(false)
     const [documentMessage, setDocumentMessage] = useState<string | null>(null)
     const [isSearchingDocument, startDocumentSearch] = useTransition()
+    const [personToPopulate, setPersonToPopulate] = useState<PersonDocumentResult | null>(null)
+
+    const populateFormFields = (person: PersonDocumentResult) => {
+        const form = formRef.current
+        if (!form) return
+        Object.entries({
+            ...person.values,
+            numero: person.address?.numero ?? '',
+            complemento: person.address?.complemento ?? '',
+        }).forEach(([name, value]) => {
+            const control = form.elements.namedItem(name)
+            if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) {
+                control.value = value
+            }
+        })
+    }
 
     const applyPerson = (person: PersonDocumentResult) => {
         setCategory(person.category)
+        setMonthlyIncome(person.values.monthlyIncome ?? '')
         setPhones(person.phones.length ? person.phones : [emptyPhone()])
         setCep(person.address?.cep ?? '')
         setLogradouro(person.address?.logradouro ?? '')
         setBairro(person.address?.bairro ?? '')
         setMunicipio(person.address?.municipio ?? '')
         setEstado(person.address?.estado ?? '')
-
-        window.setTimeout(() => {
-            const form = formRef.current
-            if (!form) return
-            Object.entries({
-                ...person.values,
-                numero: person.address?.numero ?? '',
-                complemento: person.address?.complemento ?? '',
-            }).forEach(([name, value]) => {
-                const control = form.elements.namedItem(name)
-                if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) {
-                    control.value = value
-                }
-            })
-        }, 0)
+        setPersonToPopulate(person)
     }
+
+    useEffect(() => {
+        if (personToPopulate) populateFormFields(personToPopulate)
+    }, [category, personToPopulate])
 
     const handleDocumentBlur = (value: string) => {
         const document = value.replace(/\D/g, '')
@@ -536,7 +547,14 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
 
                         <div>
                             <label className="block font-medium text-gray-700 mb-1">Renda mensal (R$)</label>
-                            <input type="number" step="0.01" name="monthlyIncome" defaultValue={party?.pessoa.rendaMensal ?? ''} placeholder="Ex: 5000.00" className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none" />
+                            <FormattedNumberInput
+                                name="monthlyIncome"
+                                value={monthlyIncome}
+                                onValueChange={setMonthlyIncome}
+                                format="currency"
+                                placeholder="R$ 0,00"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none"
+                            />
                         </div>
 
                         <div>
