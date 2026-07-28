@@ -200,7 +200,9 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
 
         const tenantName = lease.parties[0]?.person.name || "Inquilino";
         const rentAmount = Number(periodoAtivo.rentAmount);
-        const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento);
+        const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento, {
+          legacySystem: lease.legacySystem,
+        });
         const condominiumValue = calcularCondominioDaCobranca(lease.condominium);
         const totalAmount = Number((rentAmount + condominiumValue + iptu.valor).toFixed(2));
         const metadata = {

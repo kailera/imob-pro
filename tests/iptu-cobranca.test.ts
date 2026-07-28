@@ -33,3 +33,40 @@ test("aceita apenas quantidade inteira positiva", () => {
   assert.equal(parseQuantidadeParcelas("10 parcelas"), null);
   assert.equal(parseQuantidadeParcelas("0"), null);
 });
+
+test("usa a competência do período anterior para parcelas migradas do SICADI", () => {
+  const iptuSicadi = {
+    amount: 31.2,
+    paymentStartDate: new Date("2026-06-29T00:00:00.000Z"),
+    installments: "8",
+  };
+
+  assert.deepEqual(
+    calcularIptuDaCobranca(
+      iptuSicadi,
+      new Date("2026-08-29T00:00:00.000Z"),
+      { legacySystem: "SICADI" },
+    ),
+    {
+      valor: 31.2,
+      numeroParcela: 2,
+      quantidadeParcelas: 8,
+    },
+  );
+  assert.equal(
+    calcularIptuDaCobranca(
+      iptuSicadi,
+      new Date("2027-02-28T00:00:00.000Z"),
+      { legacySystem: "SICADI" },
+    ).numeroParcela,
+    8,
+  );
+  assert.equal(
+    calcularIptuDaCobranca(
+      iptuSicadi,
+      new Date("2027-03-29T00:00:00.000Z"),
+      { legacySystem: "SICADI" },
+    ).valor,
+    0,
+  );
+});

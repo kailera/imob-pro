@@ -30,7 +30,7 @@ export async function updateLeaseIptu(
             id: leaseId,
             tenantId: context.tenantId,
         },
-        select: { id: true },
+        select: { id: true, legacySystem: true },
     })
 
     if (!lease) {
@@ -127,7 +127,9 @@ export async function updateLeaseIptu(
                     : {}
             ) as Record<string, unknown>
             const oldIptu = Number(metadata.iptuValue ?? 0)
-            const iptuCharge = calcularIptuDaCobranca(savedIptu, charge.dataVencimento)
+            const iptuCharge = calcularIptuDaCobranca(savedIptu, charge.dataVencimento, {
+                legacySystem: lease.legacySystem,
+            })
             const total = Number((charge.valor - (Number.isFinite(oldIptu) ? oldIptu : 0) + iptuCharge.valor).toFixed(2))
             const nextMetadata = {
                 ...metadata,
