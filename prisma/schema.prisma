@@ -620,8 +620,8 @@ model LeaseTermsPeriod {
 
   charges LeaseCharge[]
 
-  @@unique([leaseId, effectiveFrom])
   @@index([leaseId, effectiveFrom, effectiveTo])
+  @@index([leaseId, createdAt])
   @@map("lease_terms_period")
 }
 

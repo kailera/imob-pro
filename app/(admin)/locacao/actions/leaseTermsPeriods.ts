@@ -96,7 +96,7 @@ export async function saveLeaseTermsPeriod(
 
     const lease = await prisma.lease.findFirst({
         where: { id: leaseId, tenantId: context.tenantId },
-        select: { id: true, startDate: true, endDate: true },
+        select: { id: true },
     })
 
     if (!lease) {
@@ -111,43 +111,6 @@ export async function saveLeaseTermsPeriod(
             success: false,
             message: 'O término deve ser posterior ao início do período.',
             errors: { effectiveTo: ['Informe uma data posterior ao início.'] },
-        }
-    }
-
-    if (lease.startDate && effectiveFrom < lease.startDate) {
-        return {
-            success: false,
-            message: 'O período começa antes da vigência do contrato.',
-            errors: { effectiveFrom: ['Use uma data dentro da vigência contratual.'] },
-        }
-    }
-
-    if (lease.endDate && effectiveTo > addDays(lease.endDate, 1)) {
-        return {
-            success: false,
-            message: 'O período termina depois da vigência do contrato.',
-            errors: { effectiveTo: ['Use uma data dentro da vigência contratual.'] },
-        }
-    }
-
-    const overlap = await prisma.leaseTermsPeriod.findFirst({
-        where: {
-            leaseId,
-            ...(parsed.data.periodId ? { NOT: { id: parsed.data.periodId } } : {}),
-            effectiveFrom: { lt: effectiveTo },
-            effectiveTo: { gt: effectiveFrom },
-        },
-        select: { id: true },
-    })
-
-    if (overlap) {
-        return {
-            success: false,
-            message: 'Este intervalo se sobrepõe a outro período cadastrado.',
-            errors: {
-                effectiveFrom: ['Ajuste as datas para não sobrepor períodos.'],
-                effectiveTo: ['Ajuste as datas para não sobrepor períodos.'],
-            },
         }
     }
 

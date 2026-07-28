@@ -7,11 +7,14 @@ import { adicionarDiasUTC } from '@/lib/locacao/periodos';
 
 export interface Contrato {
     id?: string;
-    contrato: string;
-    inquilino: string;
-    imovel: string;
-    vencimento: string;
-    status: 'Ativo' | 'Pendente' | 'Encerrado' | 'Atrasado' | 'Em Acordo';
+    code?: string;
+    legacyCode?: string;
+    recordType?: 'LEASE' | 'LEGACY';
+    locatarios?: Array<{ nome?: string | null }>;
+    imovel?: PropertyAddress & { imovelLocacaos?: Array<{ dataFim?: string | Date | null }> };
+    imovelLocacao?: { dataFim?: string | Date | null } | null;
+    vencimento?: string;
+    status?: string;
     valorOriginal?: number;
     parcelasAtrasadas?: number;
 }
@@ -45,6 +48,33 @@ function formatPropertyAddress(property: PropertyAddress) {
 }
 
 export default function ContratosTabContent({ contratos }: ContratosTabContentProps) {
+
+    const getSearchText = (item: Contrato) => {
+        const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
+        const status = item.recordType === 'LEASE'
+            ? item.status === 'ACTIVE' ? 'Ativo'
+                : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                    : 'Pendente'
+            : locacao?.dataFim && new Date(locacao.dataFim) < new Date() ? 'Encerrado' : 'Ativo';
+        const property = item.imovel || {};
+
+        return [
+            item.id,
+            item.code,
+            item.legacyCode,
+            item.locatarios?.map(locatario => locatario.nome).join(' '),
+            property.codigo,
+            property.logradouro,
+            property.descricao,
+            property.numero,
+            property.complemento,
+            property.bairro,
+            property.cidade,
+            property.uf,
+            property.cep,
+            status,
+        ].filter(Boolean).join(' ');
+    };
 
     // Definição das colunas adaptadas para o modelo Prisma Real
     const columns: Column<any>[] = [
@@ -196,6 +226,8 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
                 title="Contratos de Locação"
                 data={contratos}
                 columns={columns}
+                searchText={getSearchText}
+                searchPlaceholder="Buscar por contrato, inquilino, imóvel ou status..."
                 responsiveCards
             />
         </div>

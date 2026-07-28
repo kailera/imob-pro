@@ -17,6 +17,7 @@ interface DataTableProps<T> {
   searchValue?: string;
   onSearchChange?: (val: string) => void;
   searchPlaceholder?: string;
+  searchText?: (item: T) => string;
   responsiveCards?: boolean;
 }
 
@@ -28,6 +29,7 @@ export function DataTable<T>({
   searchValue,
   onSearchChange,
   searchPlaceholder = "Buscar...",
+  searchText,
   responsiveCards = false,
 }: DataTableProps<T>) {
   const [internalSearch, setInternalSearch] = React.useState("");
@@ -45,15 +47,20 @@ export function DataTable<T>({
 
   const filteredData = React.useMemo(() => {
     if (!currentSearch.trim()) return data;
-    const q = currentSearch.toLowerCase().trim();
+    const normalizeSearch = (value: string) => value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const q = normalizeSearch(currentSearch.trim());
     return data.filter((item) => {
+      if (searchText) return normalizeSearch(searchText(item)).includes(q);
       return columns.some((col) => {
         const val = item[col.accessorKey];
         if (val === null || val === undefined) return false;
-        return String(val).toLowerCase().includes(q);
+        return normalizeSearch(String(val)).includes(q);
       });
     });
-  }, [data, columns, currentSearch]);
+  }, [data, columns, currentSearch, searchText]);
 
   return (
     <div className="flex flex-col gap-6 w-full text-[#280003]">

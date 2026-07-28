@@ -158,24 +158,6 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
     const [deleteMessage, setDeleteMessage] = useState<string | null>(null)
     const [deleting, startDeleting] = useTransition()
 
-    const gaps = useMemo(() => {
-        const messages: string[] = []
-        orderedPeriods.forEach((period, index) => {
-            if (index === 0 && props.leaseStartDate && period.effectiveFrom !== props.leaseStartDate) {
-                messages.push(`O primeiro período não começa junto com o contrato (${formatDate(props.leaseStartDate)}).`)
-            }
-            const next = orderedPeriods[index + 1]
-            if (next && addDays(period.effectiveTo, 1) !== next.effectiveFrom) {
-                messages.push(`Há uma lacuna entre ${formatDate(period.effectiveTo)} e ${formatDate(next.effectiveFrom)}.`)
-            }
-        })
-        const last = orderedPeriods.at(-1)
-        if (last && props.leaseEndDate && last.effectiveTo !== props.leaseEndDate) {
-            messages.push(`O histórico ainda não cobre o contrato até ${formatDate(props.leaseEndDate)}.`)
-        }
-        return messages
-    }, [orderedPeriods, props.leaseEndDate, props.leaseStartDate])
-
     const selectPeriod = (period: LeaseTermsPeriodView) => {
         setDeleteMessage(null)
         setDraft({ ...period })
@@ -290,15 +272,6 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                             <span className="block text-[11px]">R$ {period.rentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </button>
                     ))}
-                </div>
-            )}
-
-            {gaps.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                    <p className="font-semibold">Histórico ainda incompleto</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-4">
-                        {gaps.map(message => <li key={message}>{message}</li>)}
-                    </ul>
                 </div>
             )}
 

@@ -252,7 +252,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
           include: {
             property: true,
             terms: true,
-            termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+            termsPeriods: { orderBy: { createdAt: "desc" } },
             parties: {
               where: { role: "TENANT" },
               include: {

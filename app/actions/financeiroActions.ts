@@ -141,7 +141,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         property: true,
         iptu: true,
         terms: true,
-        termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+        termsPeriods: { orderBy: { createdAt: "desc" } },
         parties: {
           where: { role: "TENANT" },
           include: { person: true },
