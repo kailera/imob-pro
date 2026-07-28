@@ -274,7 +274,7 @@ async function migrateLegacyToPersonLease() {
         // A chave de origem torna a operação segura para repetir: um contrato
         // legado já migrado é reutilizado, sem criar outra Lease.
         const legacySystem = 'IMOB_PRO_LEGACY'
-        const existingLease = await prisma.lease.findUnique({
+        const leaseFromSameLegacyRecord = await prisma.lease.findUnique({
             where: {
                 tenantId_legacySystem_legacyCode: {
                     tenantId,
@@ -283,6 +283,30 @@ async function migrateLegacyToPersonLease() {
                 },
             },
         })
+        const tenantPersonIds = c.locatarios
+            .map(loc => locatarioToPersonMap.get(loc.id))
+            .filter((personId): personId is string => Boolean(personId))
+        const completeLeaseForSameContract = leaseFromSameLegacyRecord
+            ? null
+            : await prisma.lease.findFirst({
+                where: {
+                    tenantId,
+                    propertyId: c.imovelId,
+                    status: 'ACTIVE',
+                    parties: {
+                        some: {
+                            role: 'TENANT',
+                            personId: { in: tenantPersonIds },
+                        },
+                    },
+                    termsPeriods: {
+                        some: {},
+                        every: { reviewStatus: 'REVIEWED' },
+                    },
+                },
+            })
+        const existingLease =
+            leaseFromSameLegacyRecord ?? completeLeaseForSameContract
 
         const lease = existingLease ?? await prisma.lease.create({
             data: {

@@ -32,6 +32,37 @@ export async function saveContrato(prevState: SaveContratoState, formData: FormD
         }
     }
 
+    if (validation.data.propertyId) {
+        const existingCompleteLease = await prisma.lease.findFirst({
+            where: {
+                tenantId: context.tenantId,
+                propertyId: validation.data.propertyId,
+                status: 'ACTIVE',
+                termsPeriods: {
+                    some: {},
+                    every: { reviewStatus: 'REVIEWED' },
+                },
+            },
+            select: {
+                id: true,
+                code: true,
+                legacyCode: true,
+            },
+        })
+
+        if (existingCompleteLease) {
+            const existingCode =
+                existingCompleteLease.legacyCode ?? existingCompleteLease.code
+            return {
+                success: false,
+                message: `O imóvel já possui o contrato completo ${existingCode}.`,
+                errors: {
+                    propertyId: ['Abra o contrato existente em vez de criar outro.'],
+                },
+            }
+        }
+    }
+
     const count = await prisma.lease.count({
         where: { tenantId: context.tenantId }
     })

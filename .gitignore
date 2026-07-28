@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
+
+# Relatórios e dados temporários das migrações SICADI
+/sicadi-*.json
+/legacy-contract-duplicates-audit.json

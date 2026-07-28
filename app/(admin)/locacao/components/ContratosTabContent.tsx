@@ -43,7 +43,9 @@ function formatPropertyAddress(property: PropertyAddress) {
     const neighborhood = property.bairro ? ` — ${property.bairro}` : '';
     const cityState = [property.cidade, property.uf].filter(Boolean).join('/');
     const city = cityState ? `, ${cityState}` : '';
-    const zipCode = property.cep ? `, CEP ${String(property.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '';
+    const zipCode = property.cep
+        ? `, CEP ${String(property.cep).replace(/\D/g, '').padStart(8, '0').replace(/(\d{5})(\d{3})/, '$1-$2')}`
+        : '';
     return `${street}${number}${complement}${neighborhood}${city}${zipCode}`;
 }
 

@@ -19,6 +19,7 @@ import {
 import { calcularMesesContrato, converterMesesParaPercentual, formatarDataLocalISO } from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { requireUserContext } from "@/lib/auth";
+import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -1008,7 +1009,10 @@ export const getContratosLocacao = async () => {
             reviewStatus: period.reviewStatus,
           })),
         }));
-        const contratosLegados = contratos.map(contrato => ({
+        const contratosLegados = removeLegacyDuplicatesWithCompleteLease(
+          contratos,
+          leases,
+        ).map(contrato => ({
           ...contrato,
           recordType: "LEGACY" as const,
         }));
