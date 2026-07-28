@@ -1,0 +1,1183 @@
+{
+  "generatedAt": "2026-07-28T18:16:14.065Z",
+  "completeCanonicalLeases": 74,
+  "legacyContracts": 95,
+  "duplicatePairs": 69,
+  "safeForPhysicalDeletion": 0,
+  "preservedBecauseOfDependencies": 69,
+  "duplicates": [
+    {
+      "legacyContractId": "00077",
+      "legacyPropertyCode": "IMB-CSV-00077",
+      "imovelLocacaoId": "f7879820-a6d2-4640-920a-224f7f5e1088",
+      "tenantNames": [
+        "Kaio Cesar Aureliano Pateis"
+      ],
+      "canonicalLeaseId": "cms2m9n0k00a10tnwkznyox4t",
+      "canonicalCode": "00077",
+      "blockers": {
+        "transactions": 10,
+        "maintenances": 1,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00011",
+      "legacyPropertyCode": "IMB-CSV-00011",
+      "imovelLocacaoId": "5cf4ed58-5c08-425d-ac77-b9652cd880c9",
+      "tenantNames": [
+        "CLARA FERREIRA GARCIA"
+      ],
+      "canonicalLeaseId": "cms2m9mt9008d0tnwbdmloi0a",
+      "canonicalCode": "00011",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000134",
+      "legacyPropertyCode": "IMB-CSV-000134",
+      "imovelLocacaoId": "fda95452-c899-46c6-aa23-171c872f4abd",
+      "tenantNames": [
+        "Tomas Gustavo Pedro"
+      ],
+      "canonicalLeaseId": "cms2m9mjo006a0tnwy5fw6933",
+      "canonicalCode": "000134",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00063",
+      "legacyPropertyCode": "IMB-CSV-00063",
+      "imovelLocacaoId": "a94e7249-fc0b-423f-8754-adad208b3de3",
+      "tenantNames": [
+        "Luis Fernando Chaves Duarte"
+      ],
+      "canonicalLeaseId": "cms2m9n2p00am0tnwfgqoxma7",
+      "canonicalCode": "00063",
+      "blockers": {
+        "transactions": 14,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000115",
+      "legacyPropertyCode": "IMB-CSV-000115",
+      "imovelLocacaoId": "2ada7f1a-40d1-46d2-87a2-4da05367dc88",
+      "tenantNames": [
+        "Jesus Aparecido Alves da Silva"
+      ],
+      "canonicalLeaseId": "cms2m9mmo006p0tnw266e8zip",
+      "canonicalCode": "000115",
+      "blockers": {
+        "transactions": 5,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000113",
+      "legacyPropertyCode": "IMB-CSV-000113",
+      "imovelLocacaoId": "bbba0378-1136-47b2-9720-07824ac40a98",
+      "tenantNames": [
+        "Levi Batista Pitanga Junior"
+      ],
+      "canonicalLeaseId": "cms2m9mdv005s0tnw8ferp4qw",
+      "canonicalCode": "000113",
+      "blockers": {
+        "transactions": 5,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00054",
+      "legacyPropertyCode": "IMB-CSV-00054",
+      "imovelLocacaoId": "ec3f8bbc-0e8e-4162-b5bd-ef7f94b7ce9f",
+      "tenantNames": [
+        "Gisele Moraes Portela Lima"
+      ],
+      "canonicalLeaseId": "cms2m9n1a00aa0tnw01zvfz1d",
+      "canonicalCode": "00054",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00064",
+      "legacyPropertyCode": "IMB-CSV-00064",
+      "imovelLocacaoId": "0892c4ab-e698-49e4-976a-4c54284e6df5",
+      "tenantNames": [
+        "MARCOS AURELIO SILVA DE OLIVEIRA"
+      ],
+      "canonicalLeaseId": "cms2m9n1u00ag0tnw5s5p8pxe",
+      "canonicalCode": "00064",
+      "blockers": {
+        "transactions": 14,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00040",
+      "legacyPropertyCode": "IMB-CSV-00040",
+      "imovelLocacaoId": "02bb3733-7e93-4d1f-9be1-37a27ae6d77f",
+      "tenantNames": [
+        "Marina Morelli Trombeta"
+      ],
+      "canonicalLeaseId": "cms2m9mfn005y0tnw0i92jy6d",
+      "canonicalCode": "00040",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000102",
+      "legacyPropertyCode": "IMB-CSV-000102",
+      "imovelLocacaoId": "6e4a2a04-935b-4d6e-b173-08a65bdc6c2c",
+      "tenantNames": [
+        "Anna Beatriz Fernandes Amaral"
+      ],
+      "canonicalLeaseId": "cms2m9n5b00ba0tnw94cohyd8",
+      "canonicalCode": "000102",
+      "blockers": {
+        "transactions": 6,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000128",
+      "legacyPropertyCode": "IMB-CSV-000128",
+      "imovelLocacaoId": "c4395de3-e98e-47ea-ba84-38ca6b3997ce",
+      "tenantNames": [
+        "Daniel Esposte Rocha"
+      ],
+      "canonicalLeaseId": "cms2m9n6t00bp0tnwyi13n3mo",
+      "canonicalCode": "000128",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000129",
+      "legacyPropertyCode": "IMB-CSV-000129",
+      "imovelLocacaoId": "7a3f24b7-33f2-4852-8b1a-cd40468e3df0",
+      "tenantNames": [
+        "Rodrigo de Sa Cestari"
+      ],
+      "canonicalLeaseId": "cms2m9mpp007g0tnw7chyrhot",
+      "canonicalCode": "000129",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00017",
+      "legacyPropertyCode": "IMB-CSV-00017",
+      "imovelLocacaoId": "6df2a3b1-fd70-4b9f-994d-d90a9fa33130",
+      "tenantNames": [
+        "Samantha Batista Zacarias"
+      ],
+      "canonicalLeaseId": "cms2m9mu7008j0tnwdbtv9k4u",
+      "canonicalCode": "00017",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00091",
+      "legacyPropertyCode": "IMB-CSV-00091",
+      "imovelLocacaoId": "3cc96007-67aa-4b89-ac98-a9ded3c152fb",
+      "tenantNames": [
+        "Ana Julia  de Oliveira Yamania"
+      ],
+      "canonicalLeaseId": "cms2m9n4300ay0tnwbgr7ha28",
+      "canonicalCode": "00091",
+      "blockers": {
+        "transactions": 9,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00086",
+      "legacyPropertyCode": "IMB-CSV-00086",
+      "imovelLocacaoId": "98cec3af-8fd6-48fa-8b90-6d9d3301ebc7",
+      "tenantNames": [
+        "Greicy Kele de Oliveira Lopes"
+      ],
+      "canonicalLeaseId": "cms2m9mxl009d0tnwoquv051u",
+      "canonicalCode": "00086",
+      "blockers": {
+        "transactions": 9,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00095",
+      "legacyPropertyCode": "IMB-CSV-00095",
+      "imovelLocacaoId": "d3581807-66bf-4e1d-939d-6bc0dd68e7fa",
+      "tenantNames": [
+        "Miguel Alves Silva"
+      ],
+      "canonicalLeaseId": "cms2m9n4o00b40tnwn5hk8ui7",
+      "canonicalCode": "00095",
+      "blockers": {
+        "transactions": 7,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00025",
+      "legacyPropertyCode": "IMB-CSV-00025",
+      "imovelLocacaoId": "22aa053d-43e7-47ad-b66c-25ab4fb882b6",
+      "tenantNames": [
+        "Henrique Teruki Fujii"
+      ],
+      "canonicalLeaseId": "cms2m9n8b00c70tnwwrld4cxc",
+      "canonicalCode": "00025",
+      "blockers": {
+        "transactions": 17,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00055",
+      "legacyPropertyCode": "IMB-CSV-00055",
+      "imovelLocacaoId": "0defd28c-029d-4120-9312-70f462adf7b1",
+      "tenantNames": [
+        "Robert William do Nascimento"
+      ],
+      "canonicalLeaseId": "cms2m9mvt00910tnwh6pm85f3",
+      "canonicalCode": "00055",
+      "blockers": {
+        "transactions": 22,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000103",
+      "legacyPropertyCode": "IMB-CSV-000103",
+      "imovelLocacaoId": "0d8b2319-fc83-420e-a1d9-9b517fbb12bb",
+      "tenantNames": [
+        "Maria Fernanda de Oliveira"
+      ],
+      "canonicalLeaseId": "cms2m9n5u00bd0tnwfsw5yxfo",
+      "canonicalCode": "000103",
+      "blockers": {
+        "transactions": 6,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00093",
+      "legacyPropertyCode": "IMB-CSV-00093",
+      "imovelLocacaoId": "52f283fb-52c9-4fca-b19a-49534d5c36ea",
+      "tenantNames": [
+        "Marcelo Carvalho Minhoto T. Filho"
+      ],
+      "canonicalLeaseId": "cms2m9msq00870tnweos0q12v",
+      "canonicalCode": "00093",
+      "blockers": {
+        "transactions": 8,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00019",
+      "legacyPropertyCode": "IMB-CSV-00019",
+      "imovelLocacaoId": "3f5fae7e-8335-48a1-9a69-f38624c36410",
+      "tenantNames": [
+        "Guilherme Augusto Zan Seridonio"
+      ],
+      "canonicalLeaseId": "cms2m9mks006d0tnw0sd2pi5w",
+      "canonicalCode": "00019",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000107",
+      "legacyPropertyCode": "IMB-CSV-000107",
+      "imovelLocacaoId": "9d75663c-66c0-425c-b5d9-cff4bc9eef10",
+      "tenantNames": [
+        "Rogerio Pereira Lacerda"
+      ],
+      "canonicalLeaseId": "cms2m9mlx006m0tnw60c5srze",
+      "canonicalCode": "000107",
+      "blockers": {
+        "transactions": 6,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00076",
+      "legacyPropertyCode": "IMB-CSV-00076",
+      "imovelLocacaoId": "aa50ff79-76db-48ba-bd69-5dec13016f6a",
+      "tenantNames": [
+        "FLAVIA LEATI PELAES DE ALMEIDA"
+      ],
+      "canonicalLeaseId": "cms2m9na400cm0tnw40xfm1ml",
+      "canonicalCode": "00076",
+      "blockers": {
+        "transactions": 11,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00090",
+      "legacyPropertyCode": "IMB-CSV-00090",
+      "imovelLocacaoId": "84380ff6-03f6-41f4-a198-1880d0298b06",
+      "tenantNames": [
+        "Leonardo Marques Moreira Garcez"
+      ],
+      "canonicalLeaseId": "cms2m9n3u00av0tnwuj53g9p9",
+      "canonicalCode": "00090",
+      "blockers": {
+        "transactions": 9,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00058",
+      "legacyPropertyCode": "IMB-CSV-00058",
+      "imovelLocacaoId": "3242cf3c-2842-4a53-87f3-a76546c5526b",
+      "tenantNames": [
+        "Lucas Villas Boas de Pauda"
+      ],
+      "canonicalLeaseId": "cms2m9muh008m0tnwriyjhd2p",
+      "canonicalCode": "00058",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00006",
+      "legacyPropertyCode": "IMB-CSV-00006",
+      "imovelLocacaoId": "ceac91b2-728d-4674-89dc-335e7716f65f",
+      "tenantNames": [
+        "Acleonio de Souza Neto"
+      ],
+      "canonicalLeaseId": "cms2m9n2800aj0tnwcvonwq3e",
+      "canonicalCode": "00006",
+      "blockers": {
+        "transactions": 20,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00057",
+      "legacyPropertyCode": "IMB-CSV-00057",
+      "imovelLocacaoId": "8c0b18b6-a36d-45be-b46b-7754ee6dd5e9",
+      "tenantNames": [
+        "Lindalva dos Santos Paulino"
+      ],
+      "canonicalLeaseId": "cms2m9myn009m0tnw5lpu4zx8",
+      "canonicalCode": "00057",
+      "blockers": {
+        "transactions": 17,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00065",
+      "legacyPropertyCode": "IMB-CSV-00065",
+      "imovelLocacaoId": "1ae6d489-fb24-4fc7-ae77-db457a146fb5",
+      "tenantNames": [
+        "David Souza Andrade"
+      ],
+      "canonicalLeaseId": "cms2m9n1k00ad0tnwuyrycfze",
+      "canonicalCode": "00065",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000118",
+      "legacyPropertyCode": "IMB-CSV-000118",
+      "imovelLocacaoId": "80c7cb4d-7419-4cbd-a846-af0ebacb9d43",
+      "tenantNames": [
+        "Divan Souza de Oliveira"
+      ],
+      "canonicalLeaseId": "cms2m9mp6007a0tnwir1ecjnp",
+      "canonicalCode": "000118",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000110",
+      "legacyPropertyCode": "IMB-CSV-000110",
+      "imovelLocacaoId": "f3d8f0d5-6c4d-4b4e-805d-5af8dac3a733",
+      "tenantNames": [
+        "Fernando Alves de Rezende"
+      ],
+      "canonicalLeaseId": "cms2m9mrk007y0tnw013ffsbw",
+      "canonicalCode": "000110",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000119",
+      "legacyPropertyCode": "IMB-CSV-000119",
+      "imovelLocacaoId": "14b54a13-c924-4be0-88e6-249e15662114",
+      "tenantNames": [
+        "Jessica Aparecida dos Santos"
+      ],
+      "canonicalLeaseId": "cms2m9mr6007v0tnw824q9kf7",
+      "canonicalCode": "000119",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00016",
+      "legacyPropertyCode": "IMB-CSV-00016",
+      "imovelLocacaoId": "b4257b84-b371-4033-9c9f-2a13f202edb3",
+      "tenantNames": [
+        "Taynara Roque Santos"
+      ],
+      "canonicalLeaseId": "cms2m9n9s00cj0tnwxyaz7zec",
+      "canonicalCode": "00016",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00082",
+      "legacyPropertyCode": "IMB-CSV-00082",
+      "imovelLocacaoId": "e342a1b4-6f6b-4383-9803-1162199edd56",
+      "tenantNames": [
+        "CLEIDE DOLRES CARVALHO"
+      ],
+      "canonicalLeaseId": "cms2m9nbr00d10tnwuve7x5vq",
+      "canonicalCode": "00082",
+      "blockers": {
+        "transactions": 14,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00051",
+      "legacyPropertyCode": "IMB-CSV-00051",
+      "imovelLocacaoId": "0f4526ab-c7ea-4b0d-aff4-c39bbd0645ae",
+      "tenantNames": [
+        "Nathalia Oliveira de Souza"
+      ],
+      "canonicalLeaseId": "cms2m9mlc006g0tnwgmtf4wp1",
+      "canonicalCode": "00051",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00061",
+      "legacyPropertyCode": "IMB-CSV-00061",
+      "imovelLocacaoId": "e28d8096-b18e-4b55-b49c-96cce5fd130e",
+      "tenantNames": [
+        "Alessandra Boaventura Castanheira"
+      ],
+      "canonicalLeaseId": "cms2m9muq008p0tnwgdpwsyka",
+      "canonicalCode": "00061",
+      "blockers": {
+        "transactions": 14,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00135",
+      "legacyPropertyCode": "IMB-CSV-00135",
+      "imovelLocacaoId": "d664c1c9-5255-435d-9955-4db14108e2e3",
+      "tenantNames": [
+        "Fatima Campagnoli Ferreira"
+      ],
+      "canonicalLeaseId": "cms2m9mnj006v0tnw5vrggo0m",
+      "canonicalCode": "00135",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00013",
+      "legacyPropertyCode": "IMB-CSV-00013",
+      "imovelLocacaoId": "827eaaa6-6ed5-4fd7-b44f-ada3152f88e8",
+      "tenantNames": [
+        "Fabiana Aucco Egidio"
+      ],
+      "canonicalLeaseId": "cms2m9ndm00dd0tnw8tv1n74l",
+      "canonicalCode": "00013",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00088",
+      "legacyPropertyCode": "IMB-CSV-00088",
+      "imovelLocacaoId": "76c44408-2830-4dc7-b0e9-eb0af7d70583",
+      "tenantNames": [
+        "Marisa Barbosa Martelo"
+      ],
+      "canonicalLeaseId": "cms2m9n3j00as0tnw0gc5hz65",
+      "canonicalCode": "00088",
+      "blockers": {
+        "transactions": 9,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00031",
+      "legacyPropertyCode": "IMB-CSV-00031",
+      "imovelLocacaoId": "b9376006-0fdc-49de-9e2f-d59882ad61de",
+      "tenantNames": [
+        "Laura Ferreira de Souza Dantas"
+      ],
+      "canonicalLeaseId": "cms2m9n7s00c10tnwvrert4lx",
+      "canonicalCode": "00031",
+      "blockers": {
+        "transactions": 18,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000116",
+      "legacyPropertyCode": "IMB-CSV-000116",
+      "imovelLocacaoId": "ab745b07-7093-4e7d-aca8-09dfa721fd88",
+      "tenantNames": [
+        "Natalia Priscila Nobrega"
+      ],
+      "canonicalLeaseId": "cms2m9mrz00810tnwhelzbsbe",
+      "canonicalCode": "000116",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00099",
+      "legacyPropertyCode": "IMB-CSV-00099",
+      "imovelLocacaoId": "4f3752d1-e105-417f-9b71-cd445b50718d",
+      "tenantNames": [
+        "Caroline Bueno Ramires"
+      ],
+      "canonicalLeaseId": "cms2m9mov00770tnw73o7wvr4",
+      "canonicalCode": "00099",
+      "blockers": {
+        "transactions": 6,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000121",
+      "legacyPropertyCode": "IMB-CSV-000121",
+      "imovelLocacaoId": "c50d657f-4811-4ce4-889a-1c2d662f36ae",
+      "tenantNames": [
+        "Fabricia Carla Viviani"
+      ],
+      "canonicalLeaseId": "cms2m9mpg007d0tnw9xk7uct8",
+      "canonicalCode": "000121",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00100",
+      "legacyPropertyCode": "IMB-CSV-00100",
+      "imovelLocacaoId": "30c6b853-f07d-4741-becb-3e9a72cfa02f",
+      "tenantNames": [
+        "Angela Rosa Mathias de Faria Lacerda"
+      ],
+      "canonicalLeaseId": "cms2m9mom00740tnwi7kyfa5j",
+      "canonicalCode": "00100",
+      "blockers": {
+        "transactions": 7,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00083",
+      "legacyPropertyCode": "IMB-CSV-00083",
+      "imovelLocacaoId": "77432da6-34c9-4fc1-8112-5b14d768a517",
+      "tenantNames": [
+        "Adressa Daiany do Carmo Lima"
+      ],
+      "canonicalLeaseId": "cms2m9mv7008v0tnwal6zxnm1",
+      "canonicalCode": "00083",
+      "blockers": {
+        "transactions": 10,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00052",
+      "legacyPropertyCode": "IMB-CSV-00052",
+      "imovelLocacaoId": "16e95cb0-f1d0-476c-aa82-94b383c1dfb8",
+      "tenantNames": [
+        "Diego Alves Xavier"
+      ],
+      "canonicalLeaseId": "cms2m9n0t00a40tnwgjnabzvj",
+      "canonicalCode": "00052",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000120",
+      "legacyPropertyCode": "IMB-CSV-000120",
+      "imovelLocacaoId": "77c3e2db-76cb-4eee-b30f-e4368abd16fd",
+      "tenantNames": [
+        "Hermison Ricardo Bioni"
+      ],
+      "canonicalLeaseId": "cms2m9naf00cp0tnw7tslz7nd",
+      "canonicalCode": "000120",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00003",
+      "legacyPropertyCode": "IMB-CSV-00003",
+      "imovelLocacaoId": "dc66ec37-8151-4a41-b12f-cee65ed118d4",
+      "tenantNames": [
+        "Nilson Branco Teixeira"
+      ],
+      "canonicalLeaseId": "cms2m9n9800cg0tnwguopvkp7",
+      "canonicalCode": "00003",
+      "blockers": {
+        "transactions": 17,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00043",
+      "legacyPropertyCode": "IMB-CSV-00043",
+      "imovelLocacaoId": "190ecf56-ee91-4ae1-b7c1-af1d552d3f90",
+      "tenantNames": [
+        "Ana Clara Moreira Helena"
+      ],
+      "canonicalLeaseId": "cms2m9mhq00640tnw94mlfxr2",
+      "canonicalCode": "00043",
+      "blockers": {
+        "transactions": 17,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00037",
+      "legacyPropertyCode": "IMB-CSV-00037",
+      "imovelLocacaoId": "3a94a2dd-dd3b-4fb8-908d-e6f97f5718b3",
+      "tenantNames": [
+        "Danilo Carvalho de Souza"
+      ],
+      "canonicalLeaseId": "cms2m9ms800840tnwtako7axu",
+      "canonicalCode": "00037",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00074",
+      "legacyPropertyCode": "IMB-CSV-00074",
+      "imovelLocacaoId": "6bd99645-9eb5-47c2-be96-b866312ca056",
+      "tenantNames": [
+        "MARIA CAROLINA CARAVANTE MARIANO"
+      ],
+      "canonicalLeaseId": "cms2m9ncl00d70tnws4rsohb8",
+      "canonicalCode": "00074",
+      "blockers": {
+        "transactions": 11,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000105",
+      "legacyPropertyCode": "IMB-CSV-000105",
+      "imovelLocacaoId": "e03e4fc5-bcb1-4d23-845e-275fd2f35183",
+      "tenantNames": [
+        "Caroline de Oliveira Ramos"
+      ],
+      "canonicalLeaseId": "cms2m9nb100cv0tnwkuf1d0ca",
+      "canonicalCode": "000105",
+      "blockers": {
+        "transactions": 7,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00036",
+      "legacyPropertyCode": "IMB-CSV-00036",
+      "imovelLocacaoId": "b99e1141-e596-43e6-91d6-1dc9e5f10321",
+      "tenantNames": [
+        "LUIS FELIPE MARCON BRUNHARA"
+      ],
+      "canonicalLeaseId": "cms2m9mce005p0tnwrpc0b195",
+      "canonicalCode": "00036",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000122",
+      "legacyPropertyCode": "IMB-CSV-000122",
+      "imovelLocacaoId": "d62cb658-04a8-49d8-af6d-d27942a73bbf",
+      "tenantNames": [
+        "Renan S. Geronel"
+      ],
+      "canonicalLeaseId": "cms2m9map005m0tnwfx5dnp7v",
+      "canonicalCode": "000122",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000117",
+      "legacyPropertyCode": "IMB-CSV-000117",
+      "imovelLocacaoId": "bd24b2dd-6143-4871-b4b3-222775375c84",
+      "tenantNames": [
+        "Pedro Henrique Gandolfo Russomano"
+      ],
+      "canonicalLeaseId": "cms2m9n6k00bm0tnwwxr2p9k6",
+      "canonicalCode": "000117",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00035",
+      "legacyPropertyCode": "IMB-CSV-00035",
+      "imovelLocacaoId": "521ae19c-e150-48b5-bae6-eed860e9a73b",
+      "tenantNames": [
+        "Arthur Dias Delbone"
+      ],
+      "canonicalLeaseId": "cms2m9n8n00ca0tnwckdcf7vp",
+      "canonicalCode": "00035",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000114",
+      "legacyPropertyCode": "IMB-CSV-000114",
+      "imovelLocacaoId": "49627c2c-8b30-41eb-882a-44f6868756f5",
+      "tenantNames": [
+        "SILVANA SOUSA DA SILVA"
+      ],
+      "canonicalLeaseId": "cms2m9mmy006s0tnw2w7jejzv",
+      "canonicalCode": "000114",
+      "blockers": {
+        "transactions": 5,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000127",
+      "legacyPropertyCode": "IMB-CSV-000127",
+      "imovelLocacaoId": "d655eb89-2938-4b0b-a266-5a0dc33a8be1",
+      "tenantNames": [
+        "Murilo de Souza Penteado"
+      ],
+      "canonicalLeaseId": "cms2m9mpy007j0tnwf8k32ppt",
+      "canonicalCode": "000127",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00060",
+      "legacyPropertyCode": "IMB-CSV-00060",
+      "imovelLocacaoId": "6bfe033b-e10a-4838-a041-c5c83ef5f045",
+      "tenantNames": [
+        "GABRIELA CANDIDA DOS REIS MARTES"
+      ],
+      "canonicalLeaseId": "cms2m9mz2009p0tnw9k8nzo13",
+      "canonicalCode": "00060",
+      "blockers": {
+        "transactions": 16,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00078",
+      "legacyPropertyCode": "IMB-CSV-00078",
+      "imovelLocacaoId": "aeb0552b-bbf9-4e74-9f69-c188edfd0698",
+      "tenantNames": [
+        "GUILHERME LIMA DOS SANTOS"
+      ],
+      "canonicalLeaseId": "cms2m9mxx009g0tnwlxz6fjod",
+      "canonicalCode": "00078",
+      "blockers": {
+        "transactions": 10,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00066",
+      "legacyPropertyCode": "IMB-CSV-00066",
+      "imovelLocacaoId": "8091536f-3be9-4e54-ac4d-2e10d9094624",
+      "tenantNames": [
+        "Bruno Pacheco Albrecht"
+      ],
+      "canonicalLeaseId": "cms2m9mgh00610tnw2jz4ozx4",
+      "canonicalCode": "00066",
+      "blockers": {
+        "transactions": 10,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00010",
+      "legacyPropertyCode": "IMB-CSV-00010",
+      "imovelLocacaoId": "391fcf04-d200-42a9-a0dc-9a4934de69b7",
+      "tenantNames": [
+        "Jussara Souza Salles"
+      ],
+      "canonicalLeaseId": "cms2m9n7a00bv0tnw4t1fe17f",
+      "canonicalCode": "00010",
+      "blockers": {
+        "transactions": 15,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00079",
+      "legacyPropertyCode": "IMB-CSV-00079",
+      "imovelLocacaoId": "1a25f562-b96b-40c2-a604-c6ff547db085",
+      "tenantNames": [
+        "Edson Antonio da Silva"
+      ],
+      "canonicalLeaseId": "cms2m9mlo006j0tnw8tw70ndf",
+      "canonicalCode": "00079",
+      "blockers": {
+        "transactions": 11,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00014",
+      "legacyPropertyCode": "IMB-CSV-00014",
+      "imovelLocacaoId": "67c66078-7658-4e7b-954b-2135b11de98c",
+      "tenantNames": [
+        "Aline Bento Rodrigues"
+      ],
+      "canonicalLeaseId": "cms2m9n8000c40tnw29wzac33",
+      "canonicalCode": "00014",
+      "blockers": {
+        "transactions": 17,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00073",
+      "legacyPropertyCode": "IMB-CSV-00073",
+      "imovelLocacaoId": "ecd6cc45-9d4f-4cf5-9717-577c6f5c4e00",
+      "tenantNames": [
+        "Rodrigo de Oliveira de Carvalho"
+      ],
+      "canonicalLeaseId": "cms2m9ncc00d40tnw134b5yqz",
+      "canonicalCode": "00073",
+      "blockers": {
+        "transactions": 11,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00067",
+      "legacyPropertyCode": "IMB-CSV-00067",
+      "imovelLocacaoId": "ee082cf1-ad12-4b84-946d-0632f9fe181e",
+      "tenantNames": [
+        "Vitor Maranha Grassi"
+      ],
+      "canonicalLeaseId": "cms2m9miw00670tnwzpaimmk7",
+      "canonicalCode": "00067",
+      "blockers": {
+        "transactions": 13,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00033",
+      "legacyPropertyCode": "IMB-CSV-00033",
+      "imovelLocacaoId": "65f117bf-1633-4f6d-bfea-8f16d98cf225",
+      "tenantNames": [
+        "Pietra Wendeborn Zinezi dos Reis"
+      ],
+      "canonicalLeaseId": "cms2m9mtp008g0tnwtir1a2ma",
+      "canonicalCode": "00033",
+      "blockers": {
+        "transactions": 18,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000132",
+      "legacyPropertyCode": "IMB-CSV-000132",
+      "imovelLocacaoId": "17b8e251-da9a-41cb-9f71-500bd08cbd38",
+      "tenantNames": [
+        "Clevelton Gobi Ferreira"
+      ],
+      "canonicalLeaseId": "cms2m9n7100bs0tnw9tx5fvkp",
+      "canonicalCode": "000132",
+      "blockers": {
+        "transactions": 3,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "00062",
+      "legacyPropertyCode": "IMB-CSV-00062",
+      "imovelLocacaoId": "6bd61423-67ae-432b-8879-bc9824363033",
+      "tenantNames": [
+        "Edilaine Borges Prado"
+      ],
+      "canonicalLeaseId": "cms2m9mq6007m0tnwbc3mke1e",
+      "canonicalCode": "00062",
+      "blockers": {
+        "transactions": 11,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    },
+    {
+      "legacyContractId": "000123",
+      "legacyPropertyCode": "IMB-CSV-000123",
+      "imovelLocacaoId": "a7982853-f8da-4c05-850a-7d222b05de24",
+      "tenantNames": [
+        "Maria Luiza Nunes da Silva"
+      ],
+      "canonicalLeaseId": "cms2m9mnt006y0tnwcp44dusd",
+      "canonicalCode": "000123",
+      "blockers": {
+        "transactions": 4,
+        "maintenances": 0,
+        "vistoriaLinks": 0,
+        "documentLinks": 0
+      },
+      "safeForPhysicalDeletion": false
+    }
+  ]
+}

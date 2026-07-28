@@ -56,12 +56,25 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
     // 6. Interceptador Global de Erros de Server Action Outdated (Build/Version Mismatch)
     let isReloading = false;
+    const reloadAttemptKey = "imob-pro:server-action-reload-at";
+    const reloadCooldownMs = 30_000;
     const triggerAutoReload = () => {
-      if (!isReloading) {
-        isReloading = true;
-        alert("O sistema foi atualizado para uma nova versão. A página será atualizada agora.");
-        window.location.reload();
+      if (isReloading) return;
+
+      isReloading = true;
+      const lastAttempt = Number(window.sessionStorage.getItem(reloadAttemptKey) || 0);
+      const attemptedRecently = Date.now() - lastAttempt < reloadCooldownMs;
+
+      if (attemptedRecently) {
+        originalAlert(
+          "Não foi possível carregar a versão atual do sistema. Atualize a página com Ctrl+F5 ou limpe os dados deste site.",
+        );
+        return;
       }
+
+      window.sessionStorage.setItem(reloadAttemptKey, String(Date.now()));
+      originalAlert("O sistema foi atualizado para uma nova versão. A página será atualizada agora.");
+      window.location.reload();
     };
 
     const isServerActionError = (text: string) => {
@@ -108,7 +121,7 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
       const handleLoad = () => {
         navigator.serviceWorker
-          .register("/sw.js")
+          .register("/sw.js", { updateViaCache: "none" })
           .then((registration) => {
             console.log("[PWA] Service Worker registrado com sucesso no escopo:", registration.scope);
           })

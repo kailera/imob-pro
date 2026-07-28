@@ -1,4 +1,4 @@
-const CACHE_NAME = "imob-pro-cache-v1";
+const CACHE_NAME = "imob-pro-cache-v2";
 
 // Arquivos críticos a serem pré-cacheados no início
 const PRECACHE_ASSETS = [
@@ -45,22 +45,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Ignora requisições de hot reloading de desenvolvimento (_next/webpack-hmr, etc.)
-  if (url.pathname.includes("_next/webpack-hmr") || url.pathname.includes("hot-update")) {
+  // Bundles do Next/Clerk e rotas de autenticação precisam sempre passar pela
+  // rede/navegador. Guardá-los aqui pode combinar HTML e JavaScript de builds
+  // diferentes e causar um ciclo infinito de atualização antes do login abrir.
+  if (
+    url.pathname.startsWith("/_next/") ||
+    url.pathname.startsWith("/__clerk/") ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/sign-in") ||
+    url.pathname.startsWith("/sign-up") ||
+    url.pathname.includes("hot-update")
+  ) {
     return;
   }
 
-  // 1. Estratégia para Páginas HTML (Rotas do App): Network First (Rede Primeiro)
-  // Tenta rede primeiro para ter dados atualizados. Se falhar (offline), busca no cache.
-  if (request.mode === "navigate" || url.pathname.startsWith("/vistorias")) {
+  // O suporte offline de navegação é restrito ao módulo de vistorias.
+  // Não armazena redirecionamentos de autenticação como se fossem a página pedida.
+  if (request.mode === "navigate" && url.pathname.startsWith("/vistorias")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Salva uma cópia da página atualizada no cache
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+          if (response.ok && !response.redirected && response.type === "basic") {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
           return response;
         })
         .catch(async () => {
@@ -79,16 +89,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. Estratégia para Arquivos Estáticos (CSS, JS, Imagens, Fontes): Cache First / Stale-While-Revalidate
-  // Next.js usa hashes nos nomes dos arquivos estáticos, então se mudarem, a URL muda.
+  // Recursos públicos estáveis podem continuar disponíveis offline. CSS e JS
+  // ficam deliberadamente fora para evitar incompatibilidade entre builds.
   if (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.endsWith(".svg") ||
     url.pathname.endsWith(".png") ||
     url.pathname.endsWith(".jpg") ||
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".js")
+    url.pathname.endsWith(".jpeg") ||
+    url.pathname.endsWith(".webp")
   ) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
