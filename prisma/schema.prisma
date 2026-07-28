@@ -472,6 +472,7 @@ model LeaseCondominium {
   id               String    @id @default(cuid())
   leaseId          String    @unique
   lease            Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  amount           Decimal?  @db.Decimal(15, 2)
   condoName        String?
   adminName        String?
   adminPhone       String?

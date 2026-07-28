@@ -1,8 +1,10 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { updateLeaseCondominium, type CondominiumActionState } from '@/app/(admin)/locacao/actions/updateLeaseCondominium'
+import { FormattedNumberInput } from '@/components/shared/FormattedNumberInput'
 import type { LeaseAttachment } from '@/lib/locacao/anexos'
+import { formatarNumeroEditavel } from '@/lib/locacao/financeiro'
 import { LeaseAttachmentsField } from './LeaseAttachmentsField'
 
 const initialState: CondominiumActionState = {
@@ -14,6 +16,7 @@ const initialState: CondominiumActionState = {
 type Props = {
     contratoId: string
     condominium?: {
+        amount: number | null
         condoName: string
         adminName: string
         adminPhone: string
@@ -30,6 +33,7 @@ type Props = {
 export function ContratoCondominiumForm({ contratoId, condominium }: Props) {
     const action = updateLeaseCondominium.bind(null, contratoId)
     const [state, formAction, pending] = useActionState(action, initialState)
+    const [amount, setAmount] = useState(formatarNumeroEditavel(condominium?.amount))
 
     return (
         <form action={formAction} id="sec-condominio" className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
@@ -40,6 +44,27 @@ export function ContratoCondominiumForm({ contratoId, condominium }: Props) {
             </div>
 
             <div className="space-y-4 text-xs">
+                <div>
+                    <label htmlFor="condominiumAmount" className="block font-medium text-gray-700 mb-1">
+                        Valor mensal do condomínio:
+                    </label>
+                    <FormattedNumberInput
+                        id="condominiumAmount"
+                        name="amount"
+                        value={amount}
+                        onValueChange={setAmount}
+                        format="currency"
+                        placeholder="R$ 0,00"
+                        aria-describedby="condominiumAmountHelp"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    <p id="condominiumAmountHelp" className="mt-1 text-gray-500">
+                        Será somado à cobrança quando o responsável for o locatário.
+                    </p>
+                    {state.errors.amount?.map(error => (
+                        <p key={error} className="mt-1 text-red-600">{error}</p>
+                    ))}
+                </div>
                 {/* Identificação */}
                 <div>
                     <h4 className="font-semibold text-gray-800 mb-2">Identificação</h4>

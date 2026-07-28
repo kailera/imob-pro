@@ -242,6 +242,7 @@ export async function getContratoForEdit(
       attachments: parseLeaseAttachments(u.documentUrl),
     })),
     condominium: lease.condominium ? {
+      amount: lease.condominium.amount ? Number(lease.condominium.amount) : null,
       condoName: lease.condominium.condoName ?? '',
       adminName: lease.condominium.adminName ?? '',
       adminPhone: lease.condominium.adminPhone ?? '',

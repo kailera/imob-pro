@@ -12,6 +12,7 @@ import {
 } from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
+import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -140,6 +141,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       include: {
         property: true,
         iptu: true,
+        condominium: true,
         terms: true,
         termsPeriods: { orderBy: { createdAt: "desc" } },
         parties: {
@@ -199,12 +201,14 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const tenantName = lease.parties[0]?.person.name || "Inquilino";
         const rentAmount = Number(periodoAtivo.rentAmount);
         const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento);
-        const totalAmount = Number((rentAmount + iptu.valor).toFixed(2));
+        const condominiumValue = calcularCondominioDaCobranca(lease.condominium);
+        const totalAmount = Number((rentAmount + condominiumValue + iptu.valor).toFixed(2));
         const metadata = {
           competence: leaseCompetence,
           leaseId: lease.id,
           termsPeriodId: periodoAtivo.id,
           rentValue: rentAmount,
+          condominiumValue,
           iptuValue: iptu.valor,
           iptuInstallment: iptu.numeroParcela,
           iptuInstallments: iptu.quantidadeParcelas,
