@@ -1,14 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  calcularCompetenciaPorVencimento,
   calcularDescontoPontualidade,
   calcularDataLimiteDesconto,
   calcularMesesContrato,
   calcularMultaQuebra,
+  calcularVencimentoMensal,
   converterMesesParaPercentual,
   converterPercentualParaMeses,
   criarDataVencimento,
   parseNumeroFlexivel,
+  substituirCompetenciaNaDescricao,
 } from "../lib/locacao/financeiro";
 import { resolverPeriodoDaCobranca } from "../lib/locacao/resolverPeriodoCobranca";
 import {
@@ -23,6 +26,46 @@ test("aceita números digitados nos formatos comum e brasileiro", () => {
   assert.equal(parseNumeroFlexivel("R$ 1.050,50"), 1050.5);
   assert.equal(parseNumeroFlexivel("9.52%"), 9.52);
   assert.equal(parseNumeroFlexivel(""), null);
+});
+
+test("calcula a competência pelo início do ciclo encerrado antes do vencimento", () => {
+  assert.equal(
+    calcularCompetenciaPorVencimento("2026-09-26", "Dia 20"),
+    "2026-08",
+  );
+  assert.equal(
+    calcularCompetenciaPorVencimento("2026-01-26", "Dia 20"),
+    "2025-12",
+  );
+  assert.equal(
+    calcularCompetenciaPorVencimento("2026-09-10", "Último dia do mês"),
+    "2026-09",
+  );
+});
+
+test("corrige a competência exibida na descrição do boleto", () => {
+  assert.equal(
+    substituirCompetenciaNaDescricao(
+      "Aluguel - Karine - Competência 09/2026",
+      "2026-08",
+    ),
+    "Aluguel - Karine - Competência 08/2026",
+  );
+});
+
+test("respeita a data exata do primeiro vencimento e não cobra antes dela", () => {
+  assert.equal(
+    calcularVencimentoMensal(2027, 8, 26, "2027-08-27")?.toISOString().slice(0, 10),
+    "2027-08-27",
+  );
+  assert.equal(
+    calcularVencimentoMensal(2027, 7, 26, "2027-08-27"),
+    null,
+  );
+  assert.equal(
+    calcularVencimentoMensal(2027, 9, 26, "2027-08-27")?.toISOString().slice(0, 10),
+    "2027-09-26",
+  );
 });
 
 test("converte a cláusula entre percentual e meses sem alterar a equivalência", () => {

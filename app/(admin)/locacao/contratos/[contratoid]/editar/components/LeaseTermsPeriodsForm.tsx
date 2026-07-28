@@ -259,7 +259,7 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Períodos locatícios</h2>
                     <p className="mt-1 text-xs text-gray-500">
-                        Reconstrua aqui os períodos do contrato importado do sistema legado e confira-os com o SICADI.
+                        O primeiro período é criado a partir do controle locatício. Adicione outros apenas para reajustes ou mudanças nas condições.
                     </p>
                 </div>
                 <button
@@ -384,7 +384,7 @@ export function LeaseTermsPeriodsForm(props: LeaseTermsPeriodsFormProps) {
                             />
                         </div>
                         <div className="md:col-span-2">
-                            <label htmlFor="period-notes" className="mb-1 block font-medium text-gray-700">Observações da migração</label>
+                            <label htmlFor="period-notes" className="mb-1 block font-medium text-gray-700">Observações do período</label>
                             <textarea
                                 id="period-notes"
                                 name="notes"

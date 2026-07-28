@@ -143,6 +143,66 @@ export function criarDataVencimento(ano: number, mes: number, dia: number) {
   return new Date(Date.UTC(ano, mes - 1, diaSeguro));
 }
 
+export function calcularVencimentoMensal(
+  ano: number,
+  mes: number,
+  diaVencimento: number,
+  primeiroVencimento?: string | Date | null,
+) {
+  const vencimentoRegular = criarDataVencimento(ano, mes, diaVencimento);
+  if (!primeiroVencimento) return vencimentoRegular;
+
+  const primeiro = normalizarDataUTC(primeiroVencimento);
+  const mesmoMes = primeiro.getUTCFullYear() === ano
+    && primeiro.getUTCMonth() === mes - 1;
+  if (mesmoMes) return primeiro;
+  return vencimentoRegular < primeiro ? null : vencimentoRegular;
+}
+
+function extrairDiaFimPeriodo(fimPeriodo: string | null | undefined) {
+  if (!fimPeriodo) return null;
+  const correspondencia = fimPeriodo.match(/\d{1,2}/);
+  if (!correspondencia) return null;
+  const dia = Number(correspondencia[0]);
+  return dia >= 1 && dia <= 31 ? dia : null;
+}
+
+export function calcularCompetenciaPorVencimento(
+  dataVencimento: string | Date,
+  fimPeriodo: string | null | undefined,
+) {
+  const vencimento = normalizarDataUTC(dataVencimento);
+  const diaFimPeriodo = extrairDiaFimPeriodo(fimPeriodo);
+  const competencia = new Date(Date.UTC(
+    vencimento.getUTCFullYear(),
+    vencimento.getUTCMonth(),
+    1,
+  ));
+
+  // Ex.: período de 21/08 a 20/09, com vencimento em 26/09,
+  // pertence à competência 08/2026 (mês em que o ciclo começou).
+  if (diaFimPeriodo !== null && diaFimPeriodo < vencimento.getUTCDate()) {
+    competencia.setUTCMonth(competencia.getUTCMonth() - 1);
+  }
+
+  return `${competencia.getUTCFullYear()}-${String(competencia.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function substituirCompetenciaNaDescricao(
+  descricao: string,
+  competencia: string,
+) {
+  const [ano, mes] = competencia.split("-");
+  if (!ano || !mes) return descricao;
+  const rotulo = `Competência ${mes}/${ano}`;
+
+  if (/Competência\s+\d{2}\/\d{4}/i.test(descricao)) {
+    return descricao.replace(/Competência\s+\d{2}\/\d{4}/i, rotulo);
+  }
+
+  return `${descricao} - ${rotulo}`;
+}
+
 export function calcularDataLimiteDesconto(
   dataVencimento: string | Date,
   diasAntecedencia: number,

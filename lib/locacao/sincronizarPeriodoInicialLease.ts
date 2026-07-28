@@ -13,15 +13,14 @@ export async function sincronizarPeriodoInicialLease(leaseId: string) {
   });
   if (!lease) return null;
 
-  if (lease.legacyCode) {
-    if (lease.status === "DRAFT") {
-      await prisma.leaseTermsPeriod.deleteMany({
-        where: { leaseId, source: "CONTRACT_INITIAL" },
-      });
-    }
+  if (!lease.startDate || !lease.endDate || !lease.terms) {
     return null;
   }
-  if (!lease.startDate || !lease.endDate || !lease.terms) {
+
+  // Períodos trazidos pela migração representam o histórico real do contrato
+  // e não podem ser substituídos pelas condições atuais do controle locatício.
+  // Sem histórico, inclusive para contratos legados, criamos o período inicial.
+  if (lease.legacyCode && lease.termsPeriods.length > 0) {
     return null;
   }
 

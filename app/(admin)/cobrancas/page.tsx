@@ -545,7 +545,7 @@ export default function CobrancasPage() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Mês de Competência</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Mês de vencimento</label>
                       <select
                         value={genMonth}
                         onChange={(e) => setGenMonth(Number(e.target.value))}
@@ -614,7 +614,7 @@ export default function CobrancasPage() {
                       </div>
                       <h4 className="font-bold text-gray-800 text-lg">Geração Concluída!</h4>
                       <p className="text-sm text-gray-600">
-                        Foram geradas com sucesso <span className="font-extrabold text-[#280003]">{genResult.count}</span> novas cobranças para a competência {String(genMonth).padStart(2, '0')}/{genYear}.
+                        Foram geradas com sucesso <span className="font-extrabold text-[#280003]">{genResult.count}</span> novas cobranças com vencimento em {String(genMonth).padStart(2, '0')}/{genYear}.
                       </p>
                       {(genResult.updatedCount ?? 0) > 0 && (
                         <p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-[#004777]">

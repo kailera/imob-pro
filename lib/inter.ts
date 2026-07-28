@@ -4,6 +4,10 @@ import axios from "axios";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, bucketName } from "@/lib/storage";
 import {
+  calcularCompetenciaPorVencimento,
+  substituirCompetenciaNaDescricao,
+} from "@/lib/locacao/financeiro";
+import {
   criarDescontoInterV3,
   criarEstadoParaNovaEmissaoInter,
   criarInstrucoesBoletoInter,
@@ -270,6 +274,20 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Transação não encontrada." };
     }
 
+    const primeiroVencimento = transacao.lease?.terms?.firstPeriodDueDate;
+    if (
+      primeiroVencimento
+      && transacao.dataVencimento.getTime() < primeiroVencimento.getTime()
+    ) {
+      const dataFormatada = primeiroVencimento.toLocaleDateString("pt-BR", {
+        timeZone: "UTC",
+      });
+      return {
+        success: false,
+        error: `Esta cobrança é anterior ao primeiro vencimento do contrato (${dataFormatada}). Corrija o contrato ou gere a cobrança no mês correto.`,
+      };
+    }
+
     let finalImobId = transacao.contrato?.imobId ?? transacao.lease?.tenantId;
     if (!finalImobId) {
       const firstImob = await prisma.imob.findFirst();
@@ -407,6 +425,16 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       dataVencimentoStr = todayStr;
     }
 
+    const descricaoBoleto = transacao.lease?.terms
+      ? substituirCompetenciaNaDescricao(
+          transacao.descricao,
+          calcularCompetenciaPorVencimento(
+            transacao.dataVencimento,
+            transacao.lease.terms.firstPeriodEndDay,
+          ),
+        )
+      : transacao.descricao;
+
     const payload: any = {
       seuNumero: transacao.id.replace(/-/g, "").substring(0, 15),
       valorNominal: transacao.valor,
@@ -424,8 +452,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       },
     };
 
-    if (transacao.descricao) {
-      const msg = formatMensagemInter(transacao.descricao);
+    if (descricaoBoleto) {
+      const msg = formatMensagemInter(descricaoBoleto);
       if (Object.keys(msg).length > 0) {
         payload.mensagem = msg;
       }
@@ -533,7 +561,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       dataVencimento: dataVencimentoStr,
     });
     if (instrucoes.length > 0) {
-      const mensagemBoleto = [...instrucoes, transacao.descricao].filter(Boolean).join(" ");
+      const mensagemBoleto = [...instrucoes, descricaoBoleto].filter(Boolean).join(" ");
       payload.mensagem = formatMensagemInter(mensagemBoleto);
     }
 

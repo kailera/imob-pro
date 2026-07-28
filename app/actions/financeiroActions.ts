@@ -5,7 +5,11 @@ import { criarEstadoParaNovaEmissaoInter } from "@/lib/inter-cobranca";
 import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
-import { criarDataVencimento } from "@/lib/locacao/financeiro";
+import {
+  calcularCompetenciaPorVencimento,
+  calcularVencimentoMensal,
+  criarDataVencimento,
+} from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 
@@ -131,11 +135,12 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       where: {
         status: "ACTIVE",
         startDate: { lte: new Date(Date.UTC(ano, mes, 0, 23, 59, 59)) },
-        endDate: { gte: new Date(Date.UTC(ano, mes - 1, 1)) },
+        endDate: { gte: new Date(Date.UTC(ano, mes - 2, 1)) },
       },
       include: {
         property: true,
         iptu: true,
+        terms: true,
         termsPeriods: { orderBy: { effectiveFrom: "asc" } },
         parties: {
           where: { role: "TENANT" },
@@ -151,27 +156,39 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           throw new Error("Nenhum período locatício válido foi cadastrado.");
         }
 
-        const referenceDate = new Date(Date.UTC(ano, mes - 1, 15));
+        const primeiroVencimento = lease.terms?.firstPeriodDueDate ?? null;
+        const dataVencimento = calcularVencimentoMensal(
+          ano,
+          mes,
+          lease.terms?.paymentDueDay ?? lease.termsPeriods[0].paymentDueDay,
+          primeiroVencimento,
+        );
+        if (!dataVencimento) continue;
+        if (lease.billingStartDate && dataVencimento < lease.billingStartDate) continue;
+
+        const leaseCompetence = calcularCompetenciaPorVencimento(
+          dataVencimento,
+          lease.terms?.firstPeriodEndDay,
+        );
+        const [competenceYear, competenceMonth] = leaseCompetence.split("-").map(Number);
+        const referenceDate = new Date(Date.UTC(competenceYear, competenceMonth - 1, 15));
         const periodoAtivo = lease.termsPeriods.find(periodo =>
           referenceDate >= periodo.effectiveFrom
           && (!periodo.effectiveTo || referenceDate < periodo.effectiveTo),
         );
         if (!periodoAtivo) {
-          throw new Error(`A competência ${competence} não está coberta por um período locatício.`);
+          throw new Error(`A competência ${leaseCompetence} não está coberta por um período locatício.`);
         }
 
         if (periodoAtivo.reviewStatus !== "REVIEWED") {
-          throw new Error(`O período da competência ${competence} ainda não foi conferido.`);
+          throw new Error(`O período da competência ${leaseCompetence} ainda não foi conferido.`);
         }
-
-        const dataVencimento = criarDataVencimento(ano, mes, periodoAtivo.paymentDueDay);
-        if (lease.billingStartDate && dataVencimento < lease.billingStartDate) continue;
 
         const existingCharge = await prisma.leaseCharge.findUnique({
           where: {
             leaseId_competence_chargeType: {
               leaseId: lease.id,
-              competence,
+              competence: leaseCompetence,
               chargeType: "RENT",
             },
           },
@@ -184,7 +201,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento);
         const totalAmount = Number((rentAmount + iptu.valor).toFixed(2));
         const metadata = {
-          competence,
+          competence: leaseCompetence,
           leaseId: lease.id,
           termsPeriodId: periodoAtivo.id,
           rentValue: rentAmount,
@@ -200,8 +217,8 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             data: {
               leaseId: lease.id,
               termsPeriodId: periodoAtivo.id,
-              competence,
-              description: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
+              competence: leaseCompetence,
+              description: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
               chargeType: "RENT",
               amount: totalAmount,
               calculationData: metadata,
@@ -211,7 +228,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
 
           await tx.transacaoFinanceira.create({
             data: {
-              descricao: `Aluguel - ${tenantName} - Competência ${String(mes).padStart(2, "0")}/${ano}`,
+              descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
               valor: totalAmount,
               tipo: "RECEITA",
               categoria: "ALUGUEL",
