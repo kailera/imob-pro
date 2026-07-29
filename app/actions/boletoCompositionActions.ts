@@ -9,11 +9,18 @@ import {
   atualizarMetadataComposicao,
   calcularDescontoEfetivo,
   calcularTotalNominal,
+  criarItensCobranca,
   numeroSeguro,
+  type BoletoChargeItemType,
   type BoletoCompositionInput,
   type BoletoBillingConditions,
 } from "@/lib/financeiro/boleto-composicao";
-import { resolverBonificacaoLease } from "@/lib/inter-cobranca";
+import {
+  criarDescontoInterV3,
+  criarMensagemCobrancaInter,
+  linhasMensagemInter,
+  resolverBonificacaoLease,
+} from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 
 const transactionInclude = {
@@ -35,6 +42,7 @@ const transactionInclude = {
       },
     },
   },
+  itensCobranca: { orderBy: { order: "asc" as const } },
 } satisfies Prisma.TransacaoFinanceiraInclude;
 
 function podeEditarCobranca(transaction: {
@@ -170,6 +178,15 @@ export async function getBoletoCompositionAction(transactionId: string) {
       numeroSeguro(utilityByType("ELECTRICITY")?.amount),
     );
     const gasValue = numeroSeguro(metadata.gasValue, numeroSeguro(utilityByType("GAS")?.amount));
+    const outrosPersistidos = transaction.itensCobranca.filter(item => item.type === "OTHER");
+    const otherValue = outrosPersistidos.length > 0
+      ? outrosPersistidos.reduce((total, item) => total + Number(item.amount), 0)
+      : numeroSeguro(metadata.otherValue);
+    const otherDescription = outrosPersistidos.length > 0
+      ? outrosPersistidos.map(item => item.description).join(", ")
+      : typeof metadata.otherDescription === "string"
+        ? metadata.otherDescription
+        : "";
     const conditions = resolverCondicoes(transaction);
     const nominalTotal = calcularTotalNominal({
       rentValue,
@@ -178,12 +195,47 @@ export async function getBoletoCompositionAction(transactionId: string) {
       waterValue,
       electricityValue,
       gasValue,
+      otherValue,
     });
     const effectiveDiscount = calcularDescontoEfetivo(
       rentValue,
       conditions.discountValue,
       conditions.discountType,
     );
+    const registeredAtInter = Boolean(
+      transaction.interNossoNumero || transaction.interCodigoSolicitacao,
+    );
+    const persistedMessage = linhasMensagemInter(transaction.interMensagem);
+    const items = transaction.itensCobranca.length > 0
+      ? transaction.itensCobranca.map(item => ({
+          type: item.type as BoletoChargeItemType,
+          description: item.description,
+          amount: Number(item.amount),
+          order: item.order,
+        }))
+      : criarItensCobranca({
+          rentValue,
+          iptuValue,
+          condominiumValue,
+          waterValue,
+          electricityValue,
+          gasValue,
+          otherValue,
+          otherDescription,
+        }, conditions);
+    const previewMessage = criarMensagemCobrancaInter({
+      metadata,
+      items,
+      valorNominal: nominalTotal,
+      dataVencimento: transaction.dataVencimento.toISOString().slice(0, 10),
+      desconto: criarDescontoInterV3({
+        valor: conditions.discountValue,
+        tipo: conditions.discountType,
+        diasAntesDoVencimento: conditions.discountDaysBefore,
+      }),
+      multaPercentual: conditions.lateFeePercentage,
+      jurosMensal: conditions.lateInterestMonthly,
+    });
 
     return {
       success: true as const,
@@ -205,6 +257,8 @@ export async function getBoletoCompositionAction(transactionId: string) {
         waterValue,
         electricityValue,
         gasValue,
+        otherValue,
+        otherDescription,
         ...conditions,
         nominalTotal,
         effectiveDiscount,
@@ -216,9 +270,11 @@ export async function getBoletoCompositionAction(transactionId: string) {
         iptuInstallmentsOnCharge: numeroSeguro(metadata.iptuInstallments) || null,
         canEdit: podeEditarCobranca(transaction),
         canUpdateContract: Boolean(transaction.lease || legacyPeriod),
-        registeredAtInter: Boolean(
-          transaction.interNossoNumero || transaction.interCodigoSolicitacao,
-        ),
+        registeredAtInter,
+        interMessage: registeredAtInter && persistedMessage.length > 0
+          ? persistedMessage
+          : linhasMensagemInter(previewMessage),
+        interMessageSent: registeredAtInter && persistedMessage.length > 0,
       },
     };
   } catch (error) {
@@ -237,6 +293,7 @@ function validarInput(input: BoletoCompositionInput) {
     input.waterValue,
     input.electricityValue,
     input.gasValue,
+    input.otherValue ?? 0,
     input.discountValue,
     input.lateFeePercentage,
     input.lateInterestMonthly,
@@ -269,6 +326,7 @@ export async function updateBoletoCompositionAction(
 
     const nominalTotal = calcularTotalNominal(input);
     const metadata = atualizarMetadataComposicao(transaction.metadata, input);
+    const items = criarItensCobranca(input, input);
     let contractWarning: string | null = null;
 
     await prisma.$transaction(async tx => {
@@ -279,6 +337,20 @@ export async function updateBoletoCompositionAction(
           metadata: metadata as Prisma.InputJsonValue,
         },
       });
+      await tx.boletoChargeItem.deleteMany({
+        where: { transacaoId: transaction.id },
+      });
+      if (items.length > 0) {
+        await tx.boletoChargeItem.createMany({
+          data: items.map(item => ({
+            transacaoId: transaction.id,
+            type: item.type,
+            description: item.description,
+            amount: item.amount,
+            order: item.order,
+          })),
+        });
+      }
 
       const currentMetadata = asMetadataRecord(transaction.metadata);
       const competence = typeof currentMetadata.competence === "string"

@@ -13,12 +13,31 @@ export type BoletoCompositionValues = {
   waterValue: number;
   electricityValue: number;
   gasValue: number;
+  otherValue?: number;
+  otherDescription?: string;
 };
 
 export type BoletoCompositionInput = BoletoCompositionValues & BoletoBillingConditions & {
   applyToContract: boolean;
   iptuPaymentStartDate?: string | null;
   iptuInstallments?: string | null;
+};
+
+export type BoletoChargeItemType =
+  | "RENT"
+  | "CONDOMINIUM"
+  | "IPTU"
+  | "WATER"
+  | "ENERGY"
+  | "GAS"
+  | "OTHER"
+  | "DISCOUNT";
+
+export type BoletoChargeItem = {
+  type: BoletoChargeItemType;
+  description: string;
+  amount: number;
+  order: number;
 };
 
 export function asMetadataRecord(metadata: unknown): Record<string, unknown> {
@@ -40,6 +59,7 @@ export function calcularTotalNominal(values: BoletoCompositionValues) {
     + values.waterValue
     + values.electricityValue
     + values.gasValue
+    + (values.otherValue ?? 0)
   ).toFixed(2));
 }
 
@@ -84,6 +104,8 @@ export function atualizarMetadataComposicao(
     waterValue: input.waterValue,
     electricityValue: input.electricityValue,
     gasValue: input.gasValue,
+    otherValue: input.otherValue ?? 0,
+    otherDescription: input.otherDescription?.trim() || null,
     billingConditions: {
       discountValue: input.discountValue,
       discountType: input.discountType,
@@ -93,4 +115,83 @@ export function atualizarMetadataComposicao(
     },
     compositionEditedAt: new Date().toISOString(),
   };
+}
+
+export function criarItensCobranca(
+  values: BoletoCompositionValues,
+  conditions?: Pick<BoletoBillingConditions, "discountValue" | "discountType">,
+): BoletoChargeItem[] {
+  const positiveItems: Array<[BoletoChargeItemType, string, number]> = [
+    ["RENT", "Aluguel", values.rentValue],
+    ["CONDOMINIUM", "Condomínio", values.condominiumValue],
+    ["IPTU", "IPTU", values.iptuValue],
+    ["WATER", "Água", values.waterValue],
+    ["ENERGY", "Energia", values.electricityValue],
+    ["GAS", "Gás", values.gasValue],
+    ["OTHER", values.otherDescription?.trim() || "Outros", values.otherValue ?? 0],
+  ];
+  const items = positiveItems
+    .filter(([, , amount]) => Number.isFinite(amount) && amount > 0)
+    .map(([type, description, amount], order) => ({
+      type,
+      description,
+      amount: Number(amount.toFixed(2)),
+      order,
+    }));
+
+  if (conditions?.discountValue && conditions.discountValue > 0) {
+    items.push({
+      type: "DISCOUNT",
+      description: "Desconto de pontualidade",
+      amount: calcularDescontoEfetivo(
+        values.rentValue,
+        conditions.discountValue,
+        conditions.discountType,
+      ),
+      order: items.length,
+    });
+  }
+
+  return items;
+}
+
+export function criarItensCobrancaDeMetadata(input: {
+  metadata: unknown;
+  valorNominal: number;
+  fallbackDescription?: string;
+}): BoletoChargeItem[] {
+  const metadata = asMetadataRecord(input.metadata);
+  const componentKeys = [
+    "rentValue",
+    "iptuValue",
+    "condominiumValue",
+    "waterValue",
+    "electricityValue",
+    "gasValue",
+    "otherValue",
+  ];
+  const hasComposition = componentKeys.some(key => Number.isFinite(Number(metadata[key])));
+  const conditions = lerCondicoesBoletoMetadata(metadata) ?? undefined;
+
+  if (!hasComposition) {
+    return [{
+      type: "OTHER",
+      description: input.fallbackDescription?.trim() || "Cobrança",
+      amount: Number(input.valorNominal.toFixed(2)),
+      order: 0,
+    }];
+  }
+
+  return criarItensCobranca({
+    rentValue: numeroSeguro(metadata.rentValue),
+    iptuValue: numeroSeguro(metadata.iptuValue),
+    condominiumValue: numeroSeguro(metadata.condominiumValue),
+    waterValue: numeroSeguro(metadata.waterValue),
+    electricityValue: numeroSeguro(metadata.electricityValue),
+    gasValue: numeroSeguro(metadata.gasValue),
+    otherValue: numeroSeguro(metadata.otherValue),
+    otherDescription: typeof metadata.otherDescription === "string"
+      ? metadata.otherDescription
+      : undefined,
+  }, conditions);
 }

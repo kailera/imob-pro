@@ -61,6 +61,8 @@ export default function BoletoCompositionModal({
         waterValue: numberString(value.waterValue),
         electricityValue: numberString(value.electricityValue),
         gasValue: numberString(value.gasValue),
+        otherValue: numberString(value.otherValue),
+        otherDescription: value.otherDescription,
         discountValue: numberString(value.discountValue),
         lateFeePercentage: numberString(value.lateFeePercentage),
         lateInterestMonthly: numberString(value.lateInterestMonthly),
@@ -89,6 +91,7 @@ export default function BoletoCompositionModal({
       parsed("waterValue"),
       parsed("electricityValue"),
       parsed("gasValue"),
+      parsed("otherValue"),
     ].reduce((sum, value) => sum + value, 0);
     const discount = ["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(
       (form.discountType ?? "").toUpperCase(),
@@ -117,6 +120,8 @@ export default function BoletoCompositionModal({
       waterValue: parsed("waterValue"),
       electricityValue: parsed("electricityValue"),
       gasValue: parsed("gasValue"),
+      otherValue: parsed("otherValue"),
+      otherDescription: form.otherDescription?.trim() || "Outros",
       discountValue: parsed("discountValue"),
       discountType: form.discountType || "FIXED",
       discountDaysBefore: Math.trunc(parsed("discountDaysBefore")),
@@ -240,6 +245,30 @@ export default function BoletoCompositionModal({
                 ))}
               </div>
 
+              <div className="grid gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-[1fr_14rem]">
+                <Field label="Outros — descrição">
+                  {editing ? (
+                    <input
+                      value={form.otherDescription ?? ""}
+                      onChange={event => setField("otherDescription", event.target.value)}
+                      maxLength={120}
+                      placeholder="Ex.: taxa extraordinária"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2"
+                    />
+                  ) : composition.otherDescription || "Outros"}
+                </Field>
+                <Field label="Outros — valor">
+                  {editing ? (
+                    <FormattedNumberInput
+                      value={form.otherValue ?? ""}
+                      onValueChange={value => setField("otherValue", value)}
+                      format="currency"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2"
+                    />
+                  ) : money.format(composition.otherValue)}
+                </Field>
+              </div>
+
               {composition.iptuValue > 0 && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-[#004777]">
                   IPTU incluído
@@ -295,6 +324,27 @@ export default function BoletoCompositionModal({
                 <Summary label="Total nominal" value={editing ? preview.nominal : composition.nominalTotal} />
                 <Summary label="Desconto até a data" value={editing ? preview.discount : composition.effectiveDiscount} />
                 <Summary label="Total com desconto" value={editing ? preview.withDiscount : composition.totalWithDiscount} />
+              </div>
+
+              <div className="rounded-2xl border border-[#004777]/20 bg-[#004777]/5 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-bold text-[#004777]">
+                    {composition.interMessageSent
+                      ? "Mensagem enviada ao Banco Inter"
+                      : "Prévia da mensagem para o Banco Inter"}
+                  </h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                    até 5 linhas · 78 caracteres
+                  </span>
+                </div>
+                <div className="space-y-1 rounded-xl bg-white p-3 font-mono text-xs text-gray-700">
+                  {composition.interMessage.map((line, index) => (
+                    <div key={`${index}-${line}`}>
+                      <span className="mr-2 select-none text-gray-400">{index + 1}.</span>
+                      {line}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {editing && (

@@ -1254,10 +1254,27 @@ model TransacaoFinanceira {
   interOrigemRecebimento String?
   interDataRecebimento   DateTime?
   interValorRecebido     Decimal?             @db.Decimal(15, 2) // para confronto
+  interMensagem          Json?
+  itensCobranca          BoletoChargeItem[]
   descontosManutencao    DescontoManutencao[]
 
   @@index([leaseId])
   @@map("transacao_financeira")
+}
+
+model BoletoChargeItem {
+  id          String               @id @default(uuid())
+  transacaoId String
+  transacao   TransacaoFinanceira  @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+  type        String
+  description String
+  amount      Decimal              @db.Decimal(15, 2)
+  order       Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([transacaoId, order])
+  @@map("boleto_charge_item")
 }
 
 model InterWebhookEvent {

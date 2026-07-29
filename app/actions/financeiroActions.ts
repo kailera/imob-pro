@@ -16,6 +16,7 @@ import {
   cobrancaEhRascunhoReutilizavel,
   obterCompetenciaDaCobranca,
 } from "@/lib/financeiro/cobranca-rascunho";
+import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -123,6 +124,14 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             ),
           },
         };
+        const itensCobranca = criarItensCobranca({
+          rentValue: metadata.rentValue,
+          condominiumValue: metadata.condominiumValue,
+          iptuValue: metadata.iptuValue,
+          waterValue: metadata.waterValue,
+          electricityValue: metadata.electricityValue,
+          gasValue: metadata.gasValue,
+        }, metadata.billingConditions);
 
         if (
           cobrancaDaCompetencia
@@ -149,6 +158,18 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
                 metadata,
               },
             });
+            await tx.boletoChargeItem.deleteMany({
+              where: { transacaoId: rascunhoPrincipal.id },
+            });
+            await tx.boletoChargeItem.createMany({
+              data: itensCobranca.map(item => ({
+                transacaoId: rascunhoPrincipal.id,
+                type: item.type,
+                description: item.description,
+                amount: item.amount,
+                order: item.order,
+              })),
+            });
             if (idsExcedentes.length > 0) {
               await tx.transacaoFinanceira.deleteMany({
                 where: { id: { in: idsExcedentes } },
@@ -171,6 +192,9 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             contratoId: contrato.id,
             imovelId: contrato.imovelId,
             metadata: metadata as any,
+            itensCobranca: {
+              create: itensCobranca,
+            },
           },
         });
 
@@ -309,6 +333,14 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           dueDay: periodoAtivo.paymentDueDay,
           source: "LEASE_TERMS_PERIOD",
         };
+        const itensCobranca = criarItensCobranca({
+          rentValue: metadata.rentValue,
+          condominiumValue: metadata.condominiumValue,
+          iptuValue: metadata.iptuValue,
+          waterValue: metadata.waterValue,
+          electricityValue: metadata.electricityValue,
+          gasValue: metadata.gasValue,
+        }, metadata.billingConditions);
 
         const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
           where: {
@@ -388,6 +420,18 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
                 metadata,
               },
             });
+            await tx.boletoChargeItem.deleteMany({
+              where: { transacaoId: rascunhoPrincipal.id },
+            });
+            await tx.boletoChargeItem.createMany({
+              data: itensCobranca.map(item => ({
+                transacaoId: rascunhoPrincipal.id,
+                type: item.type,
+                description: item.description,
+                amount: item.amount,
+                order: item.order,
+              })),
+            });
           } else {
             await tx.transacaoFinanceira.create({
               data: {
@@ -400,6 +444,9 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
                 leaseId: lease.id,
                 imovelId: lease.propertyId,
                 metadata,
+                itensCobranca: {
+                  create: itensCobranca,
+                },
               },
             });
           }

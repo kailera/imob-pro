@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { criarDescontoInterV3 } from "../lib/inter-cobranca";
+import { criarDescontoInterV3, criarMoraInterV3 } from "../lib/inter-cobranca";
 
 test("monta bonificação fixa no contrato da API V3 do Inter", () => {
   assert.deepEqual(criarDescontoInterV3({
@@ -24,4 +24,12 @@ test("monta bonificação percentual no contrato da API V3 do Inter", () => {
     quantidadeDias: 2,
     taxa: 10,
   });
+});
+
+test("usa o código percentual vigente para a mora mensal da API V3", () => {
+  assert.deepEqual(criarMoraInterV3(1), {
+    codigo: "PERCENTUAL",
+    taxa: 1,
+  });
+  assert.equal(criarMoraInterV3(0), undefined);
 });

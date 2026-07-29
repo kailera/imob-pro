@@ -8,15 +8,21 @@ import {
   substituirCompetenciaNaDescricao,
 } from "@/lib/locacao/financeiro";
 import {
+  cobrancaEstaRegistradaNoInter,
   criarDescontoInterV3,
   criarEstadoParaNovaEmissaoInter,
-  criarInstrucoesBoletoInter,
-  criarResumoComposicaoBoletoInter,
+  criarMensagemCobrancaInter,
+  criarMoraInterV3,
+  formatarMensagemInter,
   resolverBonificacaoLease,
   respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
-import { lerCondicoesBoletoMetadata } from "@/lib/financeiro/boleto-composicao";
+import {
+  criarItensCobrancaDeMetadata,
+  lerCondicoesBoletoMetadata,
+  type BoletoChargeItemType,
+} from "@/lib/financeiro/boleto-composicao";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
@@ -31,46 +37,7 @@ export interface InterAuthCredentials {
  * Sanitiza e formata a descrição da transação no formato aceito pelo Banco Inter (linha1..linha5 de no máximo 78 chars).
  */
 export function formatMensagemInter(descricao: string): Record<string, string> {
-  if (!descricao) return {};
-
-  const blocks = descricao.split(/\r?\n/).map(block => block
-    .replace(/R\$/gi, "RS")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9\s.,\-/:;()%]/g, "")
-    .replace(/[^\S\r\n]+/g, " ")
-    .trim()
-  ).filter(Boolean);
-  const lines: string[] = [];
-
-  for (const block of blocks) {
-    const words = block.split(" ");
-    let currentLine = "";
-    for (const word of words) {
-      if (!word) continue;
-      if ((currentLine ? `${currentLine} ${word}` : word).length <= 78) {
-        currentLine = currentLine ? `${currentLine} ${word}` : word;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        let remaining = word;
-        while (remaining.length > 78) {
-          lines.push(remaining.substring(0, 78));
-          remaining = remaining.substring(78);
-        }
-        currentLine = remaining;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
-  }
-
-  const msg: Record<string, string> = {};
-  if (lines[0]) msg.linha1 = lines[0].substring(0, 78);
-  if (lines[1]) msg.linha2 = lines[1].substring(0, 78);
-  if (lines[2]) msg.linha3 = lines[2].substring(0, 78);
-  if (lines[3]) msg.linha4 = lines[3].substring(0, 78);
-  if (lines[4]) msg.linha5 = lines[4].substring(0, 78);
-
-  return msg;
+  return formatarMensagemInter(descricao);
 }
 
 /**
@@ -266,11 +233,18 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
             },
           },
         },
+        itensCobranca: { orderBy: { order: "asc" } },
       },
     });
 
     if (!transacao) {
       return { success: false, error: "Transação não encontrada." };
+    }
+    if (cobrancaEstaRegistradaNoInter(transacao)) {
+      return {
+        success: false,
+        error: "Esta cobrança já foi registrada no Banco Inter. Cancele-a e use a reemissão para gerar outro boleto.",
+      };
     }
 
     const primeiroVencimento = transacao.lease?.terms?.firstPeriodDueDate;
@@ -451,14 +425,6 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       },
     };
 
-    if (descricaoBoleto) {
-      const msg = formatMensagemInter(descricaoBoleto);
-      if (Object.keys(msg).length > 0) {
-        payload.mensagem = msg;
-      }
-    }
-
-
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
     const condicoesSalvas = lerCondicoesBoletoMetadata(transacao.metadata);
     const imovelLocacao = transacao.contrato?.imovelLocacao;
@@ -487,10 +453,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         : periodoCobranca?.jurosAtrasoPercentual
           ?? imovelLocacao.jurosAtrasoPercentual;
       if (jurosAtraso && jurosAtraso > 0) {
-        payload.mora = {
-          codigo: "TAXAMENSAL",
-          taxa: jurosAtraso,
-        };
+        payload.mora = criarMoraInterV3(jurosAtraso);
       }
 
       // 3. Bonificação (Desconto de Pontualidade)
@@ -548,7 +511,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
             ?? 0
           );
       if (lateInterest > 0) {
-        payload.mora = { codigo: "TAXAMENSAL", taxa: lateInterest };
+        payload.mora = criarMoraInterV3(lateInterest);
       }
 
       const bonificacao = condicoesSalvas
@@ -575,21 +538,27 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
     }
 
-    const instrucoes = criarInstrucoesBoletoInter({
+    const itensCobranca = transacao.itensCobranca.length > 0
+      ? transacao.itensCobranca.map(item => ({
+          type: item.type as BoletoChargeItemType,
+          description: item.description,
+          amount: Number(item.amount),
+          order: item.order,
+        }))
+      : criarItensCobrancaDeMetadata({
+          metadata: transacao.metadata,
+          valorNominal: transacao.valor,
+          fallbackDescription: descricaoBoleto,
+        });
+    payload.mensagem = criarMensagemCobrancaInter({
+      metadata: transacao.metadata,
+      items: itensCobranca,
+      valorNominal: transacao.valor,
+      dataVencimento: dataVencimentoStr,
       desconto: payload.desconto,
       multaPercentual: payload.multa?.taxa,
       jurosMensal: payload.mora?.taxa,
-      dataVencimento: dataVencimentoStr,
     });
-    const resumoComposicao = criarResumoComposicaoBoletoInter({
-      metadata: transacao.metadata,
-      valorNominal: transacao.valor,
-      dataVencimento: dataVencimentoStr,
-    });
-    const mensagemBoleto = [...resumoComposicao, ...instrucoes]
-      .filter(Boolean)
-      .join("\n");
-    payload.mensagem = formatMensagemInter(mensagemBoleto);
 
     console.log("[gerarBolePixAction] Enviando POST para:", `${baseUrl}/cobranca/v3/cobrancas`);
     console.log("[gerarBolePixAction] Payload:", JSON.stringify(payload, null, 2));
@@ -614,13 +583,28 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
     // A Cobrança V3 é assíncrona. Persistimos os identificadores antes de
     // consultar os detalhes para não perder o vínculo caso essa consulta falhe.
-    await prisma.transacaoFinanceira.update({
-      where: { id: transacaoId },
-      data: {
-        interCodigoSolicitacao: codigoSolicitacao,
-        interSeuNumero: payload.seuNumero,
-        interStatus: "EM_PROCESSAMENTO",
-      },
+    await prisma.$transaction(async tx => {
+      await tx.boletoChargeItem.deleteMany({ where: { transacaoId } });
+      if (itensCobranca.length > 0) {
+        await tx.boletoChargeItem.createMany({
+          data: itensCobranca.map(item => ({
+            transacaoId,
+            type: item.type,
+            description: item.description,
+            amount: item.amount,
+            order: item.order,
+          })),
+        });
+      }
+      await tx.transacaoFinanceira.update({
+        where: { id: transacaoId },
+        data: {
+          interCodigoSolicitacao: codigoSolicitacao,
+          interSeuNumero: payload.seuNumero,
+          interStatus: "EM_PROCESSAMENTO",
+          interMensagem: payload.mensagem,
+        },
+      });
     });
 
     // 4.5. Consulta os dados gerados (nossoNumero, pixCopiaECola, codigoBarras) com retry

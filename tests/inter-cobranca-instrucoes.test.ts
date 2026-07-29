@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   criarDescontoInterV3,
   criarInstrucoesBoletoInter,
+  criarMensagemCobrancaInter,
   criarResumoComposicaoBoletoInter,
 } from "../lib/inter-cobranca";
 
@@ -15,6 +16,39 @@ test("cria instrucoes compreensiveis de bonificacao e multa para o boleto", () =
     "Pagamento com desconto de R$ 100,00 ate dia 26/08/2027.",
     "Apos o vencimento: multa de 10,00%.",
   ]);
+});
+
+test("gera mensagem final compatível com cinco linhas de até 78 caracteres", () => {
+  const mensagem = criarMensagemCobrancaInter({
+    metadata: { competence: "2026-08" },
+    items: [
+      { type: "RENT", description: "Aluguel", amount: 1_460, order: 0 },
+      { type: "CONDOMINIUM", description: "Condomínio", amount: 320, order: 1 },
+      { type: "IPTU", description: "IPTU", amount: 31.20, order: 2 },
+      { type: "WATER", description: "Água", amount: 25, order: 3 },
+      { type: "ENERGY", description: "Energia", amount: 80, order: 4 },
+      { type: "GAS", description: "Gás", amount: 45, order: 5 },
+      { type: "OTHER", description: "Seguro", amount: 15, order: 6 },
+      { type: "DISCOUNT", description: "Desconto", amount: 100, order: 7 },
+    ],
+    valorNominal: 1_976.20,
+    dataVencimento: "2026-08-30",
+    desconto: criarDescontoInterV3({
+      valor: 100,
+      tipo: "FIXED",
+      diasAntesDoVencimento: 1,
+    }),
+    multaPercentual: 2,
+    jurosMensal: 1,
+  });
+
+  const linhas = Object.values(mensagem);
+  assert.equal(linhas.length, 5);
+  assert.ok(linhas.every(linha => linha.length <= 78));
+  assert.match(linhas.join("\n"), /COMP 08\/2026/);
+  assert.match(linhas.join("\n"), /COND RS 320,00/);
+  assert.match(linhas.join("\n"), /desconto de RS 100,00/);
+  assert.match(linhas.join("\n"), /Juros 1,00%/);
 });
 
 test("inclui juros junto das condições de atraso", () => {

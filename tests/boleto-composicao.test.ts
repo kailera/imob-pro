@@ -5,6 +5,7 @@ import {
   asMetadataRecord,
   calcularDescontoEfetivo,
   calcularTotalNominal,
+  criarItensCobranca,
   lerCondicoesBoletoMetadata,
 } from "../lib/financeiro/boleto-composicao";
 
@@ -16,7 +17,33 @@ test("soma todos os componentes que formam o valor nominal enviado ao Inter", ()
     waterValue: 25.50,
     electricityValue: 80,
     gasValue: 35,
-  }), 1_211.70);
+    otherValue: 15,
+  }), 1_226.70);
+});
+
+test("persiste itens positivos e desconto sem reduzir o valor nominal", () => {
+  const items = criarItensCobranca({
+    rentValue: 1_000,
+    iptuValue: 31.20,
+    condominiumValue: 40,
+    waterValue: 0,
+    electricityValue: 0,
+    gasValue: 35,
+    otherValue: 15,
+    otherDescription: "Seguro",
+  }, {
+    discountValue: 10,
+    discountType: "PERCENT",
+  });
+
+  assert.deepEqual(items.map(item => [item.type, item.description, item.amount]), [
+    ["RENT", "Aluguel", 1_000],
+    ["CONDOMINIUM", "Condomínio", 40],
+    ["IPTU", "IPTU", 31.20],
+    ["GAS", "Gás", 35],
+    ["OTHER", "Seguro", 15],
+    ["DISCOUNT", "Desconto de pontualidade", 100],
+  ]);
 });
 
 test("calcula desconto fixo e percentual somente sobre o aluguel", () => {

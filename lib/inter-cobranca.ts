@@ -1,9 +1,19 @@
+import type { BoletoChargeItem } from "@/lib/financeiro/boleto-composicao";
+
 export type DescontoInterV3 = {
   codigo: "VALORFIXODATAINFORMADA" | "PERCENTUALDATAINFORMADA";
   quantidadeDias: number;
   valor?: number;
   taxa?: number;
 };
+
+export function criarMoraInterV3(taxaMensal: number | null | undefined) {
+  if (!taxaMensal || taxaMensal <= 0) return undefined;
+  return {
+    codigo: "PERCENTUAL" as const,
+    taxa: taxaMensal,
+  };
+}
 
 /** Converte a bonificação contratual para o payload da API Cobrança V3 do Inter. */
 export function criarDescontoInterV3(input: {
@@ -76,10 +86,54 @@ function valorMonetarioCompacto(value: number) {
   });
 }
 
+export type MensagemInter = Partial<Record<
+  "linha1" | "linha2" | "linha3" | "linha4" | "linha5",
+  string
+>>;
+
+export function formatarMensagemInter(descricao: string): MensagemInter {
+  if (!descricao) return {};
+
+  const blocks = descricao.split(/\r?\n/).map(block => block
+    .replace(/R\$/gi, "RS")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s.,\-/:;()%]/g, "")
+    .replace(/[^\S\r\n]+/g, " ")
+    .trim()
+  ).filter(Boolean);
+  const lines: string[] = [];
+
+  for (const block of blocks) {
+    const words = block.split(" ");
+    let currentLine = "";
+    for (const word of words) {
+      if (!word) continue;
+      if ((currentLine ? `${currentLine} ${word}` : word).length <= 78) {
+        currentLine = currentLine ? `${currentLine} ${word}` : word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        let remaining = word;
+        while (remaining.length > 78) {
+          lines.push(remaining.substring(0, 78));
+          remaining = remaining.substring(78);
+        }
+        currentLine = remaining;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+  }
+
+  return Object.fromEntries(
+    lines.slice(0, 5).map((line, index) => [`linha${index + 1}`, line.substring(0, 78)]),
+  ) as MensagemInter;
+}
+
 export function criarResumoComposicaoBoletoInter(input: {
   metadata: unknown;
   valorNominal: number;
   dataVencimento: string;
+  items?: BoletoChargeItem[];
 }) {
   const metadata = (
     input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
@@ -100,14 +154,28 @@ export function criarResumoComposicaoBoletoInter(input: {
   const rentValue = hasDetailedComposition
     ? Number(metadata.rentValue ?? 0)
     : input.valorNominal;
-  const components = [
-    ["ALUG", rentValue],
-    ["IPTU", Number(metadata.iptuValue ?? 0)],
-    ["COND", Number(metadata.condominiumValue ?? 0)],
-    ["AGUA", Number(metadata.waterValue ?? 0)],
-    ["ENERG", Number(metadata.electricityValue ?? 0)],
-    ["GAS", Number(metadata.gasValue ?? 0)],
-  ] as const;
+  const labels: Record<string, string> = {
+    RENT: "ALUG",
+    CONDOMINIUM: "COND",
+    IPTU: "IPTU",
+    WATER: "AGUA",
+    ENERGY: "ENERG",
+    GAS: "GAS",
+    OTHER: "OUTROS",
+  };
+  const components = input.items?.length
+    ? input.items
+        .filter(item => item.type !== "DISCOUNT")
+        .map(item => [labels[item.type] ?? "OUTROS", item.amount] as const)
+    : [
+        ["ALUG", rentValue],
+        ["COND", Number(metadata.condominiumValue ?? 0)],
+        ["IPTU", Number(metadata.iptuValue ?? 0)],
+        ["AGUA", Number(metadata.waterValue ?? 0)],
+        ["ENERG", Number(metadata.electricityValue ?? 0)],
+        ["GAS", Number(metadata.gasValue ?? 0)],
+        ["OUTROS", Number(metadata.otherValue ?? 0)],
+      ] as const;
   const componentText = components
     .filter(([, value]) => Number.isFinite(value) && value > 0)
     .map(([label, value]) => `${label} RS ${valorMonetarioCompacto(value)}`)
@@ -131,6 +199,47 @@ export function criarResumoComposicaoBoletoInter(input: {
       ? `COMPOSICAO: ${componentText}; TOTAL RS ${valorMonetarioCompacto(input.valorNominal)}`
       : `TOTAL NOMINAL: RS ${valorMonetarioCompacto(input.valorNominal)}`,
   ];
+}
+
+export function criarMensagemCobrancaInter(input: {
+  metadata: unknown;
+  items?: BoletoChargeItem[];
+  valorNominal: number;
+  dataVencimento: string;
+  desconto?: DescontoInterV3;
+  multaPercentual?: number | null;
+  jurosMensal?: number | null;
+}) {
+  const resumo = criarResumoComposicaoBoletoInter(input);
+  const instrucoes = criarInstrucoesBoletoInter({
+    desconto: input.desconto,
+    multaPercentual: input.multaPercentual,
+    jurosMensal: input.jurosMensal,
+    dataVencimento: input.dataVencimento,
+  });
+  return formatarMensagemInter([...resumo, ...instrucoes].join("\n"));
+}
+
+export function linhasMensagemInter(mensagem: unknown): string[] {
+  if (!mensagem || typeof mensagem !== "object" || Array.isArray(mensagem)) return [];
+  const record = mensagem as Record<string, unknown>;
+  return ["linha1", "linha2", "linha3", "linha4", "linha5"]
+    .map(key => record[key])
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+export function cobrancaEstaRegistradaNoInter(input: {
+  interCodigoSolicitacao?: string | null;
+  interNossoNumero?: string | null;
+  interTxId?: string | null;
+  interBarcode?: string | null;
+}) {
+  return Boolean(
+    input.interCodigoSolicitacao
+    || input.interNossoNumero
+    || input.interTxId
+    || input.interBarcode
+  );
 }
 
 export function criarEstadoParaNovaEmissaoInter() {
