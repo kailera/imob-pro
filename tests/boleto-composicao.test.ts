@@ -15,7 +15,8 @@ test("soma todos os componentes que formam o valor nominal enviado ao Inter", ()
     condominiumValue: 40,
     waterValue: 25.50,
     electricityValue: 80,
-  }), 1_176.70);
+    gasValue: 35,
+  }), 1_211.70);
 });
 
 test("calcula desconto fixo e percentual somente sobre o aluguel", () => {
@@ -30,6 +31,7 @@ test("salva e recupera a fotografia das condições do boleto, inclusive valores
     condominiumValue: 0,
     waterValue: 0,
     electricityValue: 0,
+    gasValue: 0,
     discountValue: 100,
     discountType: "FIXED",
     discountDaysBefore: 15,
@@ -39,6 +41,7 @@ test("salva e recupera a fotografia das condições do boleto, inclusive valores
   });
 
   assert.equal(asMetadataRecord(metadata).competence, "2026-09");
+  assert.equal(asMetadataRecord(metadata).gasValue, 0);
   assert.deepEqual(lerCondicoesBoletoMetadata(metadata), {
     discountValue: 100,
     discountType: "FIXED",

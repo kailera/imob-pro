@@ -60,6 +60,7 @@ export default function BoletoCompositionModal({
         condominiumValue: numberString(value.condominiumValue),
         waterValue: numberString(value.waterValue),
         electricityValue: numberString(value.electricityValue),
+        gasValue: numberString(value.gasValue),
         discountValue: numberString(value.discountValue),
         lateFeePercentage: numberString(value.lateFeePercentage),
         lateInterestMonthly: numberString(value.lateInterestMonthly),
@@ -87,6 +88,7 @@ export default function BoletoCompositionModal({
       parsed("condominiumValue"),
       parsed("waterValue"),
       parsed("electricityValue"),
+      parsed("gasValue"),
     ].reduce((sum, value) => sum + value, 0);
     const discount = ["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(
       (form.discountType ?? "").toUpperCase(),
@@ -114,6 +116,7 @@ export default function BoletoCompositionModal({
       condominiumValue: parsed("condominiumValue"),
       waterValue: parsed("waterValue"),
       electricityValue: parsed("electricityValue"),
+      gasValue: parsed("gasValue"),
       discountValue: parsed("discountValue"),
       discountType: form.discountType || "FIXED",
       discountDaysBefore: Math.trunc(parsed("discountDaysBefore")),
@@ -141,6 +144,7 @@ export default function BoletoCompositionModal({
     ["condominiumValue", "Condomínio"],
     ["waterValue", "Água"],
     ["electricityValue", "Energia"],
+    ["gasValue", "Gás"],
   ] as const;
 
   return (

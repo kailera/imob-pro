@@ -90,12 +90,13 @@ export async function updateLeaseUtilities(
 
     const atualizadas = await prisma.$transaction(async tx => {
         const utilities = await tx.leaseUtility.findMany({
-            where: { leaseId, type: { in: ['WATER', 'ELECTRICITY'] } },
+            where: { leaseId, type: { in: ['WATER', 'ELECTRICITY', 'GAS'] } },
         })
         const waterValue = Number(utilities.find(item => item.type === 'WATER')?.amount ?? 0)
         const electricityValue = Number(
             utilities.find(item => item.type === 'ELECTRICITY')?.amount ?? 0,
         )
+        const gasValue = Number(utilities.find(item => item.type === 'GAS')?.amount ?? 0)
         const pendingCharges = await tx.transacaoFinanceira.findMany({
             where: {
                 leaseId,
@@ -117,14 +118,17 @@ export async function updateLeaseUtilities(
             ) as Record<string, unknown>
             const previousWater = Number(metadata.waterValue ?? 0)
             const previousElectricity = Number(metadata.electricityValue ?? 0)
+            const previousGas = Number(metadata.gasValue ?? 0)
             const total = Number((
                 Number(charge.valor)
                 - (Number.isFinite(previousWater) ? previousWater : 0)
                 - (Number.isFinite(previousElectricity) ? previousElectricity : 0)
+                - (Number.isFinite(previousGas) ? previousGas : 0)
                 + waterValue
                 + electricityValue
+                + gasValue
             ).toFixed(2))
-            const nextMetadata = { ...metadata, waterValue, electricityValue }
+            const nextMetadata = { ...metadata, waterValue, electricityValue, gasValue }
 
             await tx.transacaoFinanceira.update({
                 where: { id: charge.id },

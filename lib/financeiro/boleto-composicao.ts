@@ -12,6 +12,7 @@ export type BoletoCompositionValues = {
   condominiumValue: number;
   waterValue: number;
   electricityValue: number;
+  gasValue: number;
 };
 
 export type BoletoCompositionInput = BoletoCompositionValues & BoletoBillingConditions & {
@@ -38,6 +39,7 @@ export function calcularTotalNominal(values: BoletoCompositionValues) {
     + values.condominiumValue
     + values.waterValue
     + values.electricityValue
+    + values.gasValue
   ).toFixed(2));
 }
 
@@ -81,6 +83,7 @@ export function atualizarMetadataComposicao(
     condominiumValue: input.condominiumValue,
     waterValue: input.waterValue,
     electricityValue: input.electricityValue,
+    gasValue: input.gasValue,
     billingConditions: {
       discountValue: input.discountValue,
       discountType: input.discountType,

@@ -125,6 +125,7 @@ export default function CobrancasPage() {
     success: boolean;
     count?: number;
     updatedCount?: number;
+    removedCount?: number;
     error?: string;
   } | null>(null);
 
@@ -138,6 +139,7 @@ export default function CobrancasPage() {
           success: true,
           count: res.geradosCount,
           updatedCount: res.atualizadosCount,
+          removedCount: res.removidosCount,
         });
         loadData();
       } else {
@@ -623,6 +625,14 @@ export default function CobrancasPage() {
                             ? "cobrança pendente foi sincronizada"
                             : "cobranças pendentes foram sincronizadas"}{" "}
                           com o período contratual vigente.
+                        </p>
+                      )}
+                      {(genResult.removedCount ?? 0) > 0 && (
+                        <p className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
+                          <span className="font-extrabold">{genResult.removedCount}</span>{" "}
+                          {genResult.removedCount === 1
+                            ? "rascunho antigo sem boleto foi removido"
+                            : "rascunhos antigos sem boleto foram removidos"}.
                         </p>
                       )}
                     </div>

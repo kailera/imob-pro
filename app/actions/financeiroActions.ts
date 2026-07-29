@@ -10,9 +10,12 @@ import {
   calcularVencimentoMensal,
   criarDataVencimento,
 } from "@/lib/locacao/financeiro";
-import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
+import {
+  cobrancaEhRascunhoReutilizavel,
+  obterCompetenciaDaCobranca,
+} from "@/lib/financeiro/cobranca-rascunho";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -34,6 +37,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
 
     let geradosCount = 0;
     let atualizadosCount = 0;
+    let removidosCount = 0;
     const errors: string[] = [];
 
     // 2. Iterar por cada contrato para gerar a cobrança
@@ -67,11 +71,11 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             categoria: "ALUGUEL",
             tipo: "RECEITA",
           },
+          orderBy: { createdAt: "desc" },
         });
-        const cobrancaDaCompetencia = cobrancasExistentes.find((tx) => {
-          const meta = tx.metadata as Record<string, unknown> | null;
-          return meta?.competence === competence;
-        });
+        const cobrancaDaCompetencia = cobrancasExistentes.find(
+          tx => obterCompetenciaDaCobranca(tx.metadata) === competence,
+        );
         const metadataExistente = cobrancaDaCompetencia?.metadata as Record<string, unknown> | null;
         const diaVencimentoExistente = Number(metadataExistente?.dueDay)
           || cobrancaDaCompetencia?.dataVencimento.getUTCDate()
@@ -92,6 +96,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           iptuValue: hasIPTU ? valorIPTU : 0,
           waterValue: 0,
           electricityValue: 0,
+          gasValue: 0,
           dueDay: diaVencimento,
           periodId: periodoAtivo?.id ?? null,
           billingConditions: {
@@ -119,19 +124,39 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           },
         };
 
-        if (cobrancaDaCompetencia) {
-          if (periodoAtivo) {
-            const sincronizacao = await prisma.$transaction((tx) =>
-              sincronizarCobrancasPendentesDoPeriodo(tx, {
-                contratoIds: [contrato.id],
-                periodo: {
-                  ...periodoAtivo,
-                  diaVencimento,
-                },
-              }),
-            );
-            atualizadosCount += sincronizacao.atualizadas;
-          }
+        if (
+          cobrancaDaCompetencia
+          && !cobrancaEhRascunhoReutilizavel(cobrancaDaCompetencia)
+        ) {
+          continue;
+        }
+
+        const rascunhos = cobrancasExistentes.filter(cobrancaEhRascunhoReutilizavel);
+        const rascunhoPrincipal = cobrancaDaCompetencia ?? rascunhos[0] ?? null;
+        if (rascunhoPrincipal) {
+          const idsExcedentes = rascunhos
+            .filter(item => item.id !== rascunhoPrincipal.id)
+            .map(item => item.id);
+          await prisma.$transaction(async tx => {
+            await tx.transacaoFinanceira.update({
+              where: { id: rascunhoPrincipal.id },
+              data: {
+                descricao: `Aluguel - ${inquilinoNome} - Competência ${String(mes).padStart(2, '0')}/${ano}`,
+                valor: valorTotal,
+                dataVencimento,
+                contratoId: contrato.id,
+                imovelId: contrato.imovelId,
+                metadata,
+              },
+            });
+            if (idsExcedentes.length > 0) {
+              await tx.transacaoFinanceira.deleteMany({
+                where: { id: { in: idsExcedentes } },
+              });
+            }
+          });
+          atualizadosCount++;
+          removidosCount += idsExcedentes.length;
           continue;
         }
 
@@ -220,9 +245,8 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               chargeType: "RENT",
             },
           },
-          select: { id: true },
+          select: { id: true, status: true },
         });
-        if (existingCharge) continue;
 
         const tenantName = lease.parties[0]?.person.name || "Inquilino";
         const rentAmount = Number(periodoAtivo.rentAmount);
@@ -236,12 +260,16 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const electricityValue = Number(
           lease.utilities.find(utility => utility.type === "ELECTRICITY")?.amount ?? 0,
         );
+        const gasValue = Number(
+          lease.utilities.find(utility => utility.type === "GAS")?.amount ?? 0,
+        );
         const totalAmount = Number((
           rentAmount
           + condominiumValue
           + iptu.valor
           + waterValue
           + electricityValue
+          + gasValue
         ).toFixed(2));
         const metadata = {
           competence: leaseCompetence,
@@ -252,6 +280,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           iptuValue: iptu.valor,
           waterValue,
           electricityValue,
+          gasValue,
           iptuInstallment: iptu.numeroParcela,
           iptuInstallments: iptu.quantidadeParcelas,
           billingConditions: {
@@ -281,9 +310,52 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           source: "LEASE_TERMS_PERIOD",
         };
 
+        const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
+          where: {
+            leaseId: lease.id,
+            categoria: "ALUGUEL",
+            tipo: "RECEITA",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        const cobrancaDaCompetencia = cobrancasExistentes.find(
+          item => obterCompetenciaDaCobranca(item.metadata) === leaseCompetence,
+        );
+        if (
+          cobrancaDaCompetencia
+          && !cobrancaEhRascunhoReutilizavel(cobrancaDaCompetencia)
+        ) {
+          continue;
+        }
+        if (
+          existingCharge
+          && existingCharge.status !== "PENDING"
+          && !cobrancaDaCompetencia
+        ) {
+          continue;
+        }
+
+        const rascunhos = cobrancasExistentes.filter(cobrancaEhRascunhoReutilizavel);
+        const rascunhoPrincipal = cobrancaDaCompetencia ?? rascunhos[0] ?? null;
+        const idsExcedentes = rascunhos
+          .filter(item => item.id !== rascunhoPrincipal?.id)
+          .map(item => item.id);
+        const competenciasAntigas = Array.from(new Set(
+          rascunhos
+            .map(item => obterCompetenciaDaCobranca(item.metadata))
+            .filter((value): value is string => Boolean(value && value !== leaseCompetence)),
+        ));
+
         await prisma.$transaction(async tx => {
-          await tx.leaseCharge.create({
-            data: {
+          await tx.leaseCharge.upsert({
+            where: {
+              leaseId_competence_chargeType: {
+                leaseId: lease.id,
+                competence: leaseCompetence,
+                chargeType: "RENT",
+              },
+            },
+            create: {
               leaseId: lease.id,
               termsPeriodId: periodoAtivo.id,
               competence: leaseCompetence,
@@ -293,24 +365,68 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               calculationData: metadata,
               dueDate: dataVencimento,
             },
-          });
-
-          await tx.transacaoFinanceira.create({
-            data: {
-              descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
-              valor: totalAmount,
-              tipo: "RECEITA",
-              categoria: "ALUGUEL",
-              status: "PENDENTE",
-              dataVencimento,
-              leaseId: lease.id,
-              imovelId: lease.propertyId,
-              metadata,
+            update: {
+              termsPeriodId: periodoAtivo.id,
+              description: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
+              amount: totalAmount,
+              calculationData: metadata,
+              dueDate: dataVencimento,
+              status: "PENDING",
+              paidDate: null,
             },
           });
+
+          if (rascunhoPrincipal) {
+            await tx.transacaoFinanceira.update({
+              where: { id: rascunhoPrincipal.id },
+              data: {
+                descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
+                valor: totalAmount,
+                dataVencimento,
+                leaseId: lease.id,
+                imovelId: lease.propertyId,
+                metadata,
+              },
+            });
+          } else {
+            await tx.transacaoFinanceira.create({
+              data: {
+                descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
+                valor: totalAmount,
+                tipo: "RECEITA",
+                categoria: "ALUGUEL",
+                status: "PENDENTE",
+                dataVencimento,
+                leaseId: lease.id,
+                imovelId: lease.propertyId,
+                metadata,
+              },
+            });
+          }
+
+          if (idsExcedentes.length > 0) {
+            await tx.transacaoFinanceira.deleteMany({
+              where: { id: { in: idsExcedentes } },
+            });
+          }
+          if (competenciasAntigas.length > 0) {
+            await tx.leaseCharge.deleteMany({
+              where: {
+                leaseId: lease.id,
+                competence: { in: competenciasAntigas },
+                chargeType: "RENT",
+                status: "PENDING",
+              },
+            });
+          }
         });
 
-        geradosCount++;
+        if (rascunhoPrincipal) {
+          atualizadosCount++;
+          removidosCount += idsExcedentes.length;
+        } else {
+          geradosCount++;
+        }
       } catch (err: any) {
         console.error(`Erro ao processar novo contrato ${lease.code}:`, err);
         errors.push(`Contrato ${lease.code}: ${err.message}`);
@@ -320,7 +436,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
     revalidatePath("/cobrancas");
     revalidatePath("/financeiro");
 
-    return { success: true, geradosCount, atualizadosCount, errors };
+    return { success: true, geradosCount, atualizadosCount, removidosCount, errors };
   } catch (error: any) {
     console.error("Erro geral na geração de cobranças:", error);
     return { success: false, error: error.message || "Erro inesperado ao gerar cobranças." };

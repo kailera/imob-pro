@@ -169,6 +169,7 @@ export async function getBoletoCompositionAction(transactionId: string) {
       metadata.electricityValue,
       numeroSeguro(utilityByType("ELECTRICITY")?.amount),
     );
+    const gasValue = numeroSeguro(metadata.gasValue, numeroSeguro(utilityByType("GAS")?.amount));
     const conditions = resolverCondicoes(transaction);
     const nominalTotal = calcularTotalNominal({
       rentValue,
@@ -176,6 +177,7 @@ export async function getBoletoCompositionAction(transactionId: string) {
       condominiumValue,
       waterValue,
       electricityValue,
+      gasValue,
     });
     const effectiveDiscount = calcularDescontoEfetivo(
       rentValue,
@@ -202,6 +204,7 @@ export async function getBoletoCompositionAction(transactionId: string) {
         condominiumValue,
         waterValue,
         electricityValue,
+        gasValue,
         ...conditions,
         nominalTotal,
         effectiveDiscount,
@@ -233,6 +236,7 @@ function validarInput(input: BoletoCompositionInput) {
     input.condominiumValue,
     input.waterValue,
     input.electricityValue,
+    input.gasValue,
     input.discountValue,
     input.lateFeePercentage,
     input.lateInterestMonthly,
@@ -373,6 +377,7 @@ export async function updateBoletoCompositionAction(
         for (const utility of [
           { type: "WATER", amount: input.waterValue },
           { type: "ELECTRICITY", amount: input.electricityValue },
+          { type: "GAS", amount: input.gasValue },
         ]) {
           await tx.leaseUtility.upsert({
             where: {
@@ -419,8 +424,8 @@ export async function updateBoletoCompositionAction(
             jurosAtrasoPercentual: input.lateInterestMonthly,
           },
         });
-        if (input.waterValue > 0 || input.electricityValue > 0) {
-          contractWarning = "Água e energia foram alteradas somente neste boleto legado.";
+        if (input.waterValue > 0 || input.electricityValue > 0 || input.gasValue > 0) {
+          contractWarning = "Água, energia e gás foram alterados somente neste boleto legado.";
         }
       }
     });
