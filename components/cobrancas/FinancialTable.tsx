@@ -12,7 +12,8 @@ import {
   CheckSquare,
   Coins,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { 
   gerarBolePixWrapperAction, 
@@ -22,6 +23,7 @@ import {
   getInterPdfUrlAction 
 } from '@/app/actions/interActions';
 import { liquidarCobrancaAction } from '@/app/actions/financeiroActions';
+import BoletoCompositionModal from '@/components/cobrancas/BoletoCompositionModal';
 
 export type BilletStatus = 'Liquidado' | 'Recepcionado' | 'Pendente' | 'Cancelado' | 'Baixado';
 
@@ -100,6 +102,7 @@ export default function FinancialTable({
   const [actionLoading, setActionLoading] = useState<string | null>(null); // transacaoId or "global"
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [compositionTransactionId, setCompositionTransactionId] = useState<string | null>(null);
 
   // Manual payment states
   const [payingBillet, setPayingBillet] = useState<BilletData | null>(null);
@@ -388,6 +391,14 @@ export default function FinancialTable({
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-right">
                   <div className="flex justify-end items-center gap-2">
+                    <button
+                      onClick={() => setCompositionTransactionId(item.id)}
+                      className="px-3 py-1.5 rounded-lg border border-[#004777]/20 bg-[#004777]/5 hover:bg-[#004777]/10 text-[#004777] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="Visualizar ou editar a composição desta cobrança"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Composição
+                    </button>
                     {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' && (
                       <button
                         onClick={() => handleOpenPayModal(item)}
@@ -466,6 +477,14 @@ export default function FinancialTable({
             </button>
           </div>
         </div>
+      )}
+
+      {compositionTransactionId && (
+        <BoletoCompositionModal
+          transactionId={compositionTransactionId}
+          onClose={() => setCompositionTransactionId(null)}
+          onSaved={onRefresh}
+        />
       )}
 
       {/* MODAL DETALHES BOLETO INTER */}

@@ -236,6 +236,7 @@ export async function getContratoForEdit(
     } : null,
     utilities: lease.utilities.map(u => ({
       type: u.type,
+      amount: u.amount ? Number(u.amount) : null,
       identification: u.identification ?? '',
       lastCheckedDate: u.lastCheckedDate ? u.lastCheckedDate.toISOString().slice(0, 10) : '',
       observation: u.observation ?? '',

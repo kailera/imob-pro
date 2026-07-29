@@ -456,6 +456,7 @@ model LeaseUtility {
   leaseId         String
   lease           Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   type            String
+  amount          Decimal?  @db.Decimal(15, 2)
   identification  String?
   lastCheckedDate DateTime?
   observation     String?   @db.Text

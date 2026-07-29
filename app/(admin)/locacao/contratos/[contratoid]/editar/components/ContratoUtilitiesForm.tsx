@@ -13,6 +13,7 @@ const initialState: UtilitiesActionState = {
 
 type UtilityItem = {
     type: string
+    amount: number | null
     identification: string
     lastCheckedDate: string
     observation: string
@@ -46,6 +47,18 @@ export function ContratoUtilitiesForm({ contratoId, utilities = [] }: Props) {
             <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs">
                 <h4 className="font-bold text-gray-800">Companhia de água</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block font-medium text-gray-700 mb-1">Valor mensal cobrado no boleto:</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            name="water_amount"
+                            defaultValue={water?.amount ?? ''}
+                            placeholder="R$ 0,00"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white outline-none"
+                        />
+                    </div>
                     <div>
                         <label className="block font-medium text-gray-700 mb-1">Identificação:</label>
                         <input
@@ -90,6 +103,18 @@ export function ContratoUtilitiesForm({ contratoId, utilities = [] }: Props) {
                 <h4 className="font-bold text-gray-800">Companhia de energia</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label className="block font-medium text-gray-700 mb-1">Valor mensal cobrado no boleto:</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            name="electricity_amount"
+                            defaultValue={electricity?.amount ?? ''}
+                            placeholder="R$ 0,00"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white outline-none"
+                        />
+                    </div>
+                    <div>
                         <label className="block font-medium text-gray-700 mb-1">Identificação:</label>
                         <input
                             type="text"
@@ -132,6 +157,7 @@ export function ContratoUtilitiesForm({ contratoId, utilities = [] }: Props) {
             <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs">
                 <h4 className="font-bold text-gray-800">Companhia de gás</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="hidden" name="gas_amount" value="" />
                     <div>
                         <label className="block font-medium text-gray-700 mb-1">Identificação:</label>
                         <input

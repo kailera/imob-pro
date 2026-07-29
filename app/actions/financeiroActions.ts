@@ -90,8 +90,33 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           rentValue: valorAluguel,
           condominiumValue: hasCondominio ? valorCondominio : 0,
           iptuValue: hasIPTU ? valorIPTU : 0,
+          waterValue: 0,
+          electricityValue: 0,
           dueDay: diaVencimento,
           periodId: periodoAtivo?.id ?? null,
+          billingConditions: {
+            discountValue: Number(
+              periodoAtivo?.descontoPontualidade
+              ?? locacao.descontoPontualidade
+              ?? 0
+            ),
+            discountType: periodoAtivo?.tipoDesconto
+              ?? locacao.tipoDesconto
+              ?? "VALOR",
+            discountDaysBefore: periodoAtivo?.diasAntecedenciaDesc
+              ?? locacao.diasAntecedenciaDesc
+              ?? 0,
+            lateFeePercentage: Number(
+              periodoAtivo?.multaAtrasoPercentual
+              ?? locacao.multaAtrasoPercentual
+              ?? 0
+            ),
+            lateInterestMonthly: Number(
+              periodoAtivo?.jurosAtrasoPercentual
+              ?? locacao.jurosAtrasoPercentual
+              ?? 0
+            ),
+          },
         };
 
         if (cobrancaDaCompetencia) {
@@ -142,6 +167,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         property: true,
         iptu: true,
         condominium: true,
+        utilities: true,
         terms: true,
         termsPeriods: { orderBy: { createdAt: "desc" } },
         parties: {
@@ -204,7 +230,19 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           legacySystem: lease.legacySystem,
         });
         const condominiumValue = calcularCondominioDaCobranca(lease.condominium);
-        const totalAmount = Number((rentAmount + condominiumValue + iptu.valor).toFixed(2));
+        const waterValue = Number(
+          lease.utilities.find(utility => utility.type === "WATER")?.amount ?? 0,
+        );
+        const electricityValue = Number(
+          lease.utilities.find(utility => utility.type === "ELECTRICITY")?.amount ?? 0,
+        );
+        const totalAmount = Number((
+          rentAmount
+          + condominiumValue
+          + iptu.valor
+          + waterValue
+          + electricityValue
+        ).toFixed(2));
         const metadata = {
           competence: leaseCompetence,
           leaseId: lease.id,
@@ -212,8 +250,33 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           rentValue: rentAmount,
           condominiumValue,
           iptuValue: iptu.valor,
+          waterValue,
+          electricityValue,
           iptuInstallment: iptu.numeroParcela,
           iptuInstallments: iptu.quantidadeParcelas,
+          billingConditions: {
+            discountValue: Number(
+              periodoAtivo.earlyPaymentDiscount
+              ?? lease.terms?.earlyPaymentDiscount
+              ?? 0
+            ),
+            discountType: periodoAtivo.discountType
+              ?? lease.terms?.discountType
+              ?? "FIXED",
+            discountDaysBefore: periodoAtivo.discountDaysBefore
+              ?? lease.terms?.discountDaysBefore
+              ?? 0,
+            lateFeePercentage: Number(
+              periodoAtivo.lateFeePercentage
+              ?? lease.terms?.lateFeePercentage
+              ?? 0
+            ),
+            lateInterestMonthly: Number(
+              periodoAtivo.lateInterestMonthly
+              ?? lease.terms?.lateInterestMonthly
+              ?? 0
+            ),
+          },
           dueDay: periodoAtivo.paymentDueDay,
           source: "LEASE_TERMS_PERIOD",
         };

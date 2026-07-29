@@ -15,6 +15,7 @@ import {
   respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
+import { lerCondicoesBoletoMetadata } from "@/lib/financeiro/boleto-composicao";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
@@ -461,6 +462,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
 
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
+    const condicoesSalvas = lerCondicoesBoletoMetadata(transacao.metadata);
     const imovelLocacao = transacao.contrato?.imovelLocacao;
     if (imovelLocacao) {
       const periodoCobranca = resolverPeriodoDaCobranca(
@@ -470,8 +472,10 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       );
 
       // 1. Multa
-      const multaAtraso = periodoCobranca?.multaAtrasoPercentual
-        ?? imovelLocacao.multaAtrasoPercentual;
+      const multaAtraso = condicoesSalvas
+        ? condicoesSalvas.lateFeePercentage
+        : periodoCobranca?.multaAtrasoPercentual
+          ?? imovelLocacao.multaAtrasoPercentual;
       if (multaAtraso && multaAtraso > 0) {
         payload.multa = {
           codigo: "PERCENTUAL",
@@ -480,8 +484,10 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
 
       // 2. Juros/Mora (pro-rata mensal)
-      const jurosAtraso = periodoCobranca?.jurosAtrasoPercentual
-        ?? imovelLocacao.jurosAtrasoPercentual;
+      const jurosAtraso = condicoesSalvas
+        ? condicoesSalvas.lateInterestMonthly
+        : periodoCobranca?.jurosAtrasoPercentual
+          ?? imovelLocacao.jurosAtrasoPercentual;
       if (jurosAtraso && jurosAtraso > 0) {
         payload.mora = {
           codigo: "TAXAMENSAL",
@@ -490,14 +496,20 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       }
 
       // 3. Bonificação (Desconto de Pontualidade)
-      const descPontualidade = periodoCobranca?.descontoPontualidade
-        ?? imovelLocacao.descontoPontualidade;
+      const descPontualidade = condicoesSalvas
+        ? condicoesSalvas.discountValue
+        : periodoCobranca?.descontoPontualidade
+          ?? imovelLocacao.descontoPontualidade;
       if (descPontualidade && descPontualidade > 0) {
-        const diasAntecedencia = periodoCobranca?.diasAntecedenciaDesc
-          ?? imovelLocacao.diasAntecedenciaDesc
-          ?? 0;
-        const tipoDesconto = periodoCobranca?.tipoDesconto
-          ?? imovelLocacao.tipoDesconto;
+        const diasAntecedencia = condicoesSalvas
+          ? condicoesSalvas.discountDaysBefore
+          : periodoCobranca?.diasAntecedenciaDesc
+            ?? imovelLocacao.diasAntecedenciaDesc
+            ?? 0;
+        const tipoDesconto = condicoesSalvas
+          ? condicoesSalvas.discountType
+          : periodoCobranca?.tipoDesconto
+            ?? imovelLocacao.tipoDesconto;
         const desconto = criarDescontoInterV3({
           valor: descPontualidade,
           tipo: tipoDesconto,
@@ -519,32 +531,42 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         return { success: false, error: "Período locatício da cobrança não encontrado." };
       }
 
-      const lateFee = Number(
-        termsPeriod.lateFeePercentage
-        ?? transacao.lease.terms?.lateFeePercentage
-        ?? 0
-      );
+      const lateFee = condicoesSalvas
+        ? condicoesSalvas.lateFeePercentage
+        : Number(
+            termsPeriod.lateFeePercentage
+            ?? transacao.lease.terms?.lateFeePercentage
+            ?? 0
+          );
       if (lateFee > 0) {
         payload.multa = { codigo: "PERCENTUAL", taxa: lateFee };
       }
 
-      const lateInterest = Number(
-        termsPeriod.lateInterestMonthly
-        ?? transacao.lease.terms?.lateInterestMonthly
-        ?? 0
-      );
+      const lateInterest = condicoesSalvas
+        ? condicoesSalvas.lateInterestMonthly
+        : Number(
+            termsPeriod.lateInterestMonthly
+            ?? transacao.lease.terms?.lateInterestMonthly
+            ?? 0
+          );
       if (lateInterest > 0) {
         payload.mora = { codigo: "TAXAMENSAL", taxa: lateInterest };
       }
 
-      const bonificacao = resolverBonificacaoLease({
-        valorPeriodo: termsPeriod.earlyPaymentDiscount,
-        tipoPeriodo: termsPeriod.discountType,
-        diasPeriodo: termsPeriod.discountDaysBefore,
-        valorContrato: transacao.lease.terms?.earlyPaymentDiscount,
-        tipoContrato: transacao.lease.terms?.discountType,
-        diasContrato: transacao.lease.terms?.discountDaysBefore,
-      });
+      const bonificacao = condicoesSalvas
+        ? {
+            valor: condicoesSalvas.discountValue,
+            tipo: condicoesSalvas.discountType,
+            diasAntesDoVencimento: condicoesSalvas.discountDaysBefore,
+          }
+        : resolverBonificacaoLease({
+            valorPeriodo: termsPeriod.earlyPaymentDiscount,
+            tipoPeriodo: termsPeriod.discountType,
+            diasPeriodo: termsPeriod.discountDaysBefore,
+            valorContrato: transacao.lease.terms?.earlyPaymentDiscount,
+            tipoContrato: transacao.lease.terms?.discountType,
+            diasContrato: transacao.lease.terms?.discountDaysBefore,
+          });
       if (bonificacao.valor > 0) {
         const desconto = criarDescontoInterV3({
           valor: bonificacao.valor,
