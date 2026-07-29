@@ -30,6 +30,7 @@ export function criarDescontoInterV3(input: {
 export function criarInstrucoesBoletoInter(input: {
   desconto?: DescontoInterV3;
   multaPercentual?: number | null;
+  jurosMensal?: number | null;
   dataVencimento: string;
 }): string[] {
   const instrucoes: string[] = [];
@@ -52,7 +53,84 @@ export function criarInstrucoesBoletoInter(input: {
     instrucoes.push(`Apos o vencimento: multa de ${multa}%.`);
   }
 
+  if (input.jurosMensal && input.jurosMensal > 0) {
+    const juros = input.jurosMensal.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+    const jurosText = `Juros ${juros}% ao mes, pro rata dia.`;
+    if (input.multaPercentual && input.multaPercentual > 0) {
+      instrucoes[instrucoes.length - 1] += ` ${jurosText}`;
+    } else {
+      instrucoes.push(jurosText);
+    }
+  }
+
   return instrucoes;
+}
+
+function valorMonetarioCompacto(value: number) {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function criarResumoComposicaoBoletoInter(input: {
+  metadata: unknown;
+  valorNominal: number;
+  dataVencimento: string;
+}) {
+  const metadata = (
+    input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
+      ? input.metadata
+      : {}
+  ) as Record<string, unknown>;
+  const componentKeys = [
+    "rentValue",
+    "iptuValue",
+    "condominiumValue",
+    "waterValue",
+    "electricityValue",
+    "gasValue",
+  ];
+  const hasDetailedComposition = componentKeys.some(key =>
+    Number.isFinite(Number(metadata[key])),
+  );
+  const rentValue = hasDetailedComposition
+    ? Number(metadata.rentValue ?? 0)
+    : input.valorNominal;
+  const components = [
+    ["ALUG", rentValue],
+    ["IPTU", Number(metadata.iptuValue ?? 0)],
+    ["COND", Number(metadata.condominiumValue ?? 0)],
+    ["AGUA", Number(metadata.waterValue ?? 0)],
+    ["ENERG", Number(metadata.electricityValue ?? 0)],
+    ["GAS", Number(metadata.gasValue ?? 0)],
+  ] as const;
+  const componentText = components
+    .filter(([, value]) => Number.isFinite(value) && value > 0)
+    .map(([label, value]) => `${label} RS ${valorMonetarioCompacto(value)}`)
+    .join("; ");
+
+  const competence = typeof metadata.competence === "string"
+    && /^\d{4}-\d{2}$/.test(metadata.competence)
+    ? `${metadata.competence.slice(5, 7)}/${metadata.competence.slice(0, 4)}`
+    : null;
+  const dueDate = new Date(`${input.dataVencimento}T00:00:00.000Z`)
+    .toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  const reference = [
+    "REF: ALUGUEL",
+    competence ? `COMP ${competence}` : null,
+    `VENC ${dueDate}`,
+  ].filter(Boolean).join(" - ");
+
+  return [
+    reference,
+    componentText
+      ? `COMPOSICAO: ${componentText}; TOTAL RS ${valorMonetarioCompacto(input.valorNominal)}`
+      : `TOTAL NOMINAL: RS ${valorMonetarioCompacto(input.valorNominal)}`,
+  ];
 }
 
 export function criarEstadoParaNovaEmissaoInter() {

@@ -11,6 +11,7 @@ import {
   criarDescontoInterV3,
   criarEstadoParaNovaEmissaoInter,
   criarInstrucoesBoletoInter,
+  criarResumoComposicaoBoletoInter,
   resolverBonificacaoLease,
   respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
@@ -32,39 +33,36 @@ export interface InterAuthCredentials {
 export function formatMensagemInter(descricao: string): Record<string, string> {
   if (!descricao) return {};
 
-  // 1. Normalizar e sanitizar caracteres especiais incompatíveis com a API v3 do Banco Inter
-  const sanitized = descricao
+  const blocks = descricao.split(/\r?\n/).map(block => block
     .replace(/R\$/gi, "RS")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9\s.,\-/:;()%]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!sanitized) return {};
-
-  // 2. Quebrar o texto em linhas de no máximo 78 caracteres respeitando limites de palavras
-  const words = sanitized.split(" ");
+    .replace(/[^\S\r\n]+/g, " ")
+    .trim()
+  ).filter(Boolean);
   const lines: string[] = [];
-  let currentLine = "";
 
-  for (const word of words) {
-    if (!word) continue;
-    if ((currentLine ? currentLine + " " + word : word).length <= 78) {
-      currentLine = currentLine ? currentLine + " " + word : word;
-    } else {
-      if (currentLine) lines.push(currentLine);
-      let rem = word;
-      while (rem.length > 78) {
-        lines.push(rem.substring(0, 78));
-        rem = rem.substring(78);
+  for (const block of blocks) {
+    const words = block.split(" ");
+    let currentLine = "";
+    for (const word of words) {
+      if (!word) continue;
+      if ((currentLine ? `${currentLine} ${word}` : word).length <= 78) {
+        currentLine = currentLine ? `${currentLine} ${word}` : word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        let remaining = word;
+        while (remaining.length > 78) {
+          lines.push(remaining.substring(0, 78));
+          remaining = remaining.substring(78);
+        }
+        currentLine = remaining;
       }
-      currentLine = rem;
     }
+    if (currentLine) lines.push(currentLine);
   }
-  if (currentLine) lines.push(currentLine);
 
-  // 3. Preencher no máximo 5 linhas (linha1..linha5) suportadas no leiaute do Banco Inter
   const msg: Record<string, string> = {};
   if (lines[0]) msg.linha1 = lines[0].substring(0, 78);
   if (lines[1]) msg.linha2 = lines[1].substring(0, 78);
@@ -580,12 +578,18 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     const instrucoes = criarInstrucoesBoletoInter({
       desconto: payload.desconto,
       multaPercentual: payload.multa?.taxa,
+      jurosMensal: payload.mora?.taxa,
       dataVencimento: dataVencimentoStr,
     });
-    if (instrucoes.length > 0) {
-      const mensagemBoleto = [...instrucoes, descricaoBoleto].filter(Boolean).join(" ");
-      payload.mensagem = formatMensagemInter(mensagemBoleto);
-    }
+    const resumoComposicao = criarResumoComposicaoBoletoInter({
+      metadata: transacao.metadata,
+      valorNominal: transacao.valor,
+      dataVencimento: dataVencimentoStr,
+    });
+    const mensagemBoleto = [...resumoComposicao, ...instrucoes]
+      .filter(Boolean)
+      .join("\n");
+    payload.mensagem = formatMensagemInter(mensagemBoleto);
 
     console.log("[gerarBolePixAction] Enviando POST para:", `${baseUrl}/cobranca/v3/cobrancas`);
     console.log("[gerarBolePixAction] Payload:", JSON.stringify(payload, null, 2));
