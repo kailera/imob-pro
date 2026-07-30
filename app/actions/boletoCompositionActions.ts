@@ -16,6 +16,7 @@ import {
   type BoletoBillingConditions,
 } from "@/lib/financeiro/boleto-composicao";
 import {
+  criarEstadoParaNovaEmissaoInter,
   criarDescontoInterV3,
   criarMensagemCobrancaInter,
   linhasMensagemInter,
@@ -47,16 +48,8 @@ const transactionInclude = {
 
 function podeEditarCobranca(transaction: {
   status: string;
-  interNossoNumero: string | null;
-  interCodigoSolicitacao: string | null;
-  interTxId: string | null;
-  interBarcode: string | null;
 }) {
-  return transaction.status === "PENDENTE"
-    && !transaction.interNossoNumero
-    && !transaction.interCodigoSolicitacao
-    && !transaction.interTxId
-    && !transaction.interBarcode;
+  return transaction.status === "PENDENTE";
 }
 
 function resolverPeriodoLease(
@@ -269,7 +262,7 @@ export async function getBoletoCompositionAction(transactionId: string) {
         iptuInstallment: numeroSeguro(metadata.iptuInstallment) || null,
         iptuInstallmentsOnCharge: numeroSeguro(metadata.iptuInstallments) || null,
         canEdit: podeEditarCobranca(transaction),
-        canUpdateContract: Boolean(transaction.lease || legacyPeriod),
+        canUpdateContract: Boolean(transaction.lease || legacyLocacao),
         registeredAtInter,
         interMessage: registeredAtInter && persistedMessage.length > 0
           ? persistedMessage
@@ -308,6 +301,13 @@ function validarInput(input: BoletoCompositionInput) {
   if (!Number.isInteger(input.discountDaysBefore) || input.discountDaysBefore < 0) {
     throw new Error("A antecedência do desconto deve ser um número inteiro positivo.");
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate)) {
+    throw new Error("Informe uma data de vencimento válida.");
+  }
+  const dueDate = new Date(`${input.dueDate}T00:00:00.000Z`);
+  if (Number.isNaN(dueDate.getTime()) || dueDate.toISOString().slice(0, 10) !== input.dueDate) {
+    throw new Error("Informe uma data de vencimento válida.");
+  }
 }
 
 export async function updateBoletoCompositionAction(
@@ -320,12 +320,41 @@ export async function updateBoletoCompositionAction(
     const transaction = await getAuthorizedTransaction(transactionId, context.tenantId);
     if (!podeEditarCobranca(transaction)) {
       throw new Error(
-        "Este boleto já foi registrado no Inter ou não está pendente. Cancele-o antes de editar.",
+        "Somente cobranças pendentes podem ser editadas.",
+      );
+    }
+
+    const registeredAtInter = Boolean(
+      transaction.interNossoNumero || transaction.interCodigoSolicitacao,
+    );
+    const inactiveInterStatuses = new Set(["CANCELADO", "EXPIRADO", "FALHA_EMISSAO"]);
+    if (
+      transaction.interCodigoSolicitacao
+      && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+    ) {
+      const { cancelarBolePixAction } = await import("@/lib/inter");
+      const cancellation = await cancelarBolePixAction(transaction.id);
+      if (!cancellation.success) {
+        throw new Error(
+          `Não foi possível cancelar o boleto anterior no Banco Inter: ${cancellation.error ?? "erro desconhecido"}`,
+        );
+      }
+    } else if (
+      transaction.interNossoNumero
+      && !transaction.interCodigoSolicitacao
+      && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+    ) {
+      throw new Error(
+        "Este boleto não possui o identificador necessário para cancelamento automático no Banco Inter.",
       );
     }
 
     const nominalTotal = calcularTotalNominal(input);
-    const metadata = atualizarMetadataComposicao(transaction.metadata, input);
+    const dueDate = new Date(`${input.dueDate}T00:00:00.000Z`);
+    const metadata = {
+      ...atualizarMetadataComposicao(transaction.metadata, input),
+      dueDay: dueDate.getUTCDate(),
+    };
     const items = criarItensCobranca(input, input);
     let contractWarning: string | null = null;
 
@@ -334,7 +363,9 @@ export async function updateBoletoCompositionAction(
         where: { id: transaction.id },
         data: {
           valor: nominalTotal,
+          dataVencimento: dueDate,
           metadata: metadata as Prisma.InputJsonValue,
+          ...(registeredAtInter ? criarEstadoParaNovaEmissaoInter() : {}),
         },
       });
       await tx.boletoChargeItem.deleteMany({
@@ -366,6 +397,7 @@ export async function updateBoletoCompositionAction(
           },
           data: {
             amount: nominalTotal,
+            dueDate,
             calculationData: metadata as Prisma.InputJsonValue,
           },
         });
@@ -377,6 +409,7 @@ export async function updateBoletoCompositionAction(
         const period = resolverPeriodoLease(transaction);
         const termsData = {
           rentValue: input.rentValue,
+          paymentDueDay: dueDate.getUTCDate(),
           earlyPaymentDiscount: input.discountValue,
           discountType: input.discountType,
           discountDaysBefore: input.discountDaysBefore,
@@ -388,6 +421,7 @@ export async function updateBoletoCompositionAction(
             where: { id: period.id },
             data: {
               rentAmount: input.rentValue,
+              paymentDueDay: dueDate.getUTCDate(),
               earlyPaymentDiscount: input.discountValue,
               discountType: input.discountType,
               discountDaysBefore: input.discountDaysBefore,
@@ -477,6 +511,15 @@ export async function updateBoletoCompositionAction(
             transaction.dataVencimento,
           )
         : null;
+      if (locacao) {
+        await tx.imovelLocacao.update({
+          where: { id: locacao.id },
+          data: {
+            diaVencimento: dueDate.getUTCDate(),
+            vencimentoOrigem: "EDICAO_COMPOSICAO",
+          },
+        });
+      }
       if (period) {
         await tx.periodoContratoLocacao.update({
           where: { id: period.id },
@@ -494,6 +537,7 @@ export async function updateBoletoCompositionAction(
             diasAntecedenciaDesc: input.discountDaysBefore,
             multaAtrasoPercentual: input.lateFeePercentage,
             jurosAtrasoPercentual: input.lateInterestMonthly,
+            diaVencimento: dueDate.getUTCDate(),
           },
         });
         if (input.waterValue > 0 || input.electricityValue > 0 || input.gasValue > 0) {
@@ -507,19 +551,98 @@ export async function updateBoletoCompositionAction(
     if (transaction.leaseId) {
       revalidatePath(`/locacao/contratos/${transaction.leaseId}/editar`);
     }
+    if (transaction.contratoId) {
+      revalidatePath(`/locacao/view-locacao/${transaction.contratoId}`);
+    }
+
+    let reissueWarning: string | null = null;
+    if (registeredAtInter) {
+      const { gerarBolePixAction } = await import("@/lib/inter");
+      const emission = await gerarBolePixAction(transaction.id);
+      if (!emission.success) {
+        reissueWarning = [
+          "O boleto anterior foi cancelado e as alterações foram salvas,",
+          "mas a nova emissão no Banco Inter falhou.",
+          emission.error,
+        ].filter(Boolean).join(" ");
+      }
+    }
 
     return {
       success: true as const,
-      message: input.applyToContract
-        ? "Composição atualizada neste boleto e no contrato."
-        : "Composição atualizada somente neste boleto.",
-      warning: contractWarning,
+      message: [
+        input.applyToContract
+          ? "Composição atualizada neste boleto e no contrato."
+          : "Composição atualizada somente neste boleto.",
+        registeredAtInter && !reissueWarning
+          ? "O boleto foi reemitido no Banco Inter."
+          : null,
+      ].filter(Boolean).join(" "),
+      warning: [contractWarning, reissueWarning].filter(Boolean).join(" ") || null,
       nominalTotal,
     };
   } catch (error) {
     return {
       success: false as const,
       error: error instanceof Error ? error.message : "Não foi possível atualizar a composição.",
+    };
+  }
+}
+
+export async function deleteBoletoChargeAction(transactionId: string) {
+  try {
+    const context = await requireUserContext();
+    const transaction = await getAuthorizedTransaction(transactionId, context.tenantId);
+    const inactiveInterStatuses = new Set(["CANCELADO", "EXPIRADO", "FALHA_EMISSAO", "PAGO"]);
+
+    if (
+      transaction.interCodigoSolicitacao
+      && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+    ) {
+      const { cancelarBolePixAction } = await import("@/lib/inter");
+      const cancellation = await cancelarBolePixAction(transaction.id);
+      if (!cancellation.success) {
+        throw new Error(
+          `Não foi possível cancelar o boleto no Banco Inter: ${cancellation.error ?? "erro desconhecido"}`,
+        );
+      }
+    } else if (
+      transaction.interNossoNumero
+      && !transaction.interCodigoSolicitacao
+      && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+    ) {
+      throw new Error(
+        "Este boleto não possui o identificador necessário para cancelamento automático no Banco Inter.",
+      );
+    }
+
+    const metadata = asMetadataRecord(transaction.metadata);
+    const competence = typeof metadata.competence === "string" ? metadata.competence : null;
+
+    await prisma.$transaction(async tx => {
+      if (transaction.leaseId && competence) {
+        await tx.leaseCharge.deleteMany({
+          where: {
+            leaseId: transaction.leaseId,
+            competence,
+            chargeType: "RENT",
+          },
+        });
+      }
+      await tx.transacaoFinanceira.delete({
+        where: { id: transaction.id },
+      });
+    });
+
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+    revalidatePath("/locacao");
+
+    return { success: true as const };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível excluir a cobrança.",
     };
   }
 }

@@ -55,6 +55,7 @@ export default function BoletoCompositionModal({
       const value = result.composition;
       setComposition(value);
       setForm({
+        dueDate: value.dueDate.slice(0, 10),
         rentValue: numberString(value.rentValue),
         iptuValue: numberString(value.iptuValue),
         condominiumValue: numberString(value.condominiumValue),
@@ -114,6 +115,7 @@ export default function BoletoCompositionModal({
     setError(null);
     setSuccess(null);
     const result = await updateBoletoCompositionAction(transactionId, {
+      dueDate: form.dueDate,
       rentValue: parsed("rentValue"),
       iptuValue: parsed("iptuValue"),
       condominiumValue: parsed("condominiumValue"),
@@ -190,10 +192,25 @@ export default function BoletoCompositionModal({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-bold text-[#280003]">{composition.description}</p>
-                  <p className="text-xs text-gray-500">
-                    Vencimento {new Date(composition.dueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-                    {composition.contractCode ? ` · Contrato ${composition.contractCode}` : ""}
-                  </p>
+                  {editing ? (
+                    <label className="mt-2 block">
+                      <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                        Data de vencimento
+                      </span>
+                      <input
+                        type="date"
+                        required
+                        value={form.dueDate ?? ""}
+                        onChange={event => setField("dueDate", event.target.value)}
+                        className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-[#280003]"
+                      />
+                    </label>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Vencimento {new Date(composition.dueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                      {composition.contractCode ? ` · Contrato ${composition.contractCode}` : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {composition.contractEditUrl && (
@@ -218,8 +235,13 @@ export default function BoletoCompositionModal({
 
               {!composition.canEdit && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  Esta cobrança está disponível somente para consulta. Para alterar um boleto já
-                  registrado no Inter, cancele-o e gere uma nova emissão.
+                  Esta cobrança está disponível somente para consulta porque não está pendente.
+                </div>
+              )}
+              {composition.canEdit && composition.registeredAtInter && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  Ao salvar, o boleto atual será cancelado no Banco Inter e um novo será emitido
+                  automaticamente com o vencimento e a composição atualizados.
                 </div>
               )}
 
@@ -354,7 +376,7 @@ export default function BoletoCompositionModal({
                       <input type="checkbox" checked={applyToContract} onChange={e => setApplyToContract(e.target.checked)} className="mt-0.5 h-4 w-4" />
                       <span>
                         <span className="block text-sm font-bold text-[#004777]">Atualizar também o contrato</span>
-                        <span className="block text-xs text-gray-600">Use estes valores como padrão nas próximas cobranças. Desmarcado, altera somente esta cobrança.</span>
+                        <span className="block text-xs text-gray-600">Use estes valores e o novo dia de vencimento como padrão nas próximas cobranças. Desmarcado, altera somente esta cobrança.</span>
                       </span>
                     </label>
                   )}

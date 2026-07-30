@@ -13,7 +13,8 @@ import {
   Coins,
   ChevronLeft,
   ChevronRight,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 import { 
   gerarBolePixWrapperAction, 
@@ -23,6 +24,7 @@ import {
   getInterPdfUrlAction 
 } from '@/app/actions/interActions';
 import { liquidarCobrancaAction } from '@/app/actions/financeiroActions';
+import { deleteBoletoChargeAction } from '@/app/actions/boletoCompositionActions';
 import BoletoCompositionModal from '@/components/cobrancas/BoletoCompositionModal';
 
 export type BilletStatus = 'Liquidado' | 'Recepcionado' | 'Pendente' | 'Cancelado' | 'Baixado';
@@ -130,6 +132,28 @@ export default function FinancialTable({
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Erro inesperado.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteCharge = async (billet: BilletData) => {
+    const confirmed = window.confirm(
+      `Excluir definitivamente a cobrança de ${billet.sacadoNome} com vencimento em ${billet.vencimento}?`
+    );
+    if (!confirmed) return;
+
+    setActionLoading(`delete-${billet.id}`);
+    setErrorMessage(null);
+    try {
+      const result = await deleteBoletoChargeAction(billet.id);
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
+      if (onRefresh) await onRefresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Erro inesperado ao excluir a cobrança.");
     } finally {
       setActionLoading(null);
     }
@@ -417,6 +441,19 @@ export default function FinancialTable({
                         Liberar p/ Assinatura
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDeleteCharge(item)}
+                      disabled={actionLoading !== null}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Excluir esta cobrança"
+                    >
+                      {actionLoading === `delete-${item.id}` ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-700/30 border-t-red-700" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Excluir
+                    </button>
                   </div>
                 </td>
               </tr>

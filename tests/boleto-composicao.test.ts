@@ -53,6 +53,7 @@ test("calcula desconto fixo e percentual somente sobre o aluguel", () => {
 
 test("salva e recupera a fotografia das condições do boleto, inclusive valores zero", () => {
   const metadata = atualizarMetadataComposicao({ competence: "2026-09" }, {
+    dueDate: "2026-09-10",
     rentValue: 1_000,
     iptuValue: 31.20,
     condominiumValue: 0,

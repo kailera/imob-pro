@@ -18,6 +18,7 @@ export type BoletoCompositionValues = {
 };
 
 export type BoletoCompositionInput = BoletoCompositionValues & BoletoBillingConditions & {
+  dueDate: string;
   applyToContract: boolean;
   iptuPaymentStartDate?: string | null;
   iptuInstallments?: string | null;
