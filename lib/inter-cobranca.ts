@@ -10,7 +10,7 @@ export type DescontoInterV3 = {
 export function criarMoraInterV3(taxaMensal: number | null | undefined) {
   if (!taxaMensal || taxaMensal <= 0) return undefined;
   return {
-    codigo: "PERCENTUAL" as const,
+    codigo: "TAXAMENSAL" as const,
     taxa: taxaMensal,
   };
 }
