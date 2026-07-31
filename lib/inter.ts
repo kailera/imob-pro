@@ -188,6 +188,7 @@ export async function getInterAccessToken(imobId: string): Promise<string> {
  */
 export async function gerarBolePixAction(transacaoId: string): Promise<{
   success: boolean;
+  processing?: boolean;
   nossoNumero?: string;
   pixCopiaECola?: string;
   codigoBarras?: string;
@@ -636,7 +637,9 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     }
 
     if (!getData || !getData.boleto || !getData.boleto.nossoNumero) {
-      return { success: false, error: "Não foi possível obter os detalhes do boleto gerado no Banco Inter após várias tentativas de consulta." };
+      // A V3 confirma a solicitação antes de terminar a emissão. O código já foi
+      // persistido acima; a consulta manual/webhook completará os dados depois.
+      return { success: true, processing: true };
     }
 
     const nossoNumero = getData.boleto.nossoNumero;
@@ -773,6 +776,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 export async function consultarBolePixAction(transacaoId: string): Promise<{
   success: boolean;
   status?: string;
+  pdfAvailable?: boolean;
   error?: string;
 }> {
   try {
@@ -814,13 +818,52 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Situação da cobrança não retornada pelo Banco Inter." };
     }
 
-    const situacao = data.situacao; // Ex: APROVADO, PAGO, VENCIDO, CANCELADO, etc.
+    const situacao = data.situacao;
+    const nossoNumero = data.boleto?.nossoNumero || transacao.interNossoNumero;
+    const pixCopiaECola = data.pix?.pixCopiaECola || transacao.interPixCode;
+    const codigoBarras = data.boleto?.codigoBarras || transacao.interBarcode;
+    const txid = data.pix?.txid || transacao.interTxId;
+    let pdfKey = transacao.interPdfKey;
+
+    // O PDF só existe depois que a emissão assíncrona termina. Em toda
+    // sincronização posterior, tentamos recuperá-lo caso ainda esteja ausente.
+    if (nossoNumero && !pdfKey) {
+      try {
+        const pdfResponse = await axios.get(
+          `${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}/pdf`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            httpsAgent,
+          },
+        );
+        if (pdfResponse.data?.pdf) {
+          const pdfBuffer = Buffer.from(pdfResponse.data.pdf, "base64");
+          pdfKey = `cobrancas/${nossoNumero}.pdf`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: bucketName,
+            Key: pdfKey,
+            Body: pdfBuffer,
+            ContentType: "application/pdf",
+          }));
+        }
+      } catch (pdfErr: unknown) {
+        const pdfErrorDetail = axios.isAxiosError(pdfErr)
+          ? pdfErr.response?.data || pdfErr.message
+          : pdfErr instanceof Error
+            ? pdfErr.message
+            : pdfErr;
+        console.warn(
+          "[inter-consulta] PDF ainda indisponível para a cobrança:",
+          pdfErrorDetail,
+        );
+      }
+    }
 
     // Mapeamento de status para o nosso banco de dados
     let statusTransacao = transacao.status;
     let dataPagamento = transacao.dataPagamento;
 
-    if (situacao === "PAGO") {
+    if (situacao === "RECEBIDO" || situacao === "PAGO") {
       statusTransacao = "LIQUIDADO";
       dataPagamento = new Date(); // Registra pagamento como hoje se não houver data detalhada
     } else if (situacao === "CANCELADO" || situacao === "EXPIRADO") {
@@ -832,6 +875,11 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       where: { id: transacaoId },
       data: {
         interStatus: situacao,
+        interNossoNumero: nossoNumero,
+        interPixCode: pixCopiaECola,
+        interBarcode: codigoBarras,
+        interTxId: txid,
+        interPdfKey: pdfKey,
         status: statusTransacao,
         dataPagamento,
       },
@@ -849,6 +897,7 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     return {
       success: true,
       status: situacao,
+      pdfAvailable: Boolean(pdfKey),
     };
   } catch (err: any) {
     console.error("Erro em consultarBolePixAction:", err.response?.data || err.message || err);

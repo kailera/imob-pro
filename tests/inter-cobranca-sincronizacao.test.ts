@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const interSource = readFileSync(
+  fileURLToPath(new URL("../lib/inter.ts", import.meta.url)),
+  "utf8",
+);
+const tableSource = readFileSync(
+  fileURLToPath(new URL("../components/cobrancas/FinancialTable.tsx", import.meta.url)),
+  "utf8",
+);
+
+test("sincroniza detalhes e busca o PDF de solicitações concluídas posteriormente", () => {
+  const consultation = interSource.slice(
+    interSource.indexOf("export async function consultarBolePixAction"),
+    interSource.indexOf("export async function simularPagamentoBolePixAction"),
+  );
+
+  assert.match(consultation, /data\.boleto\?\.nossoNumero/);
+  assert.match(consultation, /cobrancas\/\$\{transacao\.interCodigoSolicitacao\}\/pdf/);
+  assert.match(consultation, /interPdfKey: pdfKey/);
+  assert.match(consultation, /situacao === "RECEBIDO"/);
+});
+
+test("cobrança em processamento oferece atualização em vez de reemissão", () => {
+  assert.match(tableSource, /\? handleSincronizarBoleto\(item\.id\)/);
+  assert.match(tableSource, /"Atualizar boleto"/);
+});
+
+test("timeout da consulta inicial preserva a solicitação como processamento aceito", () => {
+  assert.match(interSource, /return \{ success: true, processing: true \}/);
+});

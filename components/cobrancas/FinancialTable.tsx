@@ -350,7 +350,7 @@ export default function FinancialTable({
                     !item.interNossoNumero ? (
                       <button
                         onClick={() => item.interCodigoSolicitacao
-                          ? handleReemitirBoleto(item.id)
+                          ? handleSincronizarBoleto(item.id)
                           : handleGerarBoleto(item.id)}
                         disabled={actionLoading !== null}
                         className="px-3 py-1.5 rounded-lg bg-[#280003]/5 hover:bg-[#280003]/10 text-[#280003] text-xs font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
@@ -358,7 +358,7 @@ export default function FinancialTable({
                         {actionLoading === item.id ? (
                           <div className="w-3.5 h-3.5 border-2 border-[#280003]/30 border-t-[#280003] rounded-full animate-spin"></div>
                         ) : null}
-                        {item.interCodigoSolicitacao ? "Gerar novamente" : "Gerar Boleto Inter"}
+                        {item.interCodigoSolicitacao ? "Atualizar boleto" : "Gerar Boleto Inter"}
                       </button>
                     ) : (
                       <div className="flex justify-center gap-1.5">
