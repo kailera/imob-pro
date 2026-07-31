@@ -23,6 +23,7 @@ import {
   lerCondicoesBoletoMetadata,
   type BoletoChargeItemType,
 } from "@/lib/financeiro/boleto-composicao";
+import { interTokenCache } from "@/lib/inter-token-cache";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
@@ -155,32 +156,45 @@ export async function getInterAccessToken(imobId: string): Promise<string> {
   const creds = await getInterCredentials(imobId);
   const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
   const baseUrl = getInterBaseUrl(creds.sandbox);
+  const cacheKey = `${imobId}:${creds.sandbox ? "sandbox" : "production"}:${creds.clientId}`;
 
-  const params = new URLSearchParams();
-  params.append("client_id", creds.clientId);
-  params.append("client_secret", creds.clientSecret);
-  params.append("grant_type", "client_credentials");
-  params.append("scope", "boleto-cobranca.read boleto-cobranca.write");
+  return interTokenCache.get(cacheKey, async () => {
+    const params = new URLSearchParams();
+    params.append("client_id", creds.clientId);
+    params.append("client_secret", creds.clientSecret);
+    params.append("grant_type", "client_credentials");
+    params.append("scope", "boleto-cobranca.read boleto-cobranca.write");
 
-  console.log("[inter-auth] Enviando requisicao de token para:", `${baseUrl}/oauth/v2/token`);
-  console.log("[inter-auth] Parametros:", params.toString().replace(/client_secret=[^&]*/, "client_secret=*****"));
+    console.log("[inter-auth] Enviando requisicao de token para:", `${baseUrl}/oauth/v2/token`);
+    console.log("[inter-auth] Parametros:", params.toString().replace(/client_secret=[^&]*/, "client_secret=*****"));
 
-  try {
-    const response = await axios.post(`${baseUrl}/oauth/v2/token`, params.toString(), {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      httpsAgent,
-    });
+    try {
+      const response = await axios.post(`${baseUrl}/oauth/v2/token`, params.toString(), {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        httpsAgent,
+      });
 
-    if (!response.data || !response.data.access_token) {
-      throw new Error("Falha ao obter token de acesso do Banco Inter.");
+      if (!response.data || !response.data.access_token) {
+        throw new Error("Falha ao obter token de acesso do Banco Inter.");
+      }
+
+      console.log("[inter-auth] Token de acesso obtido com sucesso.");
+      const expiresInSeconds = Number(response.data.expires_in);
+      return {
+        token: String(response.data.access_token),
+        expiresInSeconds: Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+          ? expiresInSeconds
+          : 3600,
+      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error("[inter-auth] Erro ao obter token:", error.response?.status, error.response?.data || error.message);
+      } else {
+        console.error("[inter-auth] Erro ao obter token:", error);
+      }
+      throw error;
     }
-
-    console.log("[inter-auth] Token de acesso obtido com sucesso.");
-    return response.data.access_token;
-  } catch (err: any) {
-    console.error("[inter-auth] Erro ao obter token:", err.response?.status, err.response?.data || err.message);
-    throw err;
-  }
+  });
 }
 
 /**
