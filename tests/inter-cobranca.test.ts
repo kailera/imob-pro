@@ -26,9 +26,9 @@ test("monta bonificação percentual no contrato da API V3 do Inter", () => {
   });
 });
 
-test("usa o código percentual vigente para a mora mensal da API V3", () => {
+test("usa o código de taxa mensal vigente para a mora da API V3", () => {
   assert.deepEqual(criarMoraInterV3(1), {
-    codigo: "PERCENTUAL",
+    codigo: "TAXAMENSAL",
     taxa: 1,
   });
   assert.equal(criarMoraInterV3(0), undefined);

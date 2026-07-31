@@ -104,6 +104,7 @@ export default function FinancialTable({
   const [actionLoading, setActionLoading] = useState<string | null>(null); // transacaoId or "global"
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [compositionTransactionId, setCompositionTransactionId] = useState<string | null>(null);
 
   // Manual payment states
@@ -222,9 +223,17 @@ export default function FinancialTable({
   const handleSincronizarBoleto = async (transacaoId: string) => {
     setActionLoading(transacaoId);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
       const res = await consultarBolePixWrapperAction(transacaoId);
       if (res.success) {
+        if (res.status === "EM_PROCESSAMENTO") {
+          setInfoMessage("O Banco Inter ainda está processando esta cobrança. Nenhum PDF foi disponibilizado; tente atualizar novamente mais tarde.");
+        } else if (res.pdfAvailable) {
+          setInfoMessage("Cobrança atualizada e PDF recuperado com sucesso.");
+        } else {
+          setInfoMessage(`Cobrança atualizada para ${res.status ?? "status desconhecido"}, mas o Banco Inter ainda não disponibilizou o PDF.`);
+        }
         if (onRefresh) onRefresh();
         // Se o modal estiver aberto com esta cobrança, fecha ou atualiza
         setSelectedBillet(null);
@@ -299,6 +308,13 @@ export default function FinancialTable({
         <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-start gap-2 text-sm font-semibold">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
           <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {infoMessage && (
+        <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 flex items-start gap-2 text-sm font-semibold">
+          <RefreshCw className="w-5 h-5 text-blue-600 shrink-0" />
+          <span>{infoMessage}</span>
         </div>
       )}
 

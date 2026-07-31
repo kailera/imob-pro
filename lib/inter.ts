@@ -34,6 +34,8 @@ export interface InterAuthCredentials {
   sandbox: boolean;
 }
 
+const INTER_QUERY_TIMEOUT_MS = 20_000;
+
 /**
  * Sanitiza e formata a descrição da transação no formato aceito pelo Banco Inter (linha1..linha5 de no máximo 78 chars).
  */
@@ -822,9 +824,13 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
     // A API Cobrança V3 identifica a solicitação pelo codigoSolicitacao.
+    console.log("[inter-consulta] Consultando cobrança no Banco Inter:", {
+      codigoSolicitacao: transacao.interCodigoSolicitacao,
+    });
     const response = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}`, {
       headers: { Authorization: `Bearer ${token}` },
       httpsAgent,
+      timeout: INTER_QUERY_TIMEOUT_MS,
     });
 
     const data = response.data;
@@ -839,6 +845,15 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     const txid = data.pix?.txid || transacao.interTxId;
     let pdfKey = transacao.interPdfKey;
 
+    console.log("[inter-consulta] Resultado da cobrança:", {
+      codigoSolicitacao: transacao.interCodigoSolicitacao,
+      situacao,
+      possuiNossoNumero: Boolean(nossoNumero),
+      possuiBoleto: Boolean(data.boleto),
+      possuiPix: Boolean(data.pix),
+      possuiPdfLocal: Boolean(pdfKey),
+    });
+
     // O PDF só existe depois que a emissão assíncrona termina. Em toda
     // sincronização posterior, tentamos recuperá-lo caso ainda esteja ausente.
     if (nossoNumero && !pdfKey) {
@@ -848,6 +863,7 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
           {
             headers: { Authorization: `Bearer ${token}` },
             httpsAgent,
+            timeout: INTER_QUERY_TIMEOUT_MS,
           },
         );
         if (pdfResponse.data?.pdf) {
@@ -859,6 +875,10 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
             Body: pdfBuffer,
             ContentType: "application/pdf",
           }));
+          console.log("[inter-consulta] PDF recuperado e armazenado com sucesso:", {
+            codigoSolicitacao: transacao.interCodigoSolicitacao,
+            pdfKey,
+          });
         }
       } catch (pdfErr: unknown) {
         const pdfErrorDetail = axios.isAxiosError(pdfErr)
@@ -913,11 +933,31 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       status: situacao,
       pdfAvailable: Boolean(pdfKey),
     };
-  } catch (err: any) {
-    console.error("Erro em consultarBolePixAction:", err.response?.data || err.message || err);
+  } catch (error: unknown) {
+    const isAxiosError = axios.isAxiosError(error);
+    const responseData = isAxiosError ? error.response?.data : undefined;
+    const responseRecord = responseData && typeof responseData === "object"
+      ? responseData as Record<string, unknown>
+      : null;
+    const responseMessages = responseRecord
+      ? [responseRecord.title, responseRecord.detail, responseRecord.message]
+          .filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const timedOut = isAxiosError && error.code === "ECONNABORTED";
+    const errorMessage = timedOut
+      ? `O Banco Inter não respondeu à consulta em ${INTER_QUERY_TIMEOUT_MS / 1000} segundos. Tente novamente.`
+      : responseMessages.join(" — ")
+        || (error instanceof Error ? error.message : "Erro inesperado ao consultar BolePix.");
+
+    console.error("[inter-consulta] Falha ao consultar cobrança:", {
+      transacaoId,
+      statusHttp: isAxiosError ? error.response?.status : undefined,
+      codigoErro: isAxiosError ? error.code : undefined,
+      detalhe: responseData || errorMessage,
+    });
     return {
       success: false,
-      error: err.response?.data?.title || err.response?.data?.message || err.message || "Erro inesperado ao consultar BolePix.",
+      error: errorMessage,
     };
   }
 }

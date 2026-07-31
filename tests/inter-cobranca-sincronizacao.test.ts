@@ -22,11 +22,16 @@ test("sincroniza detalhes e busca o PDF de solicitações concluídas posteriorm
   assert.match(consultation, /cobrancas\/\$\{transacao\.interCodigoSolicitacao\}\/pdf/);
   assert.match(consultation, /interPdfKey: pdfKey/);
   assert.match(consultation, /situacao === "RECEBIDO"/);
+  assert.match(consultation, /\[inter-consulta\] Resultado da cobrança/);
+  assert.match(consultation, /\[inter-consulta\] Consultando cobrança no Banco Inter/);
+  assert.match(consultation, /timeout: INTER_QUERY_TIMEOUT_MS/);
+  assert.match(consultation, /não respondeu à consulta/);
 });
 
 test("cobrança em processamento oferece atualização em vez de reemissão", () => {
   assert.match(tableSource, /\? handleSincronizarBoleto\(item\.id\)/);
   assert.match(tableSource, /"Atualizar boleto"/);
+  assert.match(tableSource, /O Banco Inter ainda está processando esta cobrança/);
 });
 
 test("timeout da consulta inicial preserva a solicitação como processamento aceito", () => {
