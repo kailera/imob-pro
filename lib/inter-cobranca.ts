@@ -7,6 +7,18 @@ export type DescontoInterV3 = {
   taxa?: number;
 };
 
+export function extrairSituacaoCobrancaInter(response: unknown): string | null {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return null;
+  const root = response as Record<string, unknown>;
+  const nested = root.cobranca;
+  const cobranca = nested && typeof nested === "object" && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : root;
+  return typeof cobranca.situacao === "string" && cobranca.situacao.length > 0
+    ? cobranca.situacao
+    : null;
+}
+
 export function criarMoraInterV3(taxaMensal: number | null | undefined) {
   if (!taxaMensal || taxaMensal <= 0) return undefined;
   return {

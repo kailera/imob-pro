@@ -19,6 +19,7 @@ test("sincroniza detalhes e busca o PDF de solicitações concluídas posteriorm
   );
 
   assert.match(consultation, /data\.boleto\?\.nossoNumero/);
+  assert.match(consultation, /extrairSituacaoCobrancaInter\(data\)/);
   assert.match(consultation, /cobrancas\/\$\{transacao\.interCodigoSolicitacao\}\/pdf/);
   assert.match(consultation, /interPdfKey: pdfKey/);
   assert.match(consultation, /situacao === "RECEBIDO"/);

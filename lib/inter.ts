@@ -13,6 +13,7 @@ import {
   criarEstadoParaNovaEmissaoInter,
   criarMensagemCobrancaInter,
   criarMoraInterV3,
+  extrairSituacaoCobrancaInter,
   formatarMensagemInter,
   resolverBonificacaoLease,
   respostaInterIndicaCobrancaCancelada,
@@ -834,11 +835,15 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     });
 
     const data = response.data;
-    if (!data || !data.situacao) {
+    const situacao = extrairSituacaoCobrancaInter(data);
+    if (!situacao) {
+      console.warn("[inter-consulta] Resposta sem situação reconhecível:", {
+        codigoSolicitacao: transacao.interCodigoSolicitacao,
+        chavesRetornadas: data && typeof data === "object" ? Object.keys(data) : [],
+      });
       return { success: false, error: "Situação da cobrança não retornada pelo Banco Inter." };
     }
 
-    const situacao = data.situacao;
     const nossoNumero = data.boleto?.nossoNumero || transacao.interNossoNumero;
     const pixCopiaECola = data.pix?.pixCopiaECola || transacao.interPixCode;
     const codigoBarras = data.boleto?.codigoBarras || transacao.interBarcode;

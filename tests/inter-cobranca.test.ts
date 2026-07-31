@@ -1,6 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { criarDescontoInterV3, criarMoraInterV3 } from "../lib/inter-cobranca";
+import {
+  criarDescontoInterV3,
+  criarMoraInterV3,
+  extrairSituacaoCobrancaInter,
+} from "../lib/inter-cobranca";
+
+test("extrai a situação da resposta aninhada da API Cobrança V3", () => {
+  assert.equal(extrairSituacaoCobrancaInter({
+    cobranca: { situacao: "A_RECEBER" },
+    boleto: { nossoNumero: "123" },
+  }), "A_RECEBER");
+});
+
+test("mantém compatibilidade com respostas antigas sem objeto cobranca", () => {
+  assert.equal(extrairSituacaoCobrancaInter({ situacao: "EM_PROCESSAMENTO" }), "EM_PROCESSAMENTO");
+  assert.equal(extrairSituacaoCobrancaInter({ cobranca: {} }), null);
+});
 
 test("monta bonificação fixa no contrato da API V3 do Inter", () => {
   assert.deepEqual(criarDescontoInterV3({
