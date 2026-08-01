@@ -188,6 +188,33 @@ export function calcularCompetenciaPorVencimento(
   return `${competencia.getUTCFullYear()}-${String(competencia.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+export function resolverPeriodoEfetivoDaCobranca<T extends {
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
+}>(
+  periodos: T[],
+  competencia: string,
+  dataVencimento: string | Date,
+) {
+  const [ano, mes] = competencia.split("-").map(Number);
+  const referenciaCompetencia = new Date(Date.UTC(ano, mes - 1, 15));
+  const periodoDaCompetencia = periodos.find(periodo =>
+    referenciaCompetencia >= periodo.effectiveFrom
+    && (!periodo.effectiveTo || referenciaCompetencia < periodo.effectiveTo),
+  );
+
+  if (periodoDaCompetencia) return periodoDaCompetencia;
+
+  // No primeiro ciclo parcial, a competência pode cair no mês anterior ao
+  // vencimento e o dia 15 pode ser anterior ao início do contrato. Nesse caso,
+  // o período vigente no vencimento é a referência contratual disponível.
+  const vencimento = normalizarDataUTC(dataVencimento);
+  return periodos.find(periodo =>
+    vencimento >= periodo.effectiveFrom
+    && (!periodo.effectiveTo || vencimento < periodo.effectiveTo),
+  ) ?? null;
+}
+
 export function substituirCompetenciaNaDescricao(
   descricao: string,
   competencia: string,

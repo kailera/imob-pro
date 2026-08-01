@@ -11,6 +11,7 @@ import {
   converterPercentualParaMeses,
   criarDataVencimento,
   parseNumeroFlexivel,
+  resolverPeriodoEfetivoDaCobranca,
   substituirCompetenciaNaDescricao,
 } from "../lib/locacao/financeiro";
 import { resolverPeriodoDaCobranca } from "../lib/locacao/resolverPeriodoCobranca";
@@ -65,6 +66,23 @@ test("respeita a data exata do primeiro vencimento e não cobra antes dela", () 
   assert.equal(
     calcularVencimentoMensal(2027, 9, 26, "2027-08-27")?.toISOString().slice(0, 10),
     "2027-09-26",
+  );
+});
+
+test("resolve o período do primeiro ciclo parcial pelo vencimento", () => {
+  const periodoInicial = {
+    id: "inicial",
+    effectiveFrom: new Date("2026-07-24T00:00:00.000Z"),
+    effectiveTo: new Date("2027-07-24T00:00:00.000Z"),
+  };
+
+  assert.equal(
+    resolverPeriodoEfetivoDaCobranca(
+      [periodoInicial],
+      "2026-07",
+      "2026-08-24",
+    )?.id,
+    "inicial",
   );
 });
 

@@ -9,6 +9,7 @@ import {
   calcularCompetenciaPorVencimento,
   calcularVencimentoMensal,
   criarDataVencimento,
+  resolverPeriodoEfetivoDaCobranca,
 } from "@/lib/locacao/financeiro";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
@@ -248,10 +249,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           lease.terms?.firstPeriodEndDay,
         );
         const [competenceYear, competenceMonth] = leaseCompetence.split("-").map(Number);
-        const referenceDate = new Date(Date.UTC(competenceYear, competenceMonth - 1, 15));
-        const periodoAtivo = lease.termsPeriods.find(periodo =>
-          referenceDate >= periodo.effectiveFrom
-          && (!periodo.effectiveTo || referenceDate < periodo.effectiveTo),
+        const periodoAtivo = resolverPeriodoEfetivoDaCobranca(
+          lease.termsPeriods,
+          leaseCompetence,
+          dataVencimento,
         );
         if (!periodoAtivo) {
           throw new Error(`A competência ${leaseCompetence} não está coberta por um período locatício.`);
