@@ -18,6 +18,7 @@ import {
   obterCompetenciaDaCobranca,
 } from "@/lib/financeiro/cobranca-rascunho";
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
+import { sincronizarPeriodoInicialLease } from "@/lib/locacao/sincronizarPeriodoInicialLease";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -204,6 +205,20 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         console.error(`Erro ao processar contrato ${contrato.id}:`, err);
         errors.push(`Contrato ${contrato.id}: ${err.message}`);
       }
+    }
+
+    // Repara contratos criados enquanto a edição de períodos estava indisponível.
+    // A sincronização só cria o período quando vigência, aluguel e controle
+    // locatício estiverem preenchidos.
+    const leasesSemPeriodo = await prisma.lease.findMany({
+      where: {
+        status: "ACTIVE",
+        termsPeriods: { none: {} },
+      },
+      select: { id: true },
+    });
+    for (const lease of leasesSemPeriodo) {
+      await sincronizarPeriodoInicialLease(lease.id);
     }
 
     // 3. Contratos cadastrados no novo fluxo de locação.

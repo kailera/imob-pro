@@ -139,16 +139,14 @@ export default async function EditContratoPage({
                         />
                     </section>
 
-                    {contrato.legacyCode && (
-                        <LeaseTermsPeriodsForm
-                            leaseId={contrato.id}
-                            leaseStartDate={contrato.dataInicio}
-                            leaseEndDate={contrato.dataFim}
-                            legacyCode={contrato.legacyCode}
-                            periods={contrato.termsPeriods}
-                            defaults={contrato.terms}
-                        />
-                    )}
+                    <LeaseTermsPeriodsForm
+                        leaseId={contrato.id}
+                        leaseStartDate={contrato.dataInicio}
+                        leaseEndDate={contrato.dataFim}
+                        legacyCode={contrato.legacyCode}
+                        periods={contrato.termsPeriods}
+                        defaults={contrato.terms}
+                    />
 
                     {/* 8. Cláusulas Adicionais e Documentos */}
                     <section id="documentos">
