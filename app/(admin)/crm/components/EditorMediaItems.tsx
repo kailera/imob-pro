@@ -18,42 +18,14 @@ interface EditorMediaItemsProps {
     onSaveMediaItems?: (items: MediaItem[]) => void;
 }
 
-const DEFAULT_MEDIA: MediaItem[] = [
-    {
-        id: "1",
-        title: "Excelência e Assessoria Personalizada",
-        category: "Equipe Especializada",
-        description: "Nossa equipe de corretores e consultores jurídicos é altamente especializada para guiar você em cada etapa da negociação imobiliária, garantindo total transparência, máxima agilidade e segurança absoluta.",
-        imageUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1000&q=80",
-    },
-    {
-        id: "2",
-        title: "Vistorias Rigorosas e Tecnologia",
-        category: "Inovação & Segurança",
-        description: "Utilizamos laudos fotográficos detalhados e vistorias digitais com inteligência imobiliária, protegendo o patrimônio do proprietário e assegurando tranquilidade ao inquilino.",
-        imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1000&q=80",
-    },
-    {
-        id: "3",
-        title: "Relacionamento e Atendimento Humanizado",
-        category: "Tradição & Confiança",
-        description: "Mais do que intermediar imóveis, construímos parcerias de longo prazo. Estamos ao seu lado com atendimento dedicado para entender suas reais necessidades e encontrar o imóvel perfeito.",
-        imageUrl: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1000&q=80",
-    },
-];
-
 export default function EditorMediaItems({ mediaItems: initialItems = [], onSaveMediaItems }: EditorMediaItemsProps) {
-    const [items, setItems] = useState<MediaItem[]>(
-        initialItems.length > 0 ? initialItems : DEFAULT_MEDIA
-    );
+    const [items, setItems] = useState<MediaItem[]>(initialItems);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<MediaItem>>({});
     const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (initialItems && initialItems.length > 0) {
-            setItems(initialItems);
-        }
+        setItems(initialItems);
     }, [initialItems]);
 
     const handleEdit = (item: MediaItem) => {

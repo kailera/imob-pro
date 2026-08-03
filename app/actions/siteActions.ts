@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireUserContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export interface ServiceItem {
@@ -92,6 +93,11 @@ export async function updateSiteConfig(data: Partial<SiteConfigData>): Promise<{
   error?: string;
 }> {
   try {
+    const { user } = await requireUserContext();
+    if (!user.ativo || !["ADMIN", "CORRETOR"].includes(user.role)) {
+      return { success: false, error: "Você não tem permissão para editar o site." };
+    }
+
     if (!prisma.siteConfig) {
       return {
         success: false,

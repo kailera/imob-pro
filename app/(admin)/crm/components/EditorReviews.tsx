@@ -25,9 +25,7 @@ export default function EditorReviews({ reviews: initialReviews = [], onSaveRevi
     const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (initialReviews && initialReviews.length > 0) {
-            setItems(initialReviews);
-        }
+        setItems(initialReviews);
     }, [initialReviews]);
 
     const handleEdit = (item: ReviewItem) => {

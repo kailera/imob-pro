@@ -26,9 +26,7 @@ export default function EditorServices({ services: initialServices = [], onSaveS
     const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (initialServices && initialServices.length > 0) {
-            setItems(initialServices);
-        }
+        setItems(initialServices);
     }, [initialServices]);
 
     const handleEdit = (item: ServiceItem) => {

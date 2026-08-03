@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import EditorServices, { ServiceItem } from "../components/EditorServices";
 import EditorMediaItems, { MediaItem } from "../components/EditorMediaItems";
 import EditorReviews, { ReviewItem } from "../components/EditorReviews";
-import { Briefcase, Image as ImageIcon, MessageSquareQuote, CheckCircle2, Loader2 } from "lucide-react";
+import { Briefcase, Image as ImageIcon, MessageSquareQuote, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { getSiteConfig, updateSiteConfig } from "@/app/actions/siteActions";
 
 export default function SiteEditor() {
@@ -14,15 +14,19 @@ export default function SiteEditor() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadConfig() {
       setLoading(true);
+      setErrorMessage(null);
       const res = await getSiteConfig();
       if (res.success && res.data) {
-        if (res.data.services && res.data.services.length > 0) setServices(res.data.services);
-        if (res.data.mediaItems && res.data.mediaItems.length > 0) setMediaItems(res.data.mediaItems);
-        if (res.data.reviews && res.data.reviews.length > 0) setReviews(res.data.reviews);
+        setServices(res.data.services);
+        setMediaItems(res.data.mediaItems);
+        setReviews(res.data.reviews);
+      } else {
+        setErrorMessage(res.error || "Não foi possível carregar os dados do site.");
       }
       setLoading(false);
     }
@@ -34,6 +38,8 @@ export default function SiteEditor() {
     const res = await updateSiteConfig({ services: updated });
     if (res.success) {
       showSuccessToast();
+    } else {
+      setErrorMessage(res.error || "Não foi possível salvar os serviços.");
     }
   };
 
@@ -42,6 +48,8 @@ export default function SiteEditor() {
     const res = await updateSiteConfig({ mediaItems: updated });
     if (res.success) {
       showSuccessToast();
+    } else {
+      setErrorMessage(res.error || "Não foi possível salvar as mídias.");
     }
   };
 
@@ -50,10 +58,13 @@ export default function SiteEditor() {
     const res = await updateSiteConfig({ reviews: updated });
     if (res.success) {
       showSuccessToast();
+    } else {
+      setErrorMessage(res.error || "Não foi possível salvar os depoimentos.");
     }
   };
 
   const showSuccessToast = () => {
+    setErrorMessage(null);
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -67,6 +78,13 @@ export default function SiteEditor() {
         <div className="fixed bottom-6 right-6 bg-emerald-700 text-white px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center gap-2 text-xs font-bold animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
           <span>Alterações salvas com sucesso!</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 

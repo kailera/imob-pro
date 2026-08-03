@@ -85,7 +85,7 @@ export default async function PublicHome() {
     },
   ];
 
-  const displayReviews = (siteConfig?.reviews && siteConfig.reviews.length > 0)
+  const displayReviews = siteConfig
     ? siteConfig.reviews.map(r => ({
         name: r.author,
         role: r.role || "Cliente Scatolin",
@@ -93,10 +93,6 @@ export default async function PublicHome() {
         rating: r.rating || 5,
       }))
     : defaultTestimonials;
-
-  const displayMediaItems = (siteConfig?.mediaItems && siteConfig.mediaItems.length > 0)
-    ? siteConfig.mediaItems
-    : null;
 
   return (
     <div className="space-y-0">

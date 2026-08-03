@@ -100,7 +100,7 @@ const DEFAULT_SERVICES: ServiceItem[] = [
 ];
 
 export function ServicesOfferted({ services }: IServicesOffertedProps) {
-    const displayServices = (services && services.length > 0) ? services : DEFAULT_SERVICES;
+    const displayServices = services ?? DEFAULT_SERVICES;
 
     return (
         <section id="servicos" className="py-16 md:py-24 px-4 bg-brand-bg-primary/30 border-t border-zinc-100">
