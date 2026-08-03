@@ -1,4 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+  isAdminHost,
+  isInterWebhookHost,
+  isPublicHost,
+  isPublicSitePath,
+  normalizeHostname,
+} from "@/lib/host-routing";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -16,22 +23,6 @@ const isPublicRoute = createRouteMatcher([
 
 // Mantém compatibilidade apenas com o link público legado
 // `/vistorias/<token>`. Rotas administrativas mais profundas, como
-
-const ADMIN_HOST = "imobpro.euatendo.online";
-
-const PUBLIC_HOSTS = new Set([
-  "scatolinimoveis.com.br",
-  "www.scatolinimoveis.com.br",
-]);
-
-const isPublicPath = (pathname: string) =>
-  pathname === "/" ||
-  pathname.startsWith("/busca") ||
-  pathname.startsWith("/loteamentos") ||
-  pathname.startsWith("/vistoria-publica/");
-
-
-
 // `/vistorias/ficha-vistoria/<id>`, precisam obrigatoriamente de sessão.
 function isLegacyPublicInspection(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
@@ -39,45 +30,40 @@ function isLegacyPublicInspection(pathname: string) {
 }
 
 export default clerkMiddleware(async (auth, request) => {
-  const hostname = request.nextUrl.hostname.toLowerCase();
+  const hostname = normalizeHostname(
+    request.headers.get("x-forwarded-host") ??
+      request.headers.get("host") ??
+      request.nextUrl.hostname,
+  );
   const pathname = request.nextUrl.pathname;
 
-  // Domínio público tentando acessar rota administrativa
-  if (PUBLIC_HOSTS.has(hostname) && !isPublicPath(pathname)) {
+  // O endpoint bancário possui hostname dedicado e não pode cair no bloqueio
+  // de domínios desconhecidos.
+  if (isInterWebhookHost(hostname)) {
+    if (pathname === "/api/webhooks/inter") return;
     return new Response("Not Found", { status: 404 });
   }
 
-  // Domínio desconhecido
-  if (hostname !== ADMIN_HOST && !PUBLIC_HOSTS.has(hostname)) {
+  // O domínio público expõe somente a vitrine e acessos públicos de vistoria.
+  if (isPublicHost(hostname)) {
+    if (isPublicSitePath(pathname)) return;
     return new Response("Not Found", { status: 404 });
   }
 
   // Domínio administrativo
-  if (hostname === ADMIN_HOST) {
+  if (isAdminHost(hostname)) {
     // Login, webhooks e links públicos de vistoria não podem exigir uma
     // sessão; proteger o próprio /sign-in cria um redirecionamento infinito.
     if (isPublicRoute(request) || isLegacyPublicInspection(pathname)) {
       return;
     }
 
-    const session = await auth();
-
-    if (!session.userId) {
-      return session.redirectToSignIn();
-    }
-
-    const autorizado =
-      session.orgId &&
-      (
-        session.has({ role: "org:admin" }) ||
-        session.has({ role: "org:corretor" }) ||
-        session.has({ role: "org:operador" })
-      );
-
-    if (!autorizado) {
-      return new Response("Not Found", { status: 404 });
-    }
+    await auth.protect();
+    return;
   }
+
+  // Nenhum hostname não cadastrado pode alcançar a aplicação.
+  return new Response("Not Found", { status: 404 });
 }, {
   signInUrl: "/sign-in",
   signUpUrl: "/sign-up",
