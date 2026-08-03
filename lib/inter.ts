@@ -9,10 +9,12 @@ import {
 } from "@/lib/locacao/financeiro";
 import {
   cobrancaEstaRegistradaNoInter,
+  cancelarBoletoInter,
   criarDescontoInterV3,
   criarEstadoParaNovaEmissaoInter,
   criarMensagemCobrancaInter,
   criarMoraInterV3,
+  extrairRecebimentoCobrancaInter,
   extrairSituacaoCobrancaInter,
   formatarMensagemInter,
   resolverBonificacaoLease,
@@ -836,6 +838,7 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
 
     const data = response.data;
     const situacao = extrairSituacaoCobrancaInter(data);
+    const recebimento = extrairRecebimentoCobrancaInter(data);
     if (!situacao) {
       console.warn("[inter-consulta] Resposta sem situação reconhecível:", {
         codigoSolicitacao: transacao.interCodigoSolicitacao,
@@ -904,7 +907,7 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
 
     if (situacao === "RECEBIDO" || situacao === "PAGO") {
       statusTransacao = "LIQUIDADO";
-      dataPagamento = new Date(); // Registra pagamento como hoje se não houver data detalhada
+      dataPagamento = recebimento.data ?? transacao.dataPagamento ?? new Date();
     } else if (situacao === "CANCELADO" || situacao === "EXPIRADO") {
       statusTransacao = "CANCELADO";
     }
@@ -919,6 +922,14 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
         interBarcode: codigoBarras,
         interTxId: txid,
         interPdfKey: pdfKey,
+        interSeuNumero: recebimento.seuNumero ?? transacao.interSeuNumero,
+        interOrigemRecebimento: recebimento.origem ?? transacao.interOrigemRecebimento,
+        interDataRecebimento: situacao === "RECEBIDO"
+          ? recebimento.data ?? transacao.interDataRecebimento
+          : transacao.interDataRecebimento,
+        interValorRecebido: situacao === "RECEBIDO" && recebimento.valor !== null
+          ? recebimento.valor
+          : transacao.interValorRecebido,
         status: statusTransacao,
         dataPagamento,
       },
@@ -1065,18 +1076,12 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
-    // POST /cobranca/v3/cobrancas/{codigoSolicitacao}/cancelar
-    await axios.post(
-      `${baseUrl}/cobranca/v3/cobrancas/${transacao.interCodigoSolicitacao}/cancelar`,
-      { motivoCancelamento: "APEDIDODOCLIENTE" },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        httpsAgent,
-      }
-    );
+    await cancelarBoletoInter({
+      baseUrl,
+      codigoSolicitacao: transacao.interCodigoSolicitacao,
+      accessToken: token,
+      httpsAgent,
+    });
 
     // Atualiza o status local para CANCELADO
     await prisma.transacaoFinanceira.update({

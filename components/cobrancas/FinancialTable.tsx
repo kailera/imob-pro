@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Download, 
   QrCode, 
@@ -14,9 +14,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Trash2
+  Trash2,
+  MoreHorizontal
 } from 'lucide-react';
 import { 
+  cancelarBolePixWrapperAction,
   gerarBolePixWrapperAction, 
   reemitirBolePixWrapperAction,
   consultarBolePixWrapperAction, 
@@ -106,11 +108,31 @@ export default function FinancialTable({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [compositionTransactionId, setCompositionTransactionId] = useState<string | null>(null);
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
 
   // Manual payment states
   const [payingBillet, setPayingBillet] = useState<BilletData | null>(null);
   const [paymentDate, setPaymentDate] = useState<string>('');
   const [paymentValue, setPaymentValue] = useState<number>(0);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && !target.closest('[data-billet-actions-menu]')) {
+        setOpenActionsMenuId(null);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenActionsMenuId(null);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
 
   const handleOpenPayModal = (billet: BilletData) => {
     setPayingBillet(billet);
@@ -201,6 +223,32 @@ export default function FinancialTable({
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Erro inesperado ao gerar novamente o boleto.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelarBoleto = async (billet: BilletData) => {
+    const confirmou = window.confirm(
+      `Cancelar o boleto de ${billet.sacadoNome} no Banco Inter? Esta cobrança deixará de aceitar pagamentos.`
+    );
+    if (!confirmou) return;
+
+    setOpenActionsMenuId(null);
+    setActionLoading(`cancel-${billet.id}`);
+    setErrorMessage(null);
+    setInfoMessage(null);
+    try {
+      const result = await cancelarBolePixWrapperAction(billet.id);
+      if (!result.success) {
+        setErrorMessage(result.error || "Falha ao cancelar o boleto no Banco Inter.");
+        return;
+      }
+      setSelectedBillet(null);
+      setInfoMessage("Boleto cancelado no Banco Inter com sucesso.");
+      if (onRefresh) await onRefresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Erro inesperado ao cancelar o boleto.");
     } finally {
       setActionLoading(null);
     }
@@ -333,7 +381,7 @@ export default function FinancialTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((item) => (
+            {data.map((item, index) => (
               <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="text-[#280003] font-medium">{item.recepcaoData}</div>
@@ -429,47 +477,91 @@ export default function FinancialTable({
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-right">
-                  <div className="flex justify-end items-center gap-2">
+                <td className="relative px-4 py-3 whitespace-nowrap text-right">
+                  <div data-billet-actions-menu className="inline-block">
                     <button
-                      onClick={() => setCompositionTransactionId(item.id)}
-                      className="px-3 py-1.5 rounded-lg border border-[#004777]/20 bg-[#004777]/5 hover:bg-[#004777]/10 text-[#004777] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                      title="Visualizar ou editar a composição desta cobrança"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Composição
-                    </button>
-                    {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' && (
-                      <button
-                        onClick={() => handleOpenPayModal(item)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                        title="Marcar como Pago"
-                      >
-                        <CheckSquare className="w-3.5 h-3.5" />
-                        Marcar Pago
-                      </button>
-                    )}
-                    {item.contratoStatus === 'Pendente' && (
-                      <button
-                        onClick={() => onOpenSignatureModal?.(item)}
-                        className="px-3 py-1.5 rounded-lg bg-[#004777] hover:bg-[#00365c] text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-                      >
-                        Liberar p/ Assinatura
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteCharge(item)}
+                      type="button"
+                      onClick={() => setOpenActionsMenuId(current => current === item.id ? null : item.id)}
                       disabled={actionLoading !== null}
-                      className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Excluir esta cobrança"
+                      aria-expanded={openActionsMenuId === item.id}
+                      aria-controls={`billet-actions-${item.id}`}
+                      aria-label={`Abrir ações da cobrança de ${item.sacadoNome}`}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {actionLoading === `delete-${item.id}` ? (
-                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-700/30 border-t-red-700" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                      Excluir
+                      <MoreHorizontal className="h-5 w-5" />
                     </button>
+
+                    {openActionsMenuId === item.id && (
+                      <div
+                        id={`billet-actions-${item.id}`}
+                        aria-label={`Ações da cobrança de ${item.sacadoNome}`}
+                        className={`absolute right-4 z-30 w-56 rounded-xl border border-gray-200 bg-white p-1.5 text-left shadow-xl ${index >= data.length - 3 ? "bottom-[calc(50%+1.5rem)]" : "top-[calc(50%+1.5rem)]"}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenActionsMenuId(null);
+                            setCompositionTransactionId(item.id);
+                          }}
+                          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#004777] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Composição
+                        </button>
+                        {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenActionsMenuId(null);
+                              handleOpenPayModal(item);
+                            }}
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                          >
+                            <CheckSquare className="h-4 w-4" />
+                            Marcar como pago
+                          </button>
+                        )}
+                        {item.contratoStatus === 'Pendente' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenActionsMenuId(null);
+                              onOpenSignatureModal?.(item);
+                            }}
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#004777] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Liberar para assinatura
+                          </button>
+                        )}
+                        {item.interCodigoSolicitacao
+                          && item.situacao !== 'Liquidado'
+                          && item.situacao !== 'Cancelado'
+                          && item.interStatus !== 'CANCELADO' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelarBoleto(item)}
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                          >
+                            <X className="h-4 w-4" />
+                            Cancelar boleto Inter
+                          </button>
+                        )}
+                        <div className="my-1 border-t border-gray-100" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenActionsMenuId(null);
+                            handleDeleteCharge(item);
+                          }}
+                          disabled={actionLoading !== null}
+                          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Excluir cobrança
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>

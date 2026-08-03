@@ -1,4 +1,56 @@
 import type { BoletoChargeItem } from "@/lib/financeiro/boleto-composicao";
+import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
+import type https from "https";
+
+export type CancelarBoletoInterInput = {
+  baseUrl: string;
+  codigoSolicitacao: string;
+  accessToken: string;
+  httpsAgent: https.Agent;
+  motivoCancelamento?: string;
+};
+
+type InterPost = (
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig,
+) => Promise<AxiosResponse>;
+
+/**
+ * Envia o cancelamento de uma cobrança para a API Cobrança V3 do Banco Inter.
+ *
+ * POST /cobranca/v3/cobrancas/{codigoSolicitacao}/cancelar
+ * Escopo OAuth requerido: boleto-cobranca.write
+ */
+export async function cancelarBoletoInter(
+  input: CancelarBoletoInterInput,
+  post: InterPost = axios.post,
+): Promise<void> {
+  const codigoSolicitacao = input.codigoSolicitacao.trim();
+  const motivoCancelamento = (
+    input.motivoCancelamento ?? "Cancelamento solicitado pela imobiliaria"
+  ).trim();
+
+  if (!codigoSolicitacao) {
+    throw new Error("O código de solicitação da cobrança é obrigatório.");
+  }
+  if (!motivoCancelamento || motivoCancelamento.length > 50) {
+    throw new Error("O motivo do cancelamento deve ter entre 1 e 50 caracteres.");
+  }
+
+  const baseUrl = input.baseUrl.replace(/\/$/, "");
+  await post(
+    `${baseUrl}/cobranca/v3/cobrancas/${encodeURIComponent(codigoSolicitacao)}/cancelar`,
+    { motivoCancelamento },
+    {
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      httpsAgent: input.httpsAgent,
+    },
+  );
+}
 
 export type DescontoInterV3 = {
   codigo: "VALORFIXODATAINFORMADA" | "PERCENTUALDATAINFORMADA";
@@ -17,6 +69,41 @@ export function extrairSituacaoCobrancaInter(response: unknown): string | null {
   return typeof cobranca.situacao === "string" && cobranca.situacao.length > 0
     ? cobranca.situacao
     : null;
+}
+
+export function extrairRecebimentoCobrancaInter(response: unknown): {
+  data: Date | null;
+  origem: string | null;
+  valor: number | null;
+  seuNumero: string | null;
+} {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return { data: null, origem: null, valor: null, seuNumero: null };
+  }
+
+  const root = response as Record<string, unknown>;
+  const nested = root.cobranca;
+  const cobranca = nested && typeof nested === "object" && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : root;
+  const dataSituacao = typeof cobranca.dataSituacao === "string"
+    ? cobranca.dataSituacao
+    : null;
+  const parsedDate = dataSituacao
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(dataSituacao)
+        ? `${dataSituacao}T12:00:00.000Z`
+        : dataSituacao)
+    : null;
+  const valor = Number(cobranca.valorTotalRecebido);
+
+  return {
+    data: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null,
+    origem: typeof cobranca.origemRecebimento === "string"
+      ? cobranca.origemRecebimento
+      : null,
+    valor: Number.isFinite(valor) ? valor : null,
+    seuNumero: typeof cobranca.seuNumero === "string" ? cobranca.seuNumero : null,
+  };
 }
 
 export function criarMoraInterV3(taxaMensal: number | null | undefined) {

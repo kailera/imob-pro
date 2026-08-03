@@ -54,6 +54,9 @@ services:
       # Database
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       - INTER_WEBHOOK_PROXY_SECRET=${INTER_WEBHOOK_PROXY_SECRET}
+      - CRON_SECRET=${CRON_SECRET}
+      - INTER_STATUS_SYNC_BATCH_SIZE=${INTER_STATUS_SYNC_BATCH_SIZE:-50}
+      - INTER_STATUS_SYNC_INTERVAL_MS=${INTER_STATUS_SYNC_INTERVAL_MS:-6500}
       # Authentication (Clerk)
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
@@ -90,6 +93,29 @@ services:
       - "traefik.http.routers.imob-pro-inter-webhook.tls.options=interWebhook@file"
       - "traefik.http.routers.imob-pro-inter-webhook.middlewares=interWebhookInternalAuth@file"
       - "traefik.http.routers.imob-pro-inter-webhook.service=imob-pro"
+
+  # Reconcilia diariamente cobranças pendentes com o Banco Inter às 09:00 BRT (12:00 UTC).
+  inter-status-cron:
+    image: alpine:3.20
+    container_name: imob-pro-inter-status-cron
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - imob_internal_network
+    environment:
+      - CRON_SECRET=${CRON_SECRET}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ -z "$$CRON_SECRET" ]; then
+          echo "[inter-status-cron] CRON_SECRET não configurado" >&2
+          exit 1
+        fi
+        printf '0 12 * * * wget -qO- --header="Authorization: Bearer %s" --post-data="" http://app:3000/api/inter/cobrancas/sync\n' "$$CRON_SECRET" > /etc/crontabs/root
+        exec crond -f -l 2
 
   # Serviço manual, desativado por padrão. Para rodar uma vez no Portainer,
   # habilite o profile `legacy-migration` e defina MIGRATE_LEGACY_CONFIRM=true.

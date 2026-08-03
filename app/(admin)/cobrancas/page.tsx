@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FinancialFilterBar from '@/components/cobrancas/FinancialFilterBar';
 import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTable';
 import FinancialSummary from '@/components/cobrancas/FinancialSummary';
@@ -87,6 +87,7 @@ const DEFAULT_COBRANCAS: BilletData[] = [
 ];
 
 export default function CobrancasPage() {
+  const loadDataRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
   const [cobrancas, setCobrancas] = useState<BilletData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
@@ -152,8 +153,8 @@ export default function CobrancasPage() {
     }
   };
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         categoria: 'ALUGUEL',
@@ -293,6 +294,7 @@ export default function CobrancasPage() {
       }
     } catch (err) {
       console.error(err);
+      if (silent) return;
       setCobrancas(DEFAULT_COBRANCAS);
       const mockTotals = DEFAULT_COBRANCAS.reduce(
         (acc, curr) => {
@@ -308,9 +310,11 @@ export default function CobrancasPage() {
       );
       setTotals(mockTotals);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
+
+  loadDataRef.current = loadData;
 
   const handleApplyFilters = () => {
     if (currentPage === 1) {
@@ -323,6 +327,18 @@ export default function CobrancasPage() {
   useEffect(() => {
     loadData();
   }, [currentPage]);
+
+  useEffect(() => {
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === 'visible') void loadDataRef.current(true);
+    };
+    const interval = window.setInterval(refreshVisiblePage, 5 * 60 * 1000);
+    window.addEventListener('focus', refreshVisiblePage);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshVisiblePage);
+    };
+  }, []);
 
   const pendingBatchList = cobrancas.filter(
     c => !c.interNossoNumero && (c.situacao === 'Pendente' || c.situacao === 'Recepcionado')

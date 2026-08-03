@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { extrairRecebimentoCobrancaInter } from "../lib/inter-cobranca";
 
 const interSource = readFileSync(
   fileURLToPath(new URL("../lib/inter.ts", import.meta.url)),
@@ -27,6 +28,24 @@ test("sincroniza detalhes e busca o PDF de solicitações concluídas posteriorm
   assert.match(consultation, /\[inter-consulta\] Consultando cobrança no Banco Inter/);
   assert.match(consultation, /timeout: INTER_QUERY_TIMEOUT_MS/);
   assert.match(consultation, /não respondeu à consulta/);
+  assert.match(consultation, /interValorRecebido/);
+  assert.match(consultation, /interOrigemRecebimento/);
+});
+
+test("extrai os dados reais do recebimento retornados pela Cobrança V3", () => {
+  const recebimento = extrairRecebimentoCobrancaInter({
+    cobranca: {
+      seuNumero: "ALUGUEL-123",
+      dataSituacao: "2026-08-03",
+      valorTotalRecebido: "1370.50",
+      origemRecebimento: "PIX",
+    },
+  });
+
+  assert.equal(recebimento.data?.toISOString(), "2026-08-03T12:00:00.000Z");
+  assert.equal(recebimento.valor, 1370.5);
+  assert.equal(recebimento.origem, "PIX");
+  assert.equal(recebimento.seuNumero, "ALUGUEL-123");
 });
 
 test("cobrança em processamento oferece atualização em vez de reemissão", () => {

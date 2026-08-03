@@ -48,3 +48,24 @@ O endpoint atualiza os últimos 18 meses de IGP-M, IGP-DI, INPC, IPC-Fipe,
 IPC-DI e IPCA usando as séries mensais do SGS/BCB. Ao calcular um reajuste,
 o sistema usa o histórico salvo e tenta buscar somente competências ausentes.
 O reajuste é bloqueado se o intervalo mensal estiver incompleto.
+
+## Sincronização diária dos boletos do Banco Inter
+
+Configure `CRON_SECRET` no ambiente do Docker/Portainer. O serviço
+`inter-status-cron` chama diariamente, às 12:00 UTC (09:00 em Brasília), a rota:
+
+```bash
+curl -X POST https://SEU_DOMINIO/api/inter/cobrancas/sync \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+A rotina seleciona apenas transações pendentes com `interCodigoSolicitacao`,
+consulta `GET /cobranca/v3/cobrancas/{codigoSolicitacao}` e atualiza status,
+data, valor e origem do recebimento. Por padrão, processa 50 cobranças por
+execução, com intervalo de 6,5 segundos para respeitar também o limite do
+sandbox. Os valores podem ser ajustados com `INTER_STATUS_SYNC_BATCH_SIZE` e
+`INTER_STATUS_SYNC_INTERVAL_MS`.
+
+O webhook do Inter permanece como atualização principal em tempo real; o cron
+serve como reconciliação para callbacks atrasados ou perdidos. A tela de
+cobranças recarrega silenciosamente a cada cinco minutos e ao voltar ao foco.
