@@ -126,6 +126,10 @@ export default function ImovelFormModal({
   // Locadores / Proprietários
   const [allLocadores, setAllLocadores] = useState<any[]>([]);
   const [proprietarioId, setProprietarioId] = useState("");
+  const [proprietario, setProprietario] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
   const [showNewLocadorModal, setShowNewLocadorModal] = useState(false);
   const [newLocadorNome, setNewLocadorNome] = useState("");
   const [newLocadorCpf, setNewLocadorCpf] = useState("");
@@ -230,7 +234,16 @@ export default function ImovelFormModal({
       setIrrfResponsabilidade(d.irrfResponsabilidade || "LOCADOR");
       setParcelasIntermediacao(d.parcelasIntermediacao || [{ data: "2024-12-19", valor: "1050,00" }]);
       setPrecisaAtualizar(d.precisaAtualizar === true);
-      setProprietarioId(d.proprietarioId || "");
+      const pId = d.proprietarioId || "";
+      const pObj = d.proprietario || allLocadores.find((l) => l.id === pId) || null;
+      setProprietarioId(pId);
+      setProprietario(d.proprietarioNome || pObj?.nome || (typeof d.proprietario === "string" ? d.proprietario : "") || "");
+      const rawCpf = d.proprietarioCpf || pObj?.cpfCnpj || d.cpf || "";
+      setCpf(rawCpf ? formatCpfCnpj(rawCpf) : "");
+      const tel = d.proprietarioTelefone || (Array.isArray(pObj?.telefone) ? (pObj?.telefone[0] as any)?.numero : (typeof pObj?.telefone === "string" ? pObj?.telefone : "")) || d.telefone || "";
+      setTelefone(tel);
+      setEmail(d.proprietarioEmail || pObj?.email || d.email || "");
+
       setPeriodoCarencia(d.periodoCarencia || "NAO_GARANTIR");
       setAbrangenciaGarantia(d.abrangenciaGarantia || "SOMENTE_ALUGUEL");
 
@@ -285,6 +298,10 @@ export default function ImovelFormModal({
       setIrrfResponsabilidade("LOCADOR");
       setParcelasIntermediacao([{ data: "2024-12-19", valor: "1050,00" }]);
       setProprietarioId("");
+      setProprietario("");
+      setCpf("");
+      setTelefone("");
+      setEmail("");
       setPeriodoCarencia("NAO_GARANTIR");
       setAbrangenciaGarantia("SOMENTE_ALUGUEL");
 
@@ -301,6 +318,26 @@ export default function ImovelFormModal({
     setNovaParcelaData("");
     setNovaParcelaValor("");
   }, [editingImovel, isOpen]);
+
+  const handleSelectLocador = (locadorId: string) => {
+    setProprietarioId(locadorId);
+    if (!locadorId) return;
+    const selected = allLocadores.find((l) => l.id === locadorId);
+    if (selected) {
+      setProprietario(selected.nome || "");
+      setCpf(selected.cpfCnpj ? formatCpfCnpj(selected.cpfCnpj) : "");
+      setEmail(selected.email || "");
+      let tel = "";
+      if (selected.telefone) {
+        if (Array.isArray(selected.telefone)) {
+          tel = (selected.telefone[0] as any)?.numero || "";
+        } else if (typeof selected.telefone === "string") {
+          tel = selected.telefone;
+        }
+      }
+      setTelefone(tel);
+    }
+  };
 
   // Fetch CEP address details automatically
   useEffect(() => {
@@ -471,6 +508,11 @@ export default function ImovelFormModal({
       if (res.success && res.data) {
         setAllLocadores(prev => [...prev, res.data].sort((a, b) => a.nome.localeCompare(b.nome)));
         setProprietarioId(res.data.id);
+        setProprietario(res.data.nome || "");
+        setCpf(res.data.cpfCnpj ? formatCpfCnpj(res.data.cpfCnpj) : "");
+        setEmail(res.data.email || "");
+        const tel = Array.isArray(res.data.telefone) ? (res.data.telefone[0] as any)?.numero || "" : (typeof res.data.telefone === "string" ? res.data.telefone : "");
+        setTelefone(tel);
         setShowNewLocadorModal(false);
         // Clear fields
         setNewLocadorNome("");
@@ -517,1165 +559,1227 @@ export default function ImovelFormModal({
     parcelasIntermediacao,
     precisaAtualizar,
     proprietarioId,
-    proprietario: allLocadores.find(l => l.id === proprietarioId) || (editingImovel?.aluguelDados as any)?.proprietario || null,
+    proprietarioNome: proprietario,
+    proprietarioCpf: cpf,
+    proprietarioTelefone: telefone,
+    proprietarioEmail: email,
+    proprietario: {
+      id: proprietarioId || undefined,
+      nome: proprietario,
+      cpfCnpj: cpf,
+      email: email,
+      telefone: telefone ? [{ tipo: "Principal", numero: telefone }] : undefined,
+      ...(allLocadores.find(l => l.id === proprietarioId) || (editingImovel?.aluguelDados as any)?.proprietario || {}),
+    },
     periodoCarencia,
     abrangenciaGarantia,
   });
 
+  const parseBRLToNumber = (val: string): number => {
+    if (!val) return 0;
+    const numStr = val.replace(/\D/g, "");
+    if (!numStr) return 0;
+    return parseFloat(numStr) / 100;
+  };
+
+  const previewPrice = forLocacao 
+    ? parseBRLToNumber(valorAluguel) 
+    : (forVenda ? parseBRLToNumber(valorVenda) : 0);
+
+  const previewOperation = forLocacao ? "locacao" : "venda";
+
   return (
     <>
-      <div className="fixed inset-0 bg-[#280003]/40 z-50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-zinc-200 transform transition-all duration-300 scale-100 animate-scale-up">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between px-6 py-4 bg-[#EEEEF3]/50 border-b border-zinc-100">
-            <h3 className="text-lg font-bold text-[#280003]">
-              {editingImovel ? `Editar Imóvel: ${editingImovel.codigo}` : "Cadastrar Novo Imóvel"}
-            </h3>
+      <div className="fixed inset-0 bg-[#280003]/40 z-50 backdrop-blur-sm flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fade-in">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden border border-zinc-200 transform transition-all duration-300 scale-100 animate-scale-up">
+          
+          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50/80 shrink-0">
+            <div className="flex items-center gap-3">
+              <h3 className="font-bold text-lg text-[#280003]">
+                {editingImovel ? "Editar Imóvel" : "Novo Imóvel"}
+              </h3>
+              {editingImovel?.codigo && (
+                <span className="px-2.5 py-0.5 bg-[#004777]/10 text-[#004777] text-xs font-bold rounded-md border border-[#004777]/20">
+                  Código: {editingImovel.codigo}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 p-1.5 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 rounded-xl transition-colors cursor-pointer"
+              title="Fechar"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Modal Error alert */}
-          {state.error && (
-            <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>{state.error}</span>
-            </div>
-          )}
-
-          {/* Form bound to action */}
-          <form action={formAction} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-            {precisaAtualizar && (
-              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs space-y-1 animate-fade-in flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">⚠️ Pendência Administrativa</p>
-                  <p className="text-amber-700/90 leading-relaxed">
-                    {editingImovel?.aluguelDados?.motivo || "Este imóvel foi importado sem proprietário ou dados contratuais definidos. Atualize as informações necessárias e desmarque o aviso de pendência abaixo."}
-                  </p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-zinc-200">
+            
+            <div className="lg:col-span-5 bg-zinc-50/70 p-6 flex flex-col justify-between overflow-y-auto space-y-6 max-h-[calc(92vh-65px)]">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <h4 className="font-bold text-xs text-[#280003] uppercase tracking-wider">
+                      Preview em Tempo Real
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-zinc-400 font-semibold bg-white px-2 py-0.5 rounded border border-zinc-200">
+                    Vitrine Digital
+                  </span>
                 </div>
-              </div>
-            )}
-            {/* Hidden inputs to feed Server Action */}
-            <input type="hidden" name="id" value={editingImovel?.id || ""} />
-            <input type="hidden" name="aluguelDados" value={aluguelDadosJsonString} />
-            <input type="hidden" name="imagens" value={JSON.stringify(imagens)} />
-            {isCreatingLoteamento && (
-              <input type="hidden" name="isCreatingLoteamento" value="on" />
-            )}
 
-            {/* Seção 1: Dados Gerais */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Informações Básicas</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Código */}
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Código do Imóvel</label>
-                  <input
-                    type="text"
-                    name="codigo"
-                    readOnly
-                    placeholder="(Gerado automaticamente)"
-                    value={editingImovel ? editingImovel.codigo : "(Gerado automaticamente)"}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003]/60 bg-zinc-50 cursor-not-allowed"
+                <div className="max-w-sm mx-auto w-full pt-1">
+                  <PropertyCard
+                    property={{
+                      id: editingImovel?.id || "preview-id",
+                      title: titulo || (editingImovel?.codigo ? `Imóvel ${editingImovel.codigo}` : "Título do Imóvel"),
+                      type: tipo === "CASA" ? "Casa" : tipo === "CONDOMINIO" ? "Apartamento" : tipo === "LOTE" ? "Lote" : tipo === "COMERCIAL" ? "Comercial" : tipo === "RURAL" ? "Rural" : "Kitnet",
+                      price: previewPrice,
+                      operation: previewOperation,
+                      beds: parseInt(quartos) || 0,
+                      baths: parseInt(banheiros) || 0,
+                      parking: parseInt(vagas) || 0,
+                      area: parseInt(area) || 0,
+                      image: imagens[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+                      images: imagens,
+                      description: descricao || "Nenhuma descrição informada.",
+                      neighborhood: bairro || "Bairro",
+                      city: cidade ? `${cidade}${uf ? `/${uf}` : ''}` : "Cidade/UF"
+                    }}
                   />
                 </div>
 
-                {/* Tipo de Imóvel */}
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Tipo do Imóvel *</label>
-                  <select
-                    name="tipo"
-                    value={tipo}
-                    onChange={(e) => setTipo(e.target.value as TipoImovel)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white cursor-pointer"
-                  >
-                    <option value="CASA">Casa</option>
-                    <option value="CONDOMINIO">Condomínio / Apartamento</option>
-                    <option value="LOTE">Lote</option>
-                    <option value="COMERCIAL">Comercial</option>
-                    <option value="RURAL">Rural</option>
-                    <option value="KITNET">Kitnet</option>
-                  </select>
-                </div>
-
-                {/* Proprietário (Locador) */}
-                <div className="col-span-1 sm:col-span-2 p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-xs font-bold text-emerald-950">Proprietário (Locador)</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewLocadorModal(true)}
-                      className="text-[10px] font-bold text-[#004777] hover:underline cursor-pointer bg-transparent border-0"
-                    >
-                      + Cadastrar Novo Proprietário
-                    </button>
+                <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-2xs space-y-2 text-xs">
+                  <h5 className="font-bold text-zinc-700 text-[11px] uppercase tracking-wider">Resumo Financeiro</h5>
+                  <div className="grid grid-cols-2 gap-2 text-zinc-600">
+                    {forVenda && (
+                      <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                        <span className="block text-[10px] text-zinc-400 font-semibold uppercase">Venda</span>
+                        <span className="font-bold text-zinc-800 text-xs">{valorVenda || "R$ 0,00"}</span>
+                      </div>
+                    )}
+                    {forLocacao && (
+                      <>
+                        <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                          <span className="block text-[10px] text-zinc-400 font-semibold uppercase">Aluguel</span>
+                          <span className="font-bold text-zinc-800 text-xs">{valorAluguel || "R$ 0,00"}</span>
+                        </div>
+                        <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                          <span className="block text-[10px] text-zinc-400 font-semibold uppercase">Condomínio</span>
+                          <span className="font-bold text-zinc-800 text-xs">{valorCondominio || "R$ 0,00"}</span>
+                        </div>
+                        <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                          <span className="block text-[10px] text-zinc-400 font-semibold uppercase">IPTU</span>
+                          <span className="font-bold text-zinc-800 text-xs">{valorIPTU || "R$ 0,00"}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <select
-                    value={proprietarioId}
-                    onChange={(e) => setProprietarioId(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white cursor-pointer"
-                  >
-                    <option value="">Selecione um proprietário existente...</option>
-                    {allLocadores.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.nome} ({loc.cpfCnpj ? formatCpfCnpj(loc.cpfCnpj) : "Sem CPF"})
-                      </option>
-                    ))}
-                  </select>
                 </div>
+              </div>
 
-                {/* Condomínio Association */}
-                {tipo === "CONDOMINIO" && (
-                  <div className="col-span-1 sm:col-span-2 p-4 bg-[#EEEEF3]/25 border border-zinc-150 rounded-2xl space-y-3 animate-fade-in">
+              <div className="text-[11px] text-zinc-400 text-center italic border-t border-zinc-200/80 pt-3">
+                As alterações no formulário ao lado são refletidas instantaneamente neste preview.
+              </div>
+            </div>
+
+            <div className="lg:col-span-7 flex flex-col overflow-hidden bg-white max-h-[calc(92vh-65px)]">
+              {state.error && (
+                <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl text-xs flex items-center gap-2 shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{state.error}</span>
+                </div>
+              )}
+
+              <form action={formAction} className="flex flex-col h-full overflow-hidden">
+                <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+                  {precisaAtualizar && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs space-y-1 animate-fade-in flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">⚠️ Pendência Administrativa</p>
+                        <p className="text-amber-700/90 leading-relaxed">
+                          {editingImovel?.aluguelDados?.motivo || "Este imóvel foi importado sem proprietário ou dados contratuais definidos. Atualize as informações necessárias e desmarque o aviso de pendência abaixo."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <input type="hidden" name="id" value={editingImovel?.id || ""} />
+                  <input type="hidden" name="aluguelDados" value={aluguelDadosJsonString} />
+                  <input type="hidden" name="imagens" value={JSON.stringify(imagens)} />
+                  {isCreatingLoteamento && (
+                    <input type="hidden" name="isCreatingLoteamento" value="on" />
+                  )}
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Informações Básicas</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Código do Imóvel</label>
+                        <input
+                          type="text"
+                          name="codigo"
+                          readOnly
+                          placeholder="(Gerado automaticamente)"
+                          value={editingImovel ? editingImovel.codigo : "(Gerado automaticamente)"}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003]/60 bg-zinc-50 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Tipo do Imóvel *</label>
+                        <select
+                          name="tipo"
+                          value={tipo}
+                          onChange={(e) => setTipo(e.target.value as TipoImovel)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white cursor-pointer"
+                        >
+                          <option value="CASA">Casa</option>
+                          <option value="CONDOMINIO">Condomínio / Apartamento</option>
+                          <option value="LOTE">Lote</option>
+                          <option value="COMERCIAL">Comercial</option>
+                          <option value="RURAL">Rural</option>
+                          <option value="KITNET">Kitnet</option>
+                        </select>
+                      </div>
+
+                      <div className="col-span-1 sm:col-span-2 space-y-3 p-4 bg-[#EEEEF3]/25 border border-zinc-150 rounded-2xl">
+                        <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Dados do Proprietário</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-[#280003] mb-1">Nome do Proprietário</label>
+                            <input type="text" name="proprietario" value={proprietario} onChange={(e) => setProprietario(e.target.value)} placeholder="Nome do Proprietário" className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-[#280003] mb-1">CPF/CNPJ do Proprietário</label>
+                            <input type="text" name="cpf" value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF/CNPJ do Proprietário" className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-[#280003] mb-1">Telefone do Proprietário</label>
+                            <input type="text" name="telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Telefone do Proprietário" className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-[#280003] mb-1">Email do Proprietário</label>
+                            <input type="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email do Proprietário" className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {tipo === "CONDOMINIO" && (
+                        <div className="col-span-1 sm:col-span-2 p-4 bg-[#EEEEF3]/25 border border-zinc-150 rounded-2xl space-y-3 animate-fade-in">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-[#280003]">Vincular a um Condomínio *</label>
+                            <button
+                              type="button"
+                              onClick={() => setIsCreatingLoteamento(!isCreatingLoteamento)}
+                              className="text-xs font-semibold text-[#004777] hover:underline cursor-pointer"
+                            >
+                              {isCreatingLoteamento ? "Buscar existente" : "Criar condomínio na hora"}
+                            </button>
+                          </div>
+
+                          {isCreatingLoteamento ? (
+                            <div className="space-y-4 pt-2">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Nome do Condomínio ou Edifício *</label>
+                                <input
+                                  type="text"
+                                  name="newLoteamentoNome"
+                                  placeholder="Nome do Novo Condomínio"
+                                  required={isCreatingLoteamento}
+                                  value={newLoteamentoNome}
+                                  onChange={(e) => setNewLoteamentoNome(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777]"
+                                />
+                                <p className="text-[10px] text-zinc-500 mt-1">A cidade e UF do formulário de endereço serão usadas para este condomínio.</p>
+                              </div>
+
+                              <div className="border-t border-zinc-200/60 pt-3 space-y-3">
+                                <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Administradora</h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Nome da Administradora</label>
+                                    <input
+                                      type="text"
+                                      name="condAdminNome"
+                                      placeholder="Ex: Administradora Parra"
+                                      value={condAdminNome}
+                                      onChange={(e) => setCondAdminNome(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Telefone da Administradora</label>
+                                    <input
+                                      type="text"
+                                      name="condAdminTel"
+                                      placeholder="Ex: (18) 3743-1000"
+                                      value={condAdminTel}
+                                      onChange={(e) => setCondAdminTel(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">E-mail da Administradora</label>
+                                    <input
+                                      type="email"
+                                      name="condAdminEmail"
+                                      placeholder="Ex: contato@admin.com"
+                                      value={condAdminEmail}
+                                      onChange={(e) => setCondAdminEmail(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Site da Administradora</label>
+                                    <input
+                                      type="text"
+                                      name="condAdminSite"
+                                      placeholder="Ex: www.admin.com"
+                                      value={condAdminSite}
+                                      onChange={(e) => setCondAdminSite(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="border-t border-zinc-200/60 pt-3 space-y-3">
+                                <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Síndico</h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Nome do Síndico</label>
+                                    <input
+                                      type="text"
+                                      name="condSindicoNome"
+                                      placeholder="Ex: João da Silva"
+                                      value={condSindicoNome}
+                                      onChange={(e) => setCondSindicoNome(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Telefone do Síndico</label>
+                                    <input
+                                      type="text"
+                                      name="condSindicoTel"
+                                      placeholder="Ex: (18) 99999-9999"
+                                      value={condSindicoTel}
+                                      onChange={(e) => setCondSindicoTel(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="border-t border-zinc-200/60 pt-3 space-y-3">
+                                <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Outras Informações & Documentos</h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Responsável pelo Pagamento</label>
+                                    <input
+                                      type="text"
+                                      name="condResponsavelPag"
+                                      placeholder="Ex: Proprietário / Imobiliária"
+                                      value={condResponsavelPag}
+                                      onChange={(e) => setCondResponsavelPag(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Data da Última Checagem</label>
+                                    <input
+                                      type="date"
+                                      name="condDataChecagem"
+                                      value={condDataChecagem}
+                                      onChange={(e) => setCondDataChecagem(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label className="block text-[10px] font-bold text-[#280003] mb-1">Descrição dos Documentos Digitalizados</label>
+                                    <textarea
+                                      name="condDocDescricao"
+                                      placeholder="Ex: Convenção, regulamento interno, última ata de eleição de síndico..."
+                                      rows={2}
+                                      value={condDocDescricao}
+                                      onChange={(e) => setCondDocDescricao(e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <select
+                              name="loteamentoId"
+                              value={loteamentoId}
+                              onChange={(e) => setLoteamentoId(e.target.value)}
+                              className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white cursor-pointer"
+                            >
+                              <option value="">Selecione um condomínio existente...</option>
+                              {loteamentos.map((lote) => (
+                                <option key={lote.id} value={lote.id}>
+                                  {lote.nome} ({lote.cidade} - {lote.uf})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2 border-t border-zinc-100">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Endereço Completo</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">CEP *</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="cep"
+                            placeholder="00000-000"
+                            required
+                            maxLength={9}
+                            value={cep}
+                            onChange={handleCepChange(setCep)}
+                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white pr-9"
+                          />
+                          {isFetchingCep && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Cidade *</label>
+                        <input
+                          type="text"
+                          name="cidade"
+                          placeholder="Ex: São Paulo"
+                          required
+                          value={cidade}
+                          onChange={(e) => setCidade(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">UF *</label>
+                        <input
+                          type="text"
+                          name="uf"
+                          placeholder="Ex: SP"
+                          required
+                          maxLength={2}
+                          value={uf}
+                          onChange={(e) => setUf(e.target.value.toUpperCase())}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+
+                      <div className="col-span-3">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Bairro *</label>
+                        <input
+                          type="text"
+                          name="bairro"
+                          placeholder="Ex: Jardim Paulista"
+                          required
+                          value={bairro}
+                          onChange={(e) => setBairro(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+
+                      <div className="col-span-3">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Rua *</label>
+                        <input
+                          type="text"
+                          name="rua"
+                          placeholder="Ex: Rua das Flores"
+                          required
+                          value={rua}
+                          onChange={(e) => setRua(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+
+                      <div className="col-span-3">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Complemento *</label>
+                        <input
+                          type="text"
+                          name="complemento"
+                          placeholder="Ex: Bloco 1, Casa 1"
+                          required
+                          value={complemento}
+                          onChange={(e) => setComplemento(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+
+                      <div className="col-span-1">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Número *</label>
+                        <input
+                          type="number"
+                          name="numero"
+                          ref={numeroInputRef}
+                          placeholder="Ex: 15"
+                          required
+                          value={numero}
+                          onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2 border-t border-zinc-100">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Modalidades de Comercialização</h4>
+
+                    <div className="flex flex-col sm:flex-row gap-6 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="forVenda"
+                          checked={forVenda}
+                          onChange={(e) => setForVenda(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-[#280003]">Disponível para Venda</span>
+                          <span className="text-xs text-[#280003]/50">Habilita o cadastro do preço total de venda.</span>
+                        </div>
+                      </label>
+
+                      <label className={`flex items-start gap-3 cursor-pointer select-none ${tipo === "LOTE" ? "opacity-50 cursor-not-allowed" : ""}`}>
+                        <input
+                          type="checkbox"
+                          name="forLocacao"
+                          checked={forLocacao}
+                          disabled={tipo === "LOTE"}
+                          onChange={(e) => setForLocacao(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-[#280003]">
+                            Disponível para Locação
+                          </span>
+                          {tipo === "LOTE" ? (
+                            <span className="text-xs font-bold text-amber-600 block mt-0.5">
+                              Indisponível para Loteamento (Lote)
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#280003]/50">Habilita aluguel, condomínio e IPTU.</span>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {forVenda && (
+                        <div className="border border-zinc-100 bg-[#EEEEF3]/10 p-4 rounded-xl space-y-2 animate-fade-in">
+                          <div className="flex items-center gap-1.5 text-[#004777] font-semibold text-xs uppercase">
+                            <DollarSign className="w-4 h-4" />
+                            Finanças de Venda
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-[#280003] mb-1">Preço de Venda (R$) *</label>
+                            <input
+                              type="text"
+                              name="valorVenda"
+                              placeholder="0,00"
+                              required={forVenda}
+                              value={valorVenda}
+                              onChange={handleCurrencyChange(setValorVenda)}
+                              className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {forLocacao && tipo !== "LOTE" && (
+                        <div className="border border-zinc-200 bg-[#EEEEF3]/10 p-5 rounded-2xl space-y-6 col-span-1 sm:col-span-2 grid grid-cols-1 gap-6 animate-fade-in">
+                          <div className="flex items-center gap-1.5 text-[#004777] font-bold text-sm uppercase border-b border-zinc-200 pb-2">
+                            <Key className="w-5 h-5" />
+                            Configurações Detalhadas de Locação
+                          </div>
+
+                          <div className="space-y-3">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Valores Básicos</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Valor do Aluguel (R$/mês) *</label>
+                                <input
+                                  type="text"
+                                  name="valorAluguel"
+                                  placeholder="0,00"
+                                  required={forLocacao}
+                                  value={valorAluguel}
+                                  onChange={handleCurrencyChange(setValorAluguel)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Valor Condomínio (R$)</label>
+                                <input
+                                  type="text"
+                                  name="valorCondominio"
+                                  placeholder="0,00"
+                                  value={valorCondominio}
+                                  onChange={handleCurrencyChange(setValorCondominio)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Valor IPTU (R$)</label>
+                                <input
+                                  type="text"
+                                  name="valorIPTU"
+                                  placeholder="0,00"
+                                  value={valorIPTU}
+                                  onChange={handleCurrencyChange(setValorIPTU)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Reajuste e Rescisão</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Índice de Reajuste</label>
+                                <select
+                                  value={indiceReajuste}
+                                  onChange={(e) => setIndiceReajuste(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                >
+                                  {INDICES_REAJUSTE.map((indice) => (
+                                    <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="relative">
+                                <label className="block text-xs font-bold text-[#280003] mb-1">
+                                  Multa por Quebra de Contrato*:
+                                </label>
+                                <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
+                                  <input
+                                    type="text"
+                                    placeholder={multaQuebraTipo === "VALOR" ? "Ex: R$ 3.000,00" : "Ex: 10,00 %"}
+                                    required={forLocacao}
+                                    value={multaQuebraValor}
+                                    onChange={(e) => {
+                                      if (multaQuebraTipo === "VALOR") {
+                                        setMultaQuebraValor(formatBRL(e.target.value));
+                                      } else {
+                                        let val = e.target.value.replace(/[^\d,]/g, "");
+                                        setMultaQuebraValor(val ? `${val} %` : "");
+                                      }
+                                    }}
+                                    className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMultaQuebraTipo("MESES");
+                                      setShowMesesPopover(!showMesesPopover);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 bg-zinc-50 border-l border-zinc-200 text-xs font-semibold text-[#004777] hover:bg-zinc-100 transition-colors"
+                                  >
+                                    <span className="text-sm">📅</span>
+                                    Meses
+                                  </button>
+                                </div>
+
+                                {showMesesPopover && (
+                                  <div className="absolute right-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
+                                    <div className="space-y-3">
+                                      <label className="block text-xs font-semibold text-gray-600">
+                                        Informe a multa em meses:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={multaEmMesesInput}
+                                        onChange={(e) => setMultaEmMesesInput(e.target.value)}
+                                        placeholder="Ex: 3.6"
+                                        className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={handleConfirmarMeses}
+                                          className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
+                                        >
+                                          ✓ OK
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setShowMesesPopover(false)}
+                                          className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
+                                        >
+                                          ✕ Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Quebra Vence em</label>
+                                <input
+                                  type="date"
+                                  value={dataVenceQuebra}
+                                  onChange={(e) => setDataVenceQuebra(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Pontualidade</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="relative">
+                                <label className="block text-xs font-bold text-[#280003] mb-1">
+                                  Desconto pontualidade:
+                                </label>
+                                <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
+                                  <input
+                                    type="text"
+                                    placeholder="Ex: 8,33 %"
+                                    value={descontoPontualidade.includes("%") ? descontoPontualidade : `${descontoPontualidade} %`}
+                                    onChange={(e) => {
+                                      setDescontoTipo("PERCENTUAL");
+                                      let val = e.target.value.replace(/[^\d,]/g, "");
+                                      setDescontoPontualidade(val ? `${val} %` : "");
+                                    }}
+                                    className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const aluguelNumerico = parseFloat(valorAluguel.replace(/\D/g, "")) / 100;
+                                      const descPct = parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", "."));
+                                      if (!isNaN(aluguelNumerico) && !isNaN(descPct)) {
+                                        const valorSugerido = (descPct / 100) * aluguelNumerico;
+                                        setDescontoEmReaisInput(formatBRL(String(Math.round(valorSugerido * 100))));
+                                      }
+                                      setShowPontualidadeBrlPopover(!showPontualidadeBrlPopover);
+                                    }}
+                                    className="flex items-center justify-center px-4 bg-[#6366F1] text-xs font-bold text-white hover:bg-[#4F46E5] transition-colors"
+                                  >
+                                    R$
+                                  </button>
+                                </div>
+
+                                {showPontualidadeBrlPopover && (
+                                  <div className="absolute left-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
+                                    <div className="space-y-3">
+                                      <label className="block text-xs font-semibold text-gray-600">
+                                        Informe o valor em reais:
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={descontoEmReaisInput}
+                                        onChange={(e) => setDescontoEmReaisInput(formatBRL(e.target.value))}
+                                        placeholder="Ex: R$ 150,00"
+                                        className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={handleConfirmarDescontoBrl}
+                                          className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
+                                        >
+                                          ✓ OK
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setShowPontualidadeBrlPopover(false)}
+                                          className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
+                                        >
+                                          ✕ Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Desc. até quantos dias antes? *</label>
+                                <input
+                                  type="number"
+                                  required={forLocacao}
+                                  value={diasDescontoPontualidade}
+                                  onChange={(e) => setDiasDescontoPontualidade(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Multas e Encargos de Atraso</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Multa por Atraso (%)</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 10,00"
+                                  value={multaAtraso}
+                                  onChange={(e) => setMultaAtraso(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar multa após quantos dias? *</label>
+                                <input
+                                  type="number"
+                                  required={forLocacao}
+                                  value={carenciaMulta}
+                                  onChange={(e) => setCarenciaMulta(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Juros Mensal pro-rata (%)</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 1,00"
+                                  value={jurosMensal}
+                                  onChange={(e) => setJurosMensal(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar juros após quantos dias? *</label>
+                                <input
+                                  type="number"
+                                  required={forLocacao}
+                                  value={carenciaJuros}
+                                  onChange={(e) => setCarenciaJuros(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Honorários Advocatícios (%)</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 100,00"
+                                  value={honorariosAdv}
+                                  onChange={(e) => setHonorariosAdv(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Carência dos honorários (dias)</label>
+                                <input
+                                  type="number"
+                                  value={carenciaHonorarios}
+                                  onChange={(e) => setCarenciaHonorarios(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Repasse e Garantia</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Carência Repasse (dias úteis/corridos) *</label>
+                                <input
+                                  type="text"
+                                  required={forLocacao}
+                                  value={carenciaRepasse}
+                                  onChange={(e) => setCarenciaRepasse(e.target.value.replace(/\D/g, ""))}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Período Garantido *</label>
+                                <select
+                                  value={periodoCarencia}
+                                  onChange={(e) => setPeriodoCarencia(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                >
+                                  <option value="NAO_GARANTIR">Não Garantir</option>
+                                  <option value="GARANTIR_VIGENCIA_CONTRATOS">Garantir pela vigência do contrato</option>
+                                  <option value="GARANTIR_DEVOLUCAO_CHAVES">Garantir até a devolução das chaves</option>
+                                  <option value="GARANTIR_PAGAMENTO_1">Garantir 1 pagamento</option>
+                                  <option value="GARANTIR_PAGAMENTO_2">Garantir 2 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_3">Garantir 3 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_4">Garantir 4 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_5">Garantir 5 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_6">Garantir 6 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_7">Garantir 7 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_8">Garantir 8 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_9">Garantir 9 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_10">Garantir 10 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_11">Garantir 11 pagamentos</option>
+                                  <option value="GARANTIR_PAGAMENTO_12">Garantir 12 pagamentos</option>
+                                </select>
+                              </div>
+
+                              <div className="col-span-1 sm:col-span-2">
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Abrangência da garantia do aluguel *</label>
+                                <select
+                                  value={abrangenciaGarantia}
+                                  onChange={(e) => setAbrangenciaGarantia(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                >
+                                  <option value="SOMENTE_ALUGUEL">Somente o Aluguel</option>
+                                  <option value="ALUGUEL_LANCAMENTOS">Aluguel e demais lançamentos</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Administração</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Taxa de Administração (%) *</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 10,00"
+                                  required={forLocacao}
+                                  value={taxaAdministracao}
+                                  onChange={(e) => setTaxaAdministracao(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-[#280003] mb-1">Taxa sobre Multas e Encargos (%)</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 50,00"
+                                  value={taxaMultasEncargos}
+                                  onChange={(e) => setTaxaMultasEncargos(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Retenção IRRF</h5>
+                            <div>
+                              <label className="block text-xs font-bold text-[#280003] mb-2">Responsabilidade de retenção</label>
+                              <div className="flex flex-wrap gap-4">
+                                {["LOCATARIO", "ADMINISTRADORA", "LOCADOR"].map((role) => (
+                                  <label key={role} className="flex items-center gap-2 text-sm font-medium text-[#280003] cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      value={role}
+                                      checked={irrfResponsabilidade === role}
+                                      onChange={() => setIrrfResponsabilidade(role)}
+                                      className="h-4.5 w-4.5 text-[#004777] accent-[#004777]"
+                                    />
+                                    {role === "LOCATARIO" ? "Locatário" : role === "ADMINISTRADORA" ? "Administradora" : "Locador"}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Parcelas de Intermediação (apenas para conferência)</h5>
+
+                            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+                              <table className="w-full text-left text-xs">
+                                <thead className="bg-[#EEEEF3]/40 border-b border-zinc-200">
+                                  <tr>
+                                    <th className="px-4 py-2 font-bold text-[#280003]/60">Data</th>
+                                    <th className="px-4 py-2 font-bold text-[#280003]/60">Valor</th>
+                                    <th className="px-4 py-2 font-bold text-[#280003]/60 text-right">Ação</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-150">
+                                  {parcelasIntermediacao.map((p, idx) => (
+                                    <tr key={idx}>
+                                      <td className="px-4 py-2">{p.data.split("-").reverse().join("/")}</td>
+                                      <td className="px-4 py-2">R$ {p.valor}</td>
+                                      <td className="px-4 py-2 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveParcela(idx)}
+                                          className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                                        >
+                                          Remover
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  {parcelasIntermediacao.length === 0 && (
+                                    <tr>
+                                      <td colSpan={3} className="px-4 py-3 text-center text-[#280003]/40">Nenhuma parcela cadastrada.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                              <div className="flex-1">
+                                <input
+                                  type="date"
+                                  value={novaParcelaData}
+                                  onChange={(e) => setNovaParcelaData(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  placeholder="Valor (Ex: 1.050,00)"
+                                  value={novaParcelaValor}
+                                  onChange={(e) => setNovaParcelaValor(e.target.value)}
+                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleAddParcela}
+                                className="bg-[#004777] text-white px-4 py-1.5 rounded-xl hover:bg-[#003355] text-xs font-bold transition-all cursor-pointer shadow-sm"
+                              >
+                                Adicionar Parcela
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-zinc-100">
                     <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-[#280003]">Vincular a um Condomínio *</label>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Vitrine do Site Institucional</h4>
                       <button
                         type="button"
-                        onClick={() => setIsCreatingLoteamento(!isCreatingLoteamento)}
-                        className="text-xs font-semibold text-[#004777] hover:underline cursor-pointer"
+                        onClick={() => setIsPreviewOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EEEEF3] hover:bg-[#EEEEF3]/80 text-[#280003] text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs border border-zinc-200"
                       >
-                        {isCreatingLoteamento ? "Buscar existente" : "Criar condomínio na hora"}
+                        <Eye className="w-3.5 h-3.5" />
+                        Expandir Preview
                       </button>
                     </div>
 
-                    {isCreatingLoteamento ? (
-                      <div className="space-y-4 pt-2">
+                    <div className="flex items-center gap-3 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="publicado"
+                          checked={publicado}
+                          onChange={(e) => setPublicado(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
                         <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Nome do Condomínio ou Edifício *</label>
-                          <input
-                            type="text"
-                            name="newLoteamentoNome"
-                            placeholder="Nome do Novo Condomínio"
-                            required={isCreatingLoteamento}
-                            value={newLoteamentoNome}
-                            onChange={(e) => setNewLoteamentoNome(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777]"
-                          />
-                          <p className="text-[10px] text-zinc-500 mt-1">A cidade e UF do formulário de endereço serão usadas para este condomínio.</p>
+                          <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
+                          <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
                         </div>
+                      </label>
+                    </div>
 
-                        {/* Administradora */}
-                        <div className="border-t border-zinc-200/60 pt-3 space-y-3">
-                          <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Administradora</h5>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Nome da Administradora</label>
-                              <input
-                                type="text"
-                                name="condAdminNome"
-                                placeholder="Ex: Administradora Parra"
-                                value={condAdminNome}
-                                onChange={(e) => setCondAdminNome(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Telefone da Administradora</label>
-                              <input
-                                type="text"
-                                name="condAdminTel"
-                                placeholder="Ex: (18) 3743-1000"
-                                value={condAdminTel}
-                                onChange={(e) => setCondAdminTel(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">E-mail da Administradora</label>
-                              <input
-                                type="email"
-                                name="condAdminEmail"
-                                placeholder="Ex: contato@admin.com"
-                                value={condAdminEmail}
-                                onChange={(e) => setCondAdminEmail(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Site da Administradora</label>
-                              <input
-                                type="text"
-                                name="condAdminSite"
-                                placeholder="Ex: www.admin.com"
-                                value={condAdminSite}
-                                onChange={(e) => setCondAdminSite(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                          </div>
+                    <div className="flex items-center gap-3 p-4 bg-amber-500/5 rounded-xl border border-amber-200/50">
+                      <label className="flex items-start gap-3 cursor-pointer select-none w-full">
+                        <input
+                          type="checkbox"
+                          checked={precisaAtualizar}
+                          onChange={(e) => setPrecisaAtualizar(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-amber-600 focus:ring-amber-500/20 rounded border-zinc-300 accent-amber-600"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-amber-900 flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            Imóvel com pendência administrativa / sem proprietário
+                          </span>
+                          <span className="text-xs text-amber-700/85">
+                            Mantém a sinalização de aviso no painel até que o proprietário e dados financeiros da locação sejam preenchidos.
+                          </span>
                         </div>
+                      </label>
+                    </div>
 
-                        {/* Síndico */}
-                        <div className="border-t border-zinc-200/60 pt-3 space-y-3">
-                          <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Síndico</h5>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Nome do Síndico</label>
-                              <input
-                                type="text"
-                                name="condSindicoNome"
-                                placeholder="Ex: João da Silva"
-                                value={condSindicoNome}
-                                onChange={(e) => setCondSindicoNome(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Telefone do Síndico</label>
-                              <input
-                                type="text"
-                                name="condSindicoTel"
-                                placeholder="Ex: (18) 99999-9999"
-                                value={condSindicoTel}
-                                onChange={(e) => setCondSindicoTel(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Outras Informações & Documentos */}
-                        <div className="border-t border-zinc-200/60 pt-3 space-y-3">
-                          <h5 className="text-[11px] font-bold uppercase text-[#280003]/60 tracking-wider">Outras Informações & Documentos</h5>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Responsável pelo Pagamento</label>
-                              <input
-                                type="text"
-                                name="condResponsavelPag"
-                                placeholder="Ex: Proprietário / Imobiliária"
-                                value={condResponsavelPag}
-                                onChange={(e) => setCondResponsavelPag(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Data da Última Checagem</label>
-                              <input
-                                type="date"
-                                name="condDataChecagem"
-                                value={condDataChecagem}
-                                onChange={(e) => setCondDataChecagem(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className="block text-[10px] font-bold text-[#280003] mb-1">Descrição dos Documentos Digitalizados</label>
-                              <textarea
-                                name="condDocDescricao"
-                                placeholder="Ex: Convenção, regulamento interno, última ata de eleição de síndico..."
-                                rows={2}
-                                value={condDocDescricao}
-                                onChange={(e) => setCondDocDescricao(e.target.value)}
-                                className="block w-full border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Título da Vitrine (Amigável) {publicado && "*"}</label>
+                        <input
+                          type="text"
+                          name="titulo"
+                          required={publicado}
+                          value={titulo}
+                          onChange={(e) => setTitulo(e.target.value)}
+                          placeholder="Ex: Maravilhosa Casa de 3 Quartos com Área de Lazer"
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
                       </div>
-                    ) : (
-                      <select
-                        name="loteamentoId"
-                        value={loteamentoId}
-                        onChange={(e) => setLoteamentoId(e.target.value)}
-                        className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] bg-white cursor-pointer"
-                      >
-                        <option value="">Selecione um condomínio existente...</option>
-                        {loteamentos.map((lote) => (
-                          <option key={lote.id} value={lote.id}>
-                            {lote.nome} ({lote.cidade} - {lote.uf})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Seção 2: Endereço */}
-            <div className="space-y-4 pt-2 border-t border-zinc-100">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Endereço Completo</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {/* CEP */}
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">CEP *</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="cep"
-                      placeholder="00000-000"
-                      required
-                      maxLength={9}
-                      value={cep}
-                      onChange={handleCepChange(setCep)}
-                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white pr-9"
-                    />
-                    {isFetchingCep && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Descrição Pública {publicado && "*"}</label>
+                        <textarea
+                          name="descricao"
+                          required={publicado}
+                          rows={4}
+                          value={descricao}
+                          onChange={(e) => setDescricao(e.target.value)}
+                          placeholder="Descreva detalhadamente o imóvel para atrair clientes interessados no site..."
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Cidade */}
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Cidade *</label>
-                  <input
-                    type="text"
-                    name="cidade"
-                    placeholder="Ex: São Paulo"
-                    required
-                    value={cidade}
-                    onChange={(e) => setCidade(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-
-                {/* UF */}
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">UF *</label>
-                  <input
-                    type="text"
-                    name="uf"
-                    placeholder="Ex: SP"
-                    required
-                    maxLength={2}
-                    value={uf}
-                    onChange={(e) => setUf(e.target.value.toUpperCase())}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-
-                {/* Bairro */}
-                <div className="col-span-3">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Bairro *</label>
-                  <input
-                    type="text"
-                    name="bairro"
-                    placeholder="Ex: Jardim Paulista"
-                    required
-                    value={bairro}
-                    onChange={(e) => setBairro(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-
-                {/* Rua */}
-                <div className="col-span-3">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Rua *</label>
-                  <input
-                    type="text"
-                    name="rua"
-                    placeholder="Ex: Rua das Flores"
-                    required
-                    value={rua}
-                    onChange={(e) => setRua(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-
-                {/* Complemento */}
-                <div className="col-span-3">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Complemento *</label>
-                  <input
-                    type="text"
-                    name="complemento"
-                    placeholder="Ex: Bloco 1, Casa 1"
-                    required
-                    value={complemento}
-                    onChange={(e) => setComplemento(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-
-                {/* Número */}
-                <div className="col-span-1">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Número *</label>
-                  <input
-                    type="number"
-                    name="numero"
-                    ref={numeroInputRef}
-                    placeholder="Ex: 15"
-                    required
-                    value={numero}
-                    onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção 3: Modalidades & Preços */}
-            <div className="space-y-4 pt-2 border-t border-zinc-100">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Modalidades de Comercialização</h4>
-
-              <div className="flex flex-col sm:flex-row gap-6 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
-                {/* Option Venda */}
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    name="forVenda"
-                    checked={forVenda}
-                    onChange={(e) => setForVenda(e.target.checked)}
-                    className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
-                  />
-                  <div>
-                    <span className="block text-sm font-semibold text-[#280003]">Disponível para Venda</span>
-                    <span className="text-xs text-[#280003]/50">Habilita o cadastro do preço total de venda.</span>
-                  </div>
-                </label>
-
-                {/* Option Locação (Desabilitada para LOTES) */}
-                <label className={`flex items-start gap-3 cursor-pointer select-none ${tipo === "LOTE" ? "opacity-50 cursor-not-allowed" : ""}`}>
-                  <input
-                    type="checkbox"
-                    name="forLocacao"
-                    checked={forLocacao}
-                    disabled={tipo === "LOTE"}
-                    onChange={(e) => setForLocacao(e.target.checked)}
-                    className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
-                  />
-                  <div>
-                    <span className="block text-sm font-semibold text-[#280003]">
-                      Disponível para Locação
-                    </span>
-                    {tipo === "LOTE" ? (
-                      <span className="text-xs font-bold text-amber-600 block mt-0.5">
-                        Indisponível para Loteamento (Lote)
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#280003]/50">Habilita aluguel, condomínio e IPTU.</span>
-                    )}
-                  </div>
-                </label>
-              </div>
-
-              {/* Dinamic price inputs rendering */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Preço de Venda */}
-                {forVenda && (
-                  <div className="border border-zinc-100 bg-[#EEEEF3]/10 p-4 rounded-xl space-y-2 animate-fade-in">
-                    <div className="flex items-center gap-1.5 text-[#004777] font-semibold text-xs uppercase">
-                      <DollarSign className="w-4 h-4" />
-                      Finanças de Venda
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-[#280003] mb-1">Preço de Venda (R$) *</label>
-                      <input
-                        type="text"
-                        name="valorVenda"
-                        placeholder="0,00"
-                        required={forVenda}
-                        value={valorVenda}
-                        onChange={handleCurrencyChange(setValorVenda)}
-                        className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Preço de Locação e Encargos */}
-                {forLocacao && tipo !== "LOTE" && (
-                  <div className="border border-zinc-200 bg-[#EEEEF3]/10 p-5 rounded-2xl space-y-6 col-span-1 sm:col-span-2 grid grid-cols-1 gap-6 animate-fade-in">
-                    <div className="flex items-center gap-1.5 text-[#004777] font-bold text-sm uppercase border-b border-zinc-200 pb-2">
-                      <Key className="w-5 h-5" />
-                      Configurações Detalhadas de Locação
-                    </div>
-
-                    {/* Sub-seção: Valores Básicos */}
-                    <div className="space-y-3">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Valores Básicos</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {/* Valor Aluguel */}
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Valor do Aluguel (R$/mês) *</label>
-                          <input
-                            type="text"
-                            name="valorAluguel"
-                            placeholder="0,00"
-                            required={forLocacao}
-                            value={valorAluguel}
-                            onChange={handleCurrencyChange(setValorAluguel)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        {/* Valor Condomínio */}
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Valor Condomínio (R$)</label>
-                          <input
-                            type="text"
-                            name="valorCondominio"
-                            placeholder="0,00"
-                            value={valorCondominio}
-                            onChange={handleCurrencyChange(setValorCondominio)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        {/* Valor IPTU */}
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Valor IPTU (R$)</label>
-                          <input
-                            type="text"
-                            name="valorIPTU"
-                            placeholder="0,00"
-                            value={valorIPTU}
-                            onChange={handleCurrencyChange(setValorIPTU)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Aluguel, Reajuste e Quebra */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Reajuste e Rescisão</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Índice de Reajuste</label>
-                          <select
-                            value={indiceReajuste}
-                            onChange={(e) => setIndiceReajuste(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          >
-                            {INDICES_REAJUSTE.map((indice) => (
-                              <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="relative">
-                          <label className="block text-xs font-bold text-[#280003] mb-1">
-                            Multa por Quebra de Contrato*:
-                          </label>
-                          <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
-                            <input
-                              type="text"
-                              placeholder={multaQuebraTipo === "VALOR" ? "Ex: R$ 3.000,00" : "Ex: 10,00 %"}
-                              required={forLocacao}
-                              value={multaQuebraValor}
-                              onChange={(e) => {
-                                if (multaQuebraTipo === "VALOR") {
-                                  setMultaQuebraValor(formatBRL(e.target.value));
-                                } else {
-                                  // Permite digitação de porcentagem direta
-                                  let val = e.target.value.replace(/[^\d,]/g, "");
-                                  setMultaQuebraValor(val ? `${val} %` : "");
-                                }
-                              }}
-                              className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMultaQuebraTipo("MESES");
-                                setShowMesesPopover(!showMesesPopover);
-                              }}
-                              className="flex items-center gap-1.5 px-3 bg-zinc-50 border-l border-zinc-200 text-xs font-semibold text-[#004777] hover:bg-zinc-100 transition-colors"
-                            >
-                              <span className="text-sm">📅</span>
-                              Meses
-                            </button>
-                          </div>
-
-                          {/* Popover em meses (conforme a imagem) */}
-                          {showMesesPopover && (
-                            <div className="absolute right-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
-                              <div className="space-y-3">
-                                <label className="block text-xs font-semibold text-gray-600">
-                                  Informe a multa em meses:
-                                </label>
-                                <input
-                                  type="text"
-                                  value={multaEmMesesInput}
-                                  onChange={(e) => setMultaEmMesesInput(e.target.value)}
-                                  placeholder="Ex: 3.6"
-                                  className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleConfirmarMeses}
-                                    className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
-                                  >
-                                    ✓ OK
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowMesesPopover(false)}
-                                    className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
-                                  >
-                                    ✕ Cancelar
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Quebra Vence em</label>
-                          <input
-                            type="date"
-                            value={dataVenceQuebra}
-                            onChange={(e) => setDataVenceQuebra(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Pontualidade */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Pontualidade</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="relative">
-                          <label className="block text-xs font-bold text-[#280003] mb-1">
-                            Desconto pontualidade:
-                          </label>
-                          <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
-                            <input
-                              type="text"
-                              placeholder="Ex: 8,33 %"
-                              value={descontoPontualidade.includes("%") ? descontoPontualidade : `${descontoPontualidade} %`}
-                              onChange={(e) => {
-                                setDescontoTipo("PERCENTUAL");
-                                let val = e.target.value.replace(/[^\d,]/g, "");
-                                setDescontoPontualidade(val ? `${val} %` : "");
-                              }}
-                              className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Inicializa o input de reais se já existir um desconto cadastrado
-                                const aluguelNumerico = parseFloat(valorAluguel.replace(/\D/g, "")) / 100;
-                                const descPct = parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", "."));
-                                if (!isNaN(aluguelNumerico) && !isNaN(descPct)) {
-                                  const valorSugerido = (descPct / 100) * aluguelNumerico;
-                                  setDescontoEmReaisInput(formatBRL(String(Math.round(valorSugerido * 100))));
-                                }
-                                setShowPontualidadeBrlPopover(!showPontualidadeBrlPopover);
-                              }}
-                              className="flex items-center justify-center px-4 bg-[#6366F1] text-xs font-bold text-white hover:bg-[#4F46E5] transition-colors"
-                            >
-                              R$
-                            </button>
-                          </div>
-
-                          {/* Popover em Reais */}
-                          {showPontualidadeBrlPopover && (
-                            <div className="absolute left-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
-                              <div className="space-y-3">
-                                <label className="block text-xs font-semibold text-gray-600">
-                                  Informe o valor em reais:
-                                </label>
-                                <input
-                                  type="text"
-                                  value={descontoEmReaisInput}
-                                  onChange={(e) => setDescontoEmReaisInput(formatBRL(e.target.value))}
-                                  placeholder="Ex: R$ 150,00"
-                                  className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleConfirmarDescontoBrl}
-                                    className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
-                                  >
-                                    ✓ OK
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPontualidadeBrlPopover(false)}
-                                    className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
-                                  >
-                                    ✕ Cancelar
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Desc. até quantos dias antes? *</label>
-                          <input
-                            type="number"
-                            required={forLocacao}
-                            value={diasDescontoPontualidade}
-                            onChange={(e) => setDiasDescontoPontualidade(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Multa e outros encargos */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Multas e Encargos de Atraso</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Multa por Atraso (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 10,00"
-                            value={multaAtraso}
-                            onChange={(e) => setMultaAtraso(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar multa após quantos dias? *</label>
-                          <input
-                            type="number"
-                            required={forLocacao}
-                            value={carenciaMulta}
-                            onChange={(e) => setCarenciaMulta(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Juros Mensal pro-rata (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 1,00"
-                            value={jurosMensal}
-                            onChange={(e) => setJurosMensal(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar juros após quantos dias? *</label>
-                          <input
-                            type="number"
-                            required={forLocacao}
-                            value={carenciaJuros}
-                            onChange={(e) => setCarenciaJuros(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Honorários Advocatícios (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 100,00"
-                            value={honorariosAdv}
-                            onChange={(e) => setHonorariosAdv(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Carência dos honorários (dias)</label>
-                          <input
-                            type="number"
-                            value={carenciaHonorarios}
-                            onChange={(e) => setCarenciaHonorarios(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Repasse */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Repasse e Garantia</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Carência Repasse (dias úteis/corridos) *</label>
-                          <input
-                            type="text"
-                            required={forLocacao}
-                            value={carenciaRepasse}
-                            onChange={(e) => setCarenciaRepasse(e.target.value.replace(/\D/g, ""))}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Período Garantido *</label>
-                          <select
-                            value={periodoCarencia}
-                            onChange={(e) => setPeriodoCarencia(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          >
-                            <option value="NAO_GARANTIR">Não Garantir</option>
-                            <option value="GARANTIR_VIGENCIA_CONTRATOS">Garantir pela vigência do contrato</option>
-                            <option value="GARANTIR_DEVOLUCAO_CHAVES">Garantir até a devolução das chaves</option>
-                            <option value="GARANTIR_PAGAMENTO_1">Garantir 1 pagamento</option>
-                            <option value="GARANTIR_PAGAMENTO_2">Garantir 2 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_3">Garantir 3 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_4">Garantir 4 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_5">Garantir 5 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_6">Garantir 6 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_7">Garantir 7 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_8">Garantir 8 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_9">Garantir 9 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_10">Garantir 10 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_11">Garantir 11 pagamentos</option>
-                            <option value="GARANTIR_PAGAMENTO_12">Garantir 12 pagamentos</option>
-                          </select>
-                        </div>
-
-                        <div className="col-span-1 sm:col-span-2">
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Abrangência da garantia do aluguel *</label>
-                          <select
-                            value={abrangenciaGarantia}
-                            onChange={(e) => setAbrangenciaGarantia(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          >
-                            <option value="SOMENTE_ALUGUEL">Somente o Aluguel</option>
-                            <option value="ALUGUEL_LANCAMENTOS">Aluguel e demais lançamentos</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Administração */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Administração</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Taxa de Administração (%) *</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 10,00"
-                            required={forLocacao}
-                            value={taxaAdministracao}
-                            onChange={(e) => setTaxaAdministracao(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#280003] mb-1">Taxa sobre Multas e Encargos (%)</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 50,00"
-                            value={taxaMultasEncargos}
-                            onChange={(e) => setTaxaMultasEncargos(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Retenção IRRF */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Retenção IRRF</h5>
                       <div>
-                        <label className="block text-xs font-bold text-[#280003] mb-2">Responsabilidade de retenção</label>
-                        <div className="flex flex-wrap gap-4">
-                          {["LOCATARIO", "ADMINISTRADORA", "LOCADOR"].map((role) => (
-                            <label key={role} className="flex items-center gap-2 text-sm font-medium text-[#280003] cursor-pointer">
-                              <input
-                                type="radio"
-                                value={role}
-                                checked={irrfResponsabilidade === role}
-                                onChange={() => setIrrfResponsabilidade(role)}
-                                className="h-4.5 w-4.5 text-[#004777] accent-[#004777]"
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Área Útil (m²) {publicado && "*"}</label>
+                        <input
+                          type="number"
+                          name="area"
+                          required={publicado}
+                          value={area}
+                          onChange={(e) => setArea(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Quantidade de Quartos</label>
+                        <input
+                          type="number"
+                          name="quartos"
+                          value={quartos}
+                          onChange={(e) => setQuartos(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Quantidade de Banheiros</label>
+                        <input
+                          type="number"
+                          name="banheiros"
+                          value={banheiros}
+                          onChange={(e) => setBanheiros(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Vagas de Garagem</label>
+                        <input
+                          type="number"
+                          name="vagas"
+                          value={vagas}
+                          onChange={(e) => setVagas(e.target.value)}
+                          className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-[#004777]" />
+                        Fotos do Imóvel (Vitrine)
+                      </h5>
+
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-zinc-300 border-dashed rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            {isUploadingPhoto ? (
+                              <>
+                                <Loader2 className="w-8 h-8 animate-spin text-[#004777] mb-2" />
+                                <p className="text-xs font-bold text-zinc-500">Enviando mídia para o storage...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-8 h-8 text-zinc-450 mb-2" />
+                                <p className="text-xs font-bold text-zinc-500">Clique para enviar fotos</p>
+                                <p className="text-[10px] text-zinc-400 mt-1">PNG, JPG ou WEBP</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            disabled={isUploadingPhoto}
+                            onChange={handleUploadPhoto}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {imagens.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pt-2">
+                          {imagens.map((url, idx) => (
+                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-sm">
+                              <img
+                                src={url}
+                                alt={`Imóvel foto ${idx + 1}`}
+                                className="w-full h-full object-cover"
                               />
-                              {role === "LOCATARIO" ? "Locatário" : role === "ADMINISTRADORA" ? "Administradora" : "Locador"}
-                            </label>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePhoto(url)}
+                                className="absolute top-1.5 right-1.5 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-md transition-all cursor-pointer"
+                                title="Remover foto"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold py-1 text-center truncate">
+                                Foto {idx + 1}
+                              </div>
+                            </div>
                           ))}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Sub-seção: Parcelas de Intermediação */}
-                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Parcelas de Intermediação (apenas para conferência)</h5>
-
-                      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-[#EEEEF3]/40 border-b border-zinc-200">
-                            <tr>
-                              <th className="px-4 py-2 font-bold text-[#280003]/60">Data</th>
-                              <th className="px-4 py-2 font-bold text-[#280003]/60">Valor</th>
-                              <th className="px-4 py-2 font-bold text-[#280003]/60 text-right">Ação</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-150">
-                            {parcelasIntermediacao.map((p, idx) => (
-                              <tr key={idx}>
-                                <td className="px-4 py-2">{p.data.split("-").reverse().join("/")}</td>
-                                <td className="px-4 py-2">R$ {p.valor}</td>
-                                <td className="px-4 py-2 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveParcela(idx)}
-                                    className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
-                                  >
-                                    Remover
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                            {parcelasIntermediacao.length === 0 && (
-                              <tr>
-                                <td colSpan={3} className="px-4 py-3 text-center text-[#280003]/40">Nenhuma parcela cadastrada.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Add installment inline inputs */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        <div className="flex-1">
-                          <input
-                            type="date"
-                            value={novaParcelaData}
-                            onChange={(e) => setNovaParcelaData(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Valor (Ex: 1.050,00)"
-                            value={novaParcelaValor}
-                            onChange={(e) => setNovaParcelaValor(e.target.value)}
-                            className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleAddParcela}
-                          className="bg-[#004777] text-white px-4 py-1.5 rounded-xl hover:bg-[#003355] text-xs font-bold transition-all cursor-pointer shadow-sm"
-                        >
-                          Adicionar Parcela
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Seção 4: Vitrine do Site Institucional */}
-            <div className="space-y-4 pt-4 border-t border-zinc-100">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#280003]/50">Vitrine do Site Institucional</h4>
-                <button
-                  type="button"
-                  onClick={() => setIsPreviewOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EEEEF3] hover:bg-[#EEEEF3]/80 text-[#280003] text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs border border-zinc-200"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Visualizar Preview
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    name="publicado"
-                    checked={publicado}
-                    onChange={(e) => setPublicado(e.target.checked)}
-                    className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
-                  />
-                  <div>
-                    <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
-                    <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
-                  </div>
-                </label>
-              </div>
-
-              <div className="flex items-center gap-3 p-4 bg-amber-500/5 rounded-xl border border-amber-200/50">
-                <label className="flex items-start gap-3 cursor-pointer select-none w-full">
-                  <input
-                    type="checkbox"
-                    checked={precisaAtualizar}
-                    onChange={(e) => setPrecisaAtualizar(e.target.checked)}
-                    className="mt-0.5 h-4.5 w-4.5 text-amber-600 focus:ring-amber-500/20 rounded border-zinc-300 accent-amber-600"
-                  />
-                  <div>
-                    <span className="block text-sm font-semibold text-amber-900 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      Imóvel com pendência administrativa / sem proprietário
-                    </span>
-                    <span className="text-xs text-amber-700/85">
-                      Mantém a sinalização de aviso no painel até que o proprietário e dados financeiros da locação sejam preenchidos.
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Título da Vitrine (Amigável) {publicado && "*"}</label>
-                  <input
-                    type="text"
-                    name="titulo"
-                    required={publicado}
-                    value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
-                    placeholder="Ex: Maravilhosa Casa de 3 Quartos com Área de Lazer"
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Descrição Pública {publicado && "*"}</label>
-                  <textarea
-                    name="descricao"
-                    required={publicado}
-                    rows={4}
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    placeholder="Descreva detalhadamente o imóvel para atrair clientes interessados no site..."
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Área Útil (m²) {publicado && "*"}</label>
-                  <input
-                    type="number"
-                    name="area"
-                    required={publicado}
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Quantidade de Quartos</label>
-                  <input
-                    type="number"
-                    name="quartos"
-                    value={quartos}
-                    onChange={(e) => setQuartos(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Quantidade de Banheiros</label>
-                  <input
-                    type="number"
-                    name="banheiros"
-                    value={banheiros}
-                    onChange={(e) => setBanheiros(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Vagas de Garagem</label>
-                  <input
-                    type="number"
-                    name="vagas"
-                    value={vagas}
-                    onChange={(e) => setVagas(e.target.value)}
-                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  />
-                </div>
-              </div>
-
-              {/* Gerenciador de Fotos da Vitrine */}
-              <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-[#004777]" />
-                  Fotos do Imóvel (Vitrine)
-                </h5>
-
-                {/* Upload Dropzone/File input */}
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-zinc-300 border-dashed rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      {isUploadingPhoto ? (
-                        <>
-                          <Loader2 className="w-8 h-8 animate-spin text-[#004777] mb-2" />
-                          <p className="text-xs font-bold text-zinc-500">Enviando mídia para o storage...</p>
-                        </>
                       ) : (
-                        <>
-                          <Plus className="w-8 h-8 text-zinc-450 mb-2" />
-                          <p className="text-xs font-bold text-zinc-500">Clique para enviar fotos</p>
-                          <p className="text-[10px] text-zinc-400 mt-1">PNG, JPG ou WEBP</p>
-                        </>
+                        <p className="text-xs text-zinc-400 italic text-center py-4 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                          Nenhuma imagem carregada para a vitrine.
+                        </p>
                       )}
                     </div>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      disabled={isUploadingPhoto}
-                      onChange={handleUploadPhoto}
-                      className="hidden"
-                    />
-                  </label>
+                  </div>
                 </div>
 
-                {/* Photos Grid preview */}
-                {imagens.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pt-2">
-                    {imagens.map((url, idx) => (
-                      <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-sm">
-                        <img
-                          src={url}
-                          alt={`Imóvel foto ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePhoto(url)}
-                          className="absolute top-1.5 right-1.5 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-md transition-all cursor-pointer"
-                          title="Remover foto"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold py-1 text-center truncate">
-                          Foto {idx + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-400 italic text-center py-4 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
-                    Nenhuma imagem carregada para a vitrine.
-                  </p>
-                )}
-              </div>
+                <div className="flex items-center justify-end gap-3 p-4 px-6 border-t border-zinc-100 bg-zinc-50/50 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-semibold border border-zinc-200 rounded-xl hover:bg-zinc-100 hover:text-zinc-800 transition-all cursor-pointer bg-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="flex items-center justify-center gap-1.5 bg-[#004777] hover:bg-[#003355] text-white px-5 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+                  >
+                    {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isPending ? "Salvando..." : "Salvar Imóvel"}
+                  </button>
+                </div>
+              </form>
             </div>
-
-            {/* Modal Actions Footer */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-zinc-100">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-semibold border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:text-zinc-800 transition-all cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="flex items-center justify-center gap-1.5 bg-[#004777] hover:bg-[#003355] text-white px-5 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-all cursor-pointer shadow-sm"
-              >
-                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isPending ? "Salvando..." : "Salvar Imóvel"}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
 

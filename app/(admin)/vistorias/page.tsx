@@ -24,7 +24,7 @@ import ConnectionStatus from "@/components/shared/ConnectionStatus";
 import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria } from "@/app/(admin)/vistorias/actions";
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
-import { formatImovelAddress } from "@/lib/vistorias/formatters";
+import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
 
 function mapDbVistoriaToUi(v: any): Vistoria {
   const statusLabels: Record<string, string> = {
@@ -56,7 +56,7 @@ function mapDbVistoriaToUi(v: any): Vistoria {
     dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
     vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}${v.vistoriador.creci ? ` (CRECI: ${v.vistoriador.creci})` : ''}` : "Não designado",
     imovelCodigo: v.imovel ? v.imovel.codigo : "",
-    endereco: v.imovel ? formatImovelAddress(v.imovel) : "",
+    endereco: formatImovelAddress(getVistoriaAddress(v)),
     proprietario: v.proprietario || "Não informado",
     inquilino: "Não vinculado",
     tipoImovel: v.imovel ? (v.imovel.tipo === "CASA" ? "Casa" : "Apartamento") : "Outro",
@@ -107,7 +107,7 @@ export default function VistoriasPage() {
               status: v.status,
               data: v.data instanceof Date ? v.data.toISOString() : String(v.data),
               proprietario: v.proprietario || "Não informado",
-              endereco: v.imovel ? formatImovelAddress(v.imovel) : "",
+              endereco: formatImovelAddress(getVistoriaAddress(v)),
               observacoes: (v as any).observacoes || "",
               reparosNecessarios: (v as any).reparosNecessarios || "",
               chavesQuantidade: (v as any).chavesQuantidade || 0,

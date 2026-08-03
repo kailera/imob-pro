@@ -869,6 +869,8 @@ model Vistoria {
   // METADADOS DO PROPRIETÁRIO
   // ==========================================
   proprietario String?
+  // Snapshot historico: alteracoes posteriores no cadastro do imovel nao mudam esta vistoria.
+  enderecoSnapshot Json?
 
   // ==========================================
   // ABA: TERMOS GERAIS (JSON)
@@ -1380,4 +1382,19 @@ model MovimentacaoBancaria {
   transacao   TransacaoFinanceira? @relation(fields: [transacaoId], references: [id], onDelete: SetNull)
 
   @@map("movimentacao_bancaria")
+}
+
+//*************************************************************
+// --------------- CONFIGURAÇÃO DO SITE PÚBLICO ---------------
+//*************************************************************
+
+model SiteConfig {
+  id         String   @id @default("default")
+  services   Json?
+  mediaItems Json?
+  reviews    Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("site_config")
 }

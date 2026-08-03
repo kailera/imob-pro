@@ -1,5 +1,8 @@
 import { getLeads } from "@/app/actions/leadActions";
-import { CrmKanbanBoard } from "./CrmKanbanBoard";
+import { CrmKanbanBoard } from "./components/CrmKanbanBoard";
+import { getImoveis, getLoteamentos } from "@/app/actions/imoveisActions";
+import ImoveisClient from "../imoveis/components/ImoveisClient";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "CRM | Funil de Vendas - Imob Pro",
@@ -9,6 +12,11 @@ export const metadata = {
 export default async function CrmPage() {
   // Buscar leads diretamente do banco de dados (Server-Side)
   const initialLeads = await getLeads();
+  const imoveisRes = await getImoveis();
+  const loteamentosRes = await getLoteamentos();
+
+  const initialImoveis = imoveisRes.success && imoveisRes.data ? imoveisRes.data : [];
+  const initialLoteamentos = loteamentosRes.success && loteamentosRes.data ? loteamentosRes.data : [];
 
   return (
     <div className="space-y-6 p-2 md:p-6">
@@ -19,8 +27,24 @@ export default async function CrmPage() {
         </p>
       </div>
 
+      {/**menu lateral esquerda */}
+
+
+
       {/* Renderiza o Componente Client-Side do Kanban */}
       <CrmKanbanBoard initialLeads={initialLeads} />
+      <Suspense
+        fallback={(
+          <div className="rounded-xl border border-brand-border bg-white p-6 text-sm text-brand-text/60">
+            Carregando imóveis...
+          </div>
+        )}
+      >
+        <ImoveisClient
+          initialImoveis={initialImoveis}
+          initialLoteamentos={initialLoteamentos}
+        />
+      </Suspense>
     </div>
   );
 }

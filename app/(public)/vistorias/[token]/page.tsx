@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getVistoriaByToken, submitContestacao } from "@/app/(admin)/vistorias/actions";
 import { getPresignedUploadUrl, triggerVideoCompression } from "@/app/actions/uploadMedia";
+import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
 
 interface MidiaItem {
   url: string;
@@ -211,7 +212,7 @@ export default function TenantDashboardPage() {
           </div>
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-gray-400" />
-            {vistoria.imovel.bairro}, {vistoria.imovel.cidade}/{vistoria.imovel.uf} - Cód: {vistoria.imovel.codigo}
+            {formatImovelAddress(getVistoriaAddress(vistoria))} - Cód: {vistoria.imovel.codigo}
           </p>
         </div>
 

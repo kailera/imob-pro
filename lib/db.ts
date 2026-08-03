@@ -17,6 +17,8 @@ export interface CachedVistoria {
   infoGeral: any;
   pendingSync?: boolean;
   pendingCreate?: boolean;
+  hasLocalDraft?: boolean;
+  draftUpdatedAt?: number;
 }
 
 export interface OfflineMedia {
@@ -50,3 +52,24 @@ class ImobProDatabase extends Dexie {
 }
 
 export const db = new ImobProDatabase();
+
+export async function enqueueLatestVistoriaUpdate(vistoriaId: string, payload: unknown) {
+  await db.transaction("rw", db.syncQueue, async () => {
+    const previousUpdates = await db.syncQueue
+      .where("vistoriaId")
+      .equals(vistoriaId)
+      .filter((action) => action.type === "UPDATE_VISTORIA")
+      .primaryKeys();
+
+    if (previousUpdates.length > 0) {
+      await db.syncQueue.bulkDelete(previousUpdates);
+    }
+
+    await db.syncQueue.add({
+      type: "UPDATE_VISTORIA",
+      vistoriaId,
+      payload,
+      timestamp: Date.now(),
+    });
+  });
+}

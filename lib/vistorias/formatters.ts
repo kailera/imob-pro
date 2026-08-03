@@ -3,13 +3,41 @@
  * Exemplo com logradouro e número: "Rua XV de Novembro, 123 - Centro, São Paulo/SP"
  * Exemplo sem logradouro: "Nº 123 - Centro, São Paulo/SP" ou "Centro, São Paulo/SP"
  */
-export function formatImovelAddress(imovel?: {
+export type VistoriaAddress = {
   logradouro?: string | null;
   numero?: number | string | null;
+  complemento?: string | null;
   bairro?: string | null;
   cidade?: string | null;
   uf?: string | null;
-} | null): string {
+};
+
+export function normalizeVistoriaAddress(value: unknown): VistoriaAddress | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const address = value as Record<string, unknown>;
+  return {
+    logradouro: typeof address.logradouro === "string" ? address.logradouro : null,
+    numero: typeof address.numero === "number" || typeof address.numero === "string" ? address.numero : null,
+    complemento: typeof address.complemento === "string" ? address.complemento : null,
+    bairro: typeof address.bairro === "string" ? address.bairro : null,
+    cidade: typeof address.cidade === "string" ? address.cidade : null,
+    uf: typeof address.uf === "string" ? address.uf : null,
+  };
+}
+
+export function snapshotVistoriaAddress(imovel: VistoriaAddress): VistoriaAddress {
+  return normalizeVistoriaAddress(imovel) ?? {};
+}
+
+export function getVistoriaAddress(vistoria?: {
+  enderecoSnapshot?: unknown;
+  imovel?: VistoriaAddress | null;
+} | null): VistoriaAddress | null {
+  return normalizeVistoriaAddress(vistoria?.enderecoSnapshot) ?? vistoria?.imovel ?? null;
+}
+
+export function formatImovelAddress(imovel?: VistoriaAddress | null): string {
   if (!imovel) return "";
 
   const streetName = imovel.logradouro ? imovel.logradouro.trim() : "";

@@ -64,7 +64,7 @@ export function ChangeImovelModal({
   const loadImoveis = async () => {
     setLoadingImoveis(true);
     try {
-      const res = await getImoveisForVistoria();
+      const res = await getImoveisForVistoria(vistoriaId);
       if (res.success && res.data) {
         setImoveis(res.data);
       }
@@ -253,9 +253,9 @@ export function ChangeImovelModal({
                     >
                       <ArrowLeft className="w-4 h-4" />
                     </button>
-                    <h4 className="text-sm font-bold text-[#004777]">Editar Dados do Imóvel na Base</h4>
+                    <h4 className="text-sm font-bold text-[#004777]">Editar Endereço desta Vistoria</h4>
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">Edição direta</span>
+                  <span className="text-xs text-gray-400 font-medium">Não altera outras vistorias</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">

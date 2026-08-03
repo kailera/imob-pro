@@ -231,7 +231,28 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     }
 
     const aluguelDadosRaw = formData.get("aluguelDados") as string | null;
-    const aluguelDados = aluguelDadosRaw ? JSON.parse(aluguelDadosRaw) : null;
+    let aluguelDados = aluguelDadosRaw ? JSON.parse(aluguelDadosRaw) : {};
+    if (!aluguelDados) aluguelDados = {};
+
+    const proprietarioDirect = (formData.get("proprietario") as string | null) || "";
+    const cpfDirect = (formData.get("cpf") as string | null) || "";
+    const telefoneDirect = (formData.get("telefone") as string | null) || "";
+    const emailDirect = (formData.get("email") as string | null) || "";
+
+    if (proprietarioDirect || cpfDirect || telefoneDirect || emailDirect) {
+      aluguelDados.proprietarioNome = aluguelDados.proprietarioNome || proprietarioDirect;
+      aluguelDados.proprietarioCpf = aluguelDados.proprietarioCpf || cpfDirect;
+      aluguelDados.proprietarioTelefone = aluguelDados.proprietarioTelefone || telefoneDirect;
+      aluguelDados.proprietarioEmail = aluguelDados.proprietarioEmail || emailDirect;
+      if (!aluguelDados.proprietario) {
+        aluguelDados.proprietario = {
+          nome: aluguelDados.proprietarioNome,
+          cpfCnpj: aluguelDados.proprietarioCpf,
+          email: aluguelDados.proprietarioEmail,
+          telefone: aluguelDados.proprietarioTelefone,
+        };
+      }
+    }
 
     let finalCodigo = codigoInput?.trim();
     if (!finalCodigo || finalCodigo === "(Gerado automaticamente)") {

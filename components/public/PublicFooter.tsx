@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Building, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import Image from "next/image";
+import { Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import logoImg from "./logoscatpublic.png";
 
 export function PublicFooter() {
   return (
@@ -10,12 +12,11 @@ export function PublicFooter() {
           {/* Logo & Description */}
           <div className="space-y-4 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-brand-primary flex items-center justify-center text-white">
-                <Building className="w-5 h-5" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-brand-accent-gold">
-                Scatolin <span className="font-light text-white">Imóveis</span>
-              </span>
+              <Image
+                src={logoImg}
+                alt="Scatolin Imóveis"
+                className="h-16 w-auto object-contain"
+              />
             </Link>
             <p className="text-sm text-white/70 leading-relaxed">
               Transformando o mercado imobiliário com integridade, sofisticação e excelência operacional. O seu novo capítulo começa aqui.

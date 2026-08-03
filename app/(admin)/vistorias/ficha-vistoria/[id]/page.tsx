@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { ArrowLeft, Edit3, Map, Grid2X2, Save, Loader2, Share2, Copy, Check, Menu, X } from "lucide-react";
 import { RoomBuilderForm } from "@/components/vistorias/ficha-vistoria/RoomBuilderForm";
 import { FloorPlanVisualizer, Room, RoomType } from "@/components/vistorias/ficha-vistoria/FloorPlanVisualizer";
@@ -11,14 +12,15 @@ import { CommentData } from "@/components/vistorias/ficha-vistoria/CommentsTimel
 import ConnectionStatus from "@/components/shared/ConnectionStatus";
 import { getVistoriaById, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment, generateTokenAcesso, resolveContestacao, getCurrentUser, getLocatarios, associateTenantToVistoria, createInquilino } from "@/app/(admin)/vistorias/actions";
 import { BottomNavigationMobile } from "@/components/vistorias/ficha-vistoria/BottomNavigationMobile";
-import { db } from "@/lib/db";
+import { db, enqueueLatestVistoriaUpdate } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import type { InspectionAttachment } from "@/components/vistorias/ficha-vistoria/DocumentsPhotosSection";
 import { DEFAULT_FINAL_INSPECTION_TERM, DEFAULT_INITIAL_INSPECTION_TERM } from "@/lib/vistorias/inspectionTerms";
 
-import { formatImovelAddress } from "@/lib/vistorias/formatters";
+import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
 import { ChangeImovelModal } from "@/components/vistorias/ficha-vistoria/ChangeImovelModal";
 import { ChangeInquilinoModal } from "@/components/vistorias/ficha-vistoria/ChangeInquilinoModal";
+import { isAuthenticationError } from "@/lib/auth-errors";
 
 interface InfoGeralItem {
   id: number;
@@ -29,8 +31,12 @@ import { VistoriaDetails, type Vistoria } from "@/components/vistorias/VistoriaD
 
 export default function FichaVistoriaPage() {
   const router = useRouter();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const params = useParams();
   const vistoriaId = params?.id as string;
+  const initialAutosaveSkippedRef = useRef(false);
+  const skipNextAutosaveRef = useRef(false);
+  const authRedirectStartedRef = useRef(false);
 
   const defaultReportDesc = DEFAULT_INITIAL_INSPECTION_TERM;
   const defaultReportObs = DEFAULT_FINAL_INSPECTION_TERM;
@@ -122,13 +128,13 @@ export default function FichaVistoriaPage() {
       if (updatedVistoriaData.imovel) {
         setImovelId(updatedVistoriaData.imovel.id);
         setImovelCodigo(updatedVistoriaData.imovel.codigo || "");
-        setImovelEndereco(formatImovelAddress(updatedVistoriaData.imovel));
+        setImovelEndereco(formatImovelAddress(getVistoriaAddress(updatedVistoriaData)));
         setPdfVistoria((prev) =>
           prev
             ? {
                 ...prev,
                 imovelCodigo: updatedVistoriaData.imovel.codigo || "",
-                endereco: formatImovelAddress(updatedVistoriaData.imovel),
+                endereco: formatImovelAddress(getVistoriaAddress(updatedVistoriaData)),
                 proprietario: updatedVistoriaData.proprietario || prev.proprietario,
               }
             : null
@@ -162,6 +168,7 @@ export default function FichaVistoriaPage() {
     async function loadVistoria() {
       if (!vistoriaId) return;
       setLoading(true);
+      initialAutosaveSkippedRef.current = false;
 
       // Carregar usuário logado
       try {
@@ -174,9 +181,19 @@ export default function FichaVistoriaPage() {
       }
 
       let dbData: any = null;
+      let localCached = null;
 
       try {
-        if (navigator.onLine) {
+        localCached = await db.vistorias.get(vistoriaId);
+        if (localCached?.hasLocalDraft || localCached?.pendingSync) {
+          dbData = localCached;
+        }
+      } catch (e) {
+        console.error("Erro ao ler rascunho local:", e);
+      }
+
+      try {
+        if (!dbData && navigator.onLine) {
           const res = await getVistoriaById(vistoriaId);
           if (res.success && res.data) {
             dbData = res.data;
@@ -189,7 +206,7 @@ export default function FichaVistoriaPage() {
               status: dbData.status,
               data: dbData.data instanceof Date ? dbData.data.toISOString() : String(dbData.data),
               proprietario: dbData.proprietario || "Proprietário",
-              endereco: dbData.imovel ? formatImovelAddress(dbData.imovel) : "",
+              endereco: formatImovelAddress(getVistoriaAddress(dbData)),
               observacoes: dbData.observacoes || "",
               reparosNecessarios: dbData.reparosNecessarios || "",
               chavesQuantidade: dbData.chavesQuantidade || 0,
@@ -197,6 +214,8 @@ export default function FichaVistoriaPage() {
               ambienteVistorias: dbData.ambienteVistorias || [],
               comentariosVistoria: dbData.comentariosVistoria || [],
               infoGeral: dbData.infoGeral || [],
+              hasLocalDraft: false,
+              pendingSync: false,
             });
           }
         }
@@ -207,7 +226,7 @@ export default function FichaVistoriaPage() {
       // Se falhar a rede ou estiver offline, busca do Dexie
       if (!dbData) {
         try {
-          const localCached = await db.vistorias.get(vistoriaId);
+          localCached = localCached || await db.vistorias.get(vistoriaId);
           if (localCached) {
             dbData = {
               ...localCached,
@@ -248,7 +267,7 @@ export default function FichaVistoriaPage() {
             ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ""}`
             : "Vistoriador ResponsÃ¡vel",
           imovelCodigo: dbData.imovel?.codigo || "",
-          endereco: dbData.imovel ? `${dbData.imovel.bairro || ""}, ${dbData.imovel.cidade || ""}/${dbData.imovel.uf || ""}` : "",
+          endereco: formatImovelAddress(getVistoriaAddress(dbData)) || dbData.endereco || "",
           proprietario: dbData.proprietario || "ProprietÃ¡rio",
           inquilino: "NÃ£o vinculado",
           tipoImovel: dbData.imovel?.tipo === "CASA" ? "Casa" : dbData.imovel?.tipo === "APARTAMENTO" ? "Apartamento" : "Outro",
@@ -305,7 +324,7 @@ export default function FichaVistoriaPage() {
         setProprietario(dbData.proprietario || "Proprietário");
         setImovelId(dbData.imovelId || dbData.imovel?.id || "");
         setImovelCodigo(dbData.imovel?.codigo || "");
-        setImovelEndereco(dbData.imovel ? formatImovelAddress(dbData.imovel) : "");
+        setImovelEndereco(formatImovelAddress(getVistoriaAddress(dbData)) || dbData.endereco || "");
 
         const activeLocatario = dbData.locatario || dbData.locatariosAutorizados?.[0]?.locatario;
         setLocatarioId(dbData.locatarioId || activeLocatario?.id || "");
@@ -539,14 +558,38 @@ export default function FichaVistoriaPage() {
   ) => {
     if (!vistoriaId) return;
 
-    if (navigator.onLine) {
-      const res = await addVistoriaComment(vistoriaId, {
-        roomId,
-        roomName,
-        text,
-        status,
-        media
+    const savePendingComment = async () => {
+      const tempId = `temp-${Date.now()}`;
+      const createdAt = new Date();
+      const newComment: CommentData = {
+        id: tempId, roomId, roomName, text, status, timestamp: createdAt, media
+      };
+      setComments(prev => [newComment, ...prev]);
+
+      const localCached = await db.vistorias.get(vistoriaId);
+      if (localCached) {
+        await db.vistorias.put({
+          ...localCached,
+          comentariosVistoria: [{
+            id: tempId, roomId, roomName, texto: text, status,
+            createdAt: createdAt.toISOString(), midias: media || []
+          }, ...localCached.comentariosVistoria],
+          pendingSync: true,
+          hasLocalDraft: true,
+        });
+      }
+
+      await db.syncQueue.put({
+        type: "ADD_COMMENT",
+        vistoriaId,
+        payload: { tempCommentId: tempId, roomId, roomName, text, status, media },
+        timestamp: Date.now()
       });
+    };
+
+    if (navigator.onLine) {
+      try {
+        const res = await addVistoriaComment(vistoriaId, { roomId, roomName, text, status, media });
 
       if (res.success && res.data) {
         const newComment: CommentData = {
@@ -574,52 +617,22 @@ export default function FichaVistoriaPage() {
           });
           await db.vistorias.put(localCached);
         }
-      } else {
-        alert("Ocorreu um erro ao salvar o comentário no banco de dados.");
+        } else {
+          await savePendingComment();
+          if (isAuthenticationError(res.error)) {
+            alert("Sua sessão expirou. O comentário foi preservado neste dispositivo.");
+            redirectToSignIn();
+          } else {
+            alert("O comentário foi salvo localmente e aguarda sincronização.");
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao salvar comentário:", error);
+        await savePendingComment();
+        alert("O comentário foi salvo localmente e aguarda sincronização.");
       }
     } else {
-      // Offline Flow
-      const tempId = "temp-" + Date.now();
-      const newComment: CommentData = {
-        id: tempId,
-        roomId,
-        roomName,
-        text,
-        status,
-        timestamp: new Date(),
-        media
-      };
-      setComments(prev => [newComment, ...prev]);
-
-      // Salva no cache local do Dexie
-      const localCached = await db.vistorias.get(vistoriaId);
-      if (localCached) {
-        localCached.comentariosVistoria.unshift({
-          id: tempId,
-          roomId,
-          roomName,
-          texto: text,
-          status,
-          createdAt: new Date().toISOString(),
-          midias: media || []
-        });
-        await db.vistorias.put(localCached);
-      }
-
-      // Enfileira na fila de sincronização
-      await db.syncQueue.put({
-        type: "ADD_COMMENT",
-        vistoriaId,
-        payload: {
-          tempCommentId: tempId,
-          roomId,
-          roomName,
-          text,
-          status,
-          media
-        },
-        timestamp: Date.now()
-      });
+      await savePendingComment();
     }
   };
 
@@ -652,7 +665,14 @@ export default function FichaVistoriaPage() {
     if (navigator.onLine && !commentId.startsWith("temp-")) {
       const res = await updateVistoriaComment(commentId, { text, status, media });
       if (!res.success) {
+        await db.syncQueue.put({
+          type: "UPDATE_COMMENT",
+          vistoriaId,
+          payload: { commentId, text, status, media },
+          timestamp: Date.now()
+        });
         alert("Ocorreu um erro ao atualizar o comentário no servidor. A alteração foi salva localmente.");
+        if (isAuthenticationError(res.error)) redirectToSignIn();
       }
     } else {
       await db.syncQueue.put({
@@ -683,7 +703,14 @@ export default function FichaVistoriaPage() {
     if (navigator.onLine && !commentId.startsWith("temp-")) {
       const res = await deleteVistoriaComment(commentId);
       if (!res.success) {
+        await db.syncQueue.put({
+          type: "DELETE_COMMENT",
+          vistoriaId,
+          payload: { commentId },
+          timestamp: Date.now()
+        });
         alert("Ocorreu um erro ao excluir o comentário no servidor. A alteração foi salva localmente.");
+        if (isAuthenticationError(res.error)) redirectToSignIn();
       }
     } else {
       await db.syncQueue.put({
@@ -697,93 +724,139 @@ export default function FichaVistoriaPage() {
     }
   };
 
+  const inspectionPayload = useMemo(() => ({
+    status: vistoriaStatus as any,
+    observacoes: reportDescription,
+    reparosNecessarios: reportObservation,
+    infoGeral: { terms: infoGeralItems, attachments },
+    chavesQuantidade,
+    chavesObservacao,
+    rooms: rooms.map(r => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      visaoGeral: r.visaoGeral,
+      comentarios: r.comentarios
+    }))
+  }), [attachments, chavesObservacao, chavesQuantidade, infoGeralItems, reportDescription, reportObservation, rooms, vistoriaStatus]);
+
+  const persistLocalDraft = useCallback(async (
+    payload: typeof inspectionPayload,
+    status: string,
+    pendingSync: boolean,
+  ) => {
+    const localCached = await db.vistorias.get(vistoriaId);
+    if (!localCached) return;
+
+    await db.vistorias.put({
+      ...localCached,
+      status,
+      observacoes: payload.observacoes,
+      reparosNecessarios: payload.reparosNecessarios,
+      infoGeral: payload.infoGeral,
+      chavesQuantidade: payload.chavesQuantidade,
+      chavesObservacao: payload.chavesObservacao,
+      ambienteVistorias: payload.rooms.map(r => ({
+        id: r.id,
+        nome: r.name,
+        tipo: r.type,
+        visaoGeral: r.visaoGeral,
+        comentarios: r.comentarios
+      })),
+      hasLocalDraft: true,
+      pendingSync: pendingSync || localCached.pendingSync,
+      draftUpdatedAt: Date.now(),
+    });
+  }, [vistoriaId]);
+
+  const redirectToSignIn = useCallback(() => {
+    if (authRedirectStartedRef.current) return;
+    authRedirectStartedRef.current = true;
+    const returnUrl = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
+  }, []);
+
+  useEffect(() => {
+    if (loading || !vistoriaId) return;
+    if (!initialAutosaveSkippedRef.current) {
+      initialAutosaveSkippedRef.current = true;
+      return;
+    }
+    if (skipNextAutosaveRef.current) {
+      skipNextAutosaveRef.current = false;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      persistLocalDraft(inspectionPayload, vistoriaStatus, false).catch((error) => {
+        console.error("Erro ao salvar rascunho local da vistoria:", error);
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [inspectionPayload, loading, persistLocalDraft, vistoriaId, vistoriaStatus]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !isAuthLoaded ||
+      isSignedIn !== false ||
+      !navigator.onLine ||
+      authRedirectStartedRef.current
+    ) return;
+
+    void (async () => {
+      await persistLocalDraft(inspectionPayload, vistoriaStatus, true);
+      await enqueueLatestVistoriaUpdate(vistoriaId, inspectionPayload);
+      redirectToSignIn();
+    })().catch((error) => {
+      console.error("Erro ao preservar vistoria antes da reautenticação:", error);
+    });
+  }, [inspectionPayload, isAuthLoaded, isSignedIn, loading, persistLocalDraft, redirectToSignIn, vistoriaId, vistoriaStatus]);
+
   const handleSaveDatabase = async () => {
     if (!vistoriaId) return;
     setIsSaving(true);
 
     const nextStatus = vistoriaStatus === "NAO_INICIADA" ? "EM_ANDAMENTO" : vistoriaStatus;
 
-    const payload = {
-      status: nextStatus as any,
-      observacoes: reportDescription,
-      reparosNecessarios: reportObservation,
-      infoGeral: { terms: infoGeralItems, attachments },
-      chavesQuantidade,
-      chavesObservacao,
-      rooms: rooms.map(r => ({
-        id: r.id,
-        name: r.name,
-        type: r.type,
-        visaoGeral: r.visaoGeral,
-        comentarios: r.comentarios
-      }))
-    };
+    const payload = { ...inspectionPayload, status: nextStatus as any };
 
-    if (navigator.onLine) {
-      const res = await updateVistoria(vistoriaId, payload);
-      setIsSaving(false);
-      if (res.success) {
-        setVistoriaStatus(nextStatus);
-        alert("Vistoria salva com sucesso no banco de dados!");
-        // Atualiza cache local
-        const localCached = await db.vistorias.get(vistoriaId);
-        if (localCached) {
-          await db.vistorias.put({
-            ...localCached,
-            status: nextStatus,
-            observacoes: reportDescription,
-            reparosNecessarios: reportObservation,
-            infoGeral: { terms: infoGeralItems, attachments },
-            chavesQuantidade,
-            chavesObservacao,
-            ambienteVistorias: rooms.map(r => ({
-              id: r.id,
-              nome: r.name,
-              tipo: r.type,
-              visaoGeral: r.visaoGeral,
-              comentarios: r.comentarios
-            }))
+    try {
+      if (navigator.onLine) {
+        const res = await updateVistoria(vistoriaId, payload);
+        if (res.success) {
+          if (nextStatus !== vistoriaStatus) {
+            skipNextAutosaveRef.current = true;
+          }
+          setVistoriaStatus(nextStatus);
+          await persistLocalDraft(payload, nextStatus, false);
+          await db.vistorias.update(vistoriaId, {
+            hasLocalDraft: false,
+            pendingSync: false,
           });
+          alert("Vistoria salva com sucesso no banco de dados!");
+        } else if (isAuthenticationError(res.error)) {
+          await persistLocalDraft(payload, nextStatus, true);
+          await enqueueLatestVistoriaUpdate(vistoriaId, payload);
+          alert("Sua sessão expirou. A vistoria foi salva neste dispositivo e será sincronizada após o login.");
+          redirectToSignIn();
+        } else {
+          alert(res.error || "Erro ao salvar a vistoria.");
         }
       } else {
-        alert(res.error || "Erro ao salvar a vistoria.");
+        setVistoriaStatus(nextStatus);
+        await persistLocalDraft(payload, nextStatus, true);
+        await enqueueLatestVistoriaUpdate(vistoriaId, payload);
+        alert("Vistoria salva localmente (offline)! Ela será sincronizada automaticamente quando você recuperar a conexão.");
       }
-    } else {
-      // Offline Flow
+    } catch (error) {
+      console.error("Erro ao salvar vistoria:", error);
+      await persistLocalDraft(payload, nextStatus, true);
+      await enqueueLatestVistoriaUpdate(vistoriaId, payload);
+      alert("Não foi possível acessar o servidor. A vistoria foi preservada neste dispositivo para sincronização.");
+    } finally {
       setIsSaving(false);
-      setVistoriaStatus(nextStatus);
-      
-      // Atualiza cache local no IndexedDB
-      const localCached = await db.vistorias.get(vistoriaId);
-      if (localCached) {
-        await db.vistorias.put({
-          ...localCached,
-          status: nextStatus,
-          observacoes: reportDescription,
-          reparosNecessarios: reportObservation,
-          infoGeral: { terms: infoGeralItems, attachments },
-          chavesQuantidade,
-          chavesObservacao,
-          ambienteVistorias: rooms.map(r => ({
-            id: r.id,
-            nome: r.name,
-            tipo: r.type,
-            visaoGeral: r.visaoGeral,
-            comentarios: r.comentarios
-          })),
-          pendingSync: true
-        });
-      }
-
-      // Enfileira alteração
-      await db.syncQueue.put({
-        type: "UPDATE_VISTORIA",
-        vistoriaId,
-        payload,
-        timestamp: Date.now()
-      });
-
-      alert("Vistoria salva localmente (offline)! Ela será sincronizada automaticamente quando você recuperar a conexão.");
     }
   };
 
@@ -811,7 +884,16 @@ export default function FichaVistoriaPage() {
           });
         }
       } else {
-        alert(res.error || "Erro ao atualizar status.");
+        if (isAuthenticationError(res.error)) {
+          const fullPayload = { ...inspectionPayload, status: newStatus as any };
+          setVistoriaStatus(newStatus);
+          await persistLocalDraft(fullPayload, newStatus, true);
+          await enqueueLatestVistoriaUpdate(vistoriaId, fullPayload);
+          alert("Sua sessão expirou. A alteração foi preservada neste dispositivo.");
+          redirectToSignIn();
+        } else {
+          alert(res.error || "Erro ao atualizar status.");
+        }
       }
     } else {
       setIsSaving(false);

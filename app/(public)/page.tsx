@@ -1,8 +1,11 @@
 import { SiteHero } from "@/components/public/SiteHero";
 import { FeaturedProperties } from "@/components/public/FeaturedProperties";
-import { ShieldCheck, Sparkles, Zap, Star, ArrowUpRight } from "lucide-react";
+import { KnowIMob } from "@/components/public/KnowIMob";
+import { ServicesOfferted } from "@/components/public/ServicesOfferted";
+import { ShieldCheck, Sparkles, Zap, Star, ArrowUpRight, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getSiteConfig } from "@/app/actions/siteActions";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +48,10 @@ export default async function PublicHome() {
     city: `${im.cidade}/${im.uf}`
   }));
 
+  // Buscar configurações do site salvas no banco
+  const siteConfigRes = await getSiteConfig();
+  const siteConfig = siteConfigRes.success ? siteConfigRes.data : null;
+
   const valueProps = [
     {
       title: "Segurança Jurídica",
@@ -63,7 +70,7 @@ export default async function PublicHome() {
     },
   ];
 
-  const testimonials = [
+  const defaultTestimonials = [
     {
       name: "Mariana S. Albuquerque",
       role: "Compradora em Moema",
@@ -78,6 +85,19 @@ export default async function PublicHome() {
     },
   ];
 
+  const displayReviews = (siteConfig?.reviews && siteConfig.reviews.length > 0)
+    ? siteConfig.reviews.map(r => ({
+        name: r.author,
+        role: r.role || "Cliente Scatolin",
+        text: r.comment,
+        rating: r.rating || 5,
+      }))
+    : defaultTestimonials;
+
+  const displayMediaItems = (siteConfig?.mediaItems && siteConfig.mediaItems.length > 0)
+    ? siteConfig.mediaItems
+    : null;
+
   return (
     <div className="space-y-0">
       {/* Hero Banner with Search Engine */}
@@ -86,66 +106,13 @@ export default async function PublicHome() {
       {/* Featured Properties grid */}
       <FeaturedProperties properties={properties} />
 
-      {/* Premium Navigation Banners */}
-      <section className="py-12 bg-zinc-50 border-t border-zinc-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Banner 1: Compra */}
-            <Link 
-              href="/busca?operation=venda"
-              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
-            >
-              <img 
-                src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80" 
-                alt="Comprar Imóveis" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
-                <span className="text-[10px] font-bold tracking-widest text-brand-accent-gold uppercase">Venda</span>
-                <h3 className="text-xl font-bold tracking-tight">Compra de Imóveis</h3>
-                <p className="text-white/70 text-xs font-medium">Explore casas e apartamentos à venda →</p>
-              </div>
-            </Link>
+      {/* Know iMob / Our Team */}
+      <KnowIMob medias={siteConfig?.mediaItems} />
 
-            {/* Banner 2: Aluguel */}
-            <Link 
-              href="/busca?operation=locacao"
-              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
-            >
-              <img 
-                src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80" 
-                alt="Alugar Imóveis" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
-                <span className="text-[10px] font-bold tracking-widest text-brand-accent-green uppercase font-semibold">Locação</span>
-                <h3 className="text-xl font-bold tracking-tight">Aluguel de Imóveis</h3>
-                <p className="text-white/70 text-xs font-medium">Encontre as melhores opções para alugar →</p>
-              </div>
-            </Link>
+      {/* Services Offered */}
+      <ServicesOfferted services={siteConfig?.services} />
 
-            {/* Banner 3: Loteamento Village Parra */}
-            <Link 
-              href="/loteamentos"
-              className="relative group overflow-hidden rounded-3xl aspect-[16/10] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer"
-            >
-              <img 
-                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" 
-                alt="Loteamento Village Parra" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
-                <span className="text-[10px] font-bold tracking-widest text-amber-400 uppercase">Terrenos</span>
-                <h3 className="text-xl font-bold tracking-tight">Loteamento Parra</h3>
-                <p className="text-white/70 text-xs font-medium">Conquiste o seu lote dos sonhos →</p>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
+
 
       {/* Pillars / Value Propositions */}
       <section id="sobre" className="py-20 bg-white">
@@ -192,7 +159,7 @@ export default async function PublicHome() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {testimonials.map((t, idx) => (
+            {displayReviews.map((t, idx) => (
               <div key={idx} className="bg-white p-8 rounded-2xl border border-zinc-200/80 shadow-sm space-y-4">
                 <div className="flex gap-1 text-brand-accent-gold">
                   {[...Array(t.rating)].map((_, i) => (
@@ -211,6 +178,7 @@ export default async function PublicHome() {
           </div>
         </div>
       </section>
+
 
       {/* CTA / Announce Property Banner */}
       <section className="bg-brand-text text-white py-16 px-4 relative overflow-hidden">

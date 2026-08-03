@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { db, SyncAction } from "@/lib/db";
 import { createVistoria, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment } from "@/app/(admin)/vistorias/actions";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
+import { isAuthenticationError } from "@/lib/auth-errors";
 
 export function useOfflineSync() {
-  const [isOnline, setIsOnline] = useState(true);
+  const { isLoaded, isSignedIn } = useAuth();
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const syncInProgressRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-
       const handleOnline = () => {
         setIsOnline(true);
         processSyncQueue();
@@ -27,7 +31,7 @@ export function useOfflineSync() {
       window.addEventListener("offline", handleOffline);
 
       // Processa fila no carregamento inicial se estiver online
-      if (navigator.onLine) {
+      if (navigator.onLine && isLoaded && isSignedIn) {
         processSyncQueue();
       }
 
@@ -36,16 +40,24 @@ export function useOfflineSync() {
         window.removeEventListener("offline", handleOffline);
       };
     }
-  }, []);
+  // A fila deve ser reavaliada somente quando o estado de autenticação muda.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
 
-  const processSyncQueue = async () => {
+  async function processSyncQueue() {
     // Evita concorrência de sincronização
-    if (isSyncing) return;
+    if (
+      syncInProgressRef.current ||
+      !navigator.onLine ||
+      !isLoaded ||
+      !isSignedIn
+    ) return;
 
     const queue = await db.syncQueue.orderBy("timestamp").toArray();
     if (queue.length === 0) return;
 
     setIsSyncing(true);
+    syncInProgressRef.current = true;
     setSyncError(null);
 
     console.log(`[Offline Sync] Iniciando sincronização de ${queue.length} ações pendentes...`);
@@ -58,17 +70,20 @@ export function useOfflineSync() {
         await processAction(action, idMap);
       }
       console.log("[Offline Sync] Sincronização concluída com sucesso!");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido na sincronização.";
       console.error("[Offline Sync] Falha durante a sincronização:", err);
-      setSyncError(err.message || "Erro desconhecido na sincronização.");
+      setSyncError(message);
+      if (isAuthenticationError(message)) {
+        window.dispatchEvent(new CustomEvent("imobpro:auth-required"));
+      }
     } finally {
       setIsSyncing(false);
+      syncInProgressRef.current = false;
     }
-  };
+  }
 
-  const processAction = async (action: SyncAction, idMap: Record<string, string>) => {
-    const vistoriaId = idMap[action.vistoriaId] || action.vistoriaId;
-
+  async function processAction(action: SyncAction, idMap: Record<string, string>) {
     if (action.type === "CREATE_VISTORIA") {
       const res = await createVistoria(action.payload);
       if (res.success && res.data) {
@@ -104,7 +119,10 @@ export function useOfflineSync() {
         // Atualiza estado no IndexedDB para sincronizado
         const localData = await db.vistorias.get(action.vistoriaId);
         if (localData) {
-          await db.vistorias.update(action.vistoriaId, { pendingSync: false });
+          await db.vistorias.update(action.vistoriaId, {
+            pendingSync: false,
+            hasLocalDraft: false,
+          });
         }
         await db.syncQueue.delete(action.id!);
       } else {
@@ -165,7 +183,7 @@ export function useOfflineSync() {
         // Atualiza a lista local de comentários na vistoria cacheada
         const localData = await db.vistorias.get(action.vistoriaId);
         if (localData) {
-          const updatedComments = localData.comentariosVistoria.map((c: any) => {
+          const updatedComments = localData.comentariosVistoria.map((c) => {
             // Se for o comentário temporário adicionado offline
             if (c.text === payload.text && c.roomId === payload.roomId && c.id.startsWith("temp-")) {
               return {
@@ -202,7 +220,7 @@ export function useOfflineSync() {
 
       const localData = await db.vistorias.get(action.vistoriaId);
       if (localData) {
-        const updatedComments = localData.comentariosVistoria.map((c: any) => {
+        const updatedComments = localData.comentariosVistoria.map((c) => {
           if (c.id === payload.commentId) {
             return {
               ...c,
@@ -233,13 +251,13 @@ export function useOfflineSync() {
       const localData = await db.vistorias.get(action.vistoriaId);
       if (localData) {
         const updatedComments = localData.comentariosVistoria.filter(
-          (c: any) => c.id !== payload.commentId && c.id !== finalCommentId
+          (c) => c.id !== payload.commentId && c.id !== finalCommentId
         );
         await db.vistorias.update(action.vistoriaId, { comentariosVistoria: updatedComments });
       }
       await db.syncQueue.delete(action.id!);
     }
-  };
+  }
 
   return {
     isOnline,

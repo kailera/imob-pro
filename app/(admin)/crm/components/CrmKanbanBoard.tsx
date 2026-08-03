@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { updateLeadStatus } from "@/app/actions/leadActions";
 import { LeadStatus } from "@/generated/prisma";
 import { Phone, Mail, MessageSquare, Calendar, DollarSign, MapPin, ArrowLeft, ArrowRight, Trash2, Search, Sparkles } from "lucide-react";
-import { LeadDetailsModal } from "./LeadDetailsModal";
+import { LeadDetailsModal } from "../components/LeadDetailsModal";
 
 // Definição dos tipos locais compatíveis com o Prisma
 interface Lead {
@@ -93,7 +93,7 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Barra de Filtros e Pesquisa */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 border border-zinc-200/80 rounded-2xl shadow-sm">
         <div className="relative w-full sm:max-w-md">
@@ -106,7 +106,7 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
             className="w-full pl-9 pr-4 py-2 border border-zinc-200 focus:border-brand-primary rounded-xl text-sm placeholder-zinc-400 focus:outline-none transition-colors"
           />
         </div>
-        
+
         <div className="flex items-center gap-2 text-xs text-brand-text/50">
           <Sparkles className="w-4 h-4 text-brand-accent-gold" />
           <span>Total de Leads Ativos no Funil: {leads.filter(l => l.status !== "PERDIDO").length}</span>
@@ -115,13 +115,13 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
 
       {/* Grid do Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
-        
+
         {COLUMNS.map((col) => {
           // Filtrar os leads pertencentes a esta coluna
           const colLeads = filteredLeads.filter((l) => l.status === col.status);
 
           return (
-            <div 
+            <div
               key={col.status}
               className={`rounded-2xl border ${col.border} ${col.bg} p-4 flex flex-col gap-4 min-h-[500px] shadow-sm`}
             >
@@ -145,9 +145,9 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                       day: "2-digit",
                       month: "2-digit",
                     });
-                    
+
                     return (
-                      <div 
+                      <div
                         key={lead.id}
                         className="bg-white border border-zinc-200/80 rounded-xl p-4 shadow-sm hover:shadow transition-all space-y-3.5 group relative"
                       >
@@ -159,7 +159,7 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
 
                         {/* Nome do Lead */}
                         <div>
-                          <h4 
+                          <h4
                             onClick={() => setSelectedLead(lead)}
                             className="font-extrabold text-sm text-brand-text group-hover:text-brand-primary transition-colors cursor-pointer hover:underline flex items-center gap-1.5"
                           >
@@ -209,9 +209,8 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                           )}
                           {lead.interesseNegocio && lead.interesseNegocio !== "AMBOS" && (
                             <div className="flex items-center gap-1">
-                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                                lead.interesseNegocio === "VENDA" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
-                              }`}>
+                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${lead.interesseNegocio === "VENDA" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                                }`}>
                                 {lead.interesseNegocio === "VENDA" ? "Compra" : "Locação"}
                               </span>
                             </div>
@@ -221,7 +220,7 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                         {/* Canais de Contato Rápido */}
                         <div className="flex items-center gap-2 text-xs">
                           {/* Botão de WhatsApp */}
-                          <a 
+                          <a
                             href={`https://wa.me/55${lead.telefone.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -230,9 +229,9 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                             <MessageSquare className="w-3.5 h-3.5 fill-current" />
                             Conversar
                           </a>
-                          
+
                           {/* Botão de Ligação */}
-                          <a 
+                          <a
                             href={`tel:${lead.telefone}`}
                             className="flex items-center justify-center gap-1 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 font-bold border border-zinc-200 rounded-lg transition-colors"
                             title="Ligar para o Lead"
@@ -250,7 +249,7 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                          
+
                           <div className="flex items-center gap-1">
                             {/* Mover para a esquerda */}
                             {col.status !== "NOVO" && (

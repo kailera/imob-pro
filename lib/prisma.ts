@@ -18,7 +18,7 @@ let prisma: PrismaClient;
 if (process.env.NODE_ENV === "production") {
   prisma = createPrismaClient();
 } else {
-  if (!globalForPrisma.prisma) {
+  if (!globalForPrisma.prisma || !(globalForPrisma.prisma as any).siteConfig) {
     globalForPrisma.prisma = createPrismaClient();
   }
   prisma = globalForPrisma.prisma;
