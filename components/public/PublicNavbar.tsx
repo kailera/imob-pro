@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
-import logoImg from "./logoscatpublic.png";
 
 export function PublicNavbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,8 +21,10 @@ export function PublicNavbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group py-1">
           <Image
-            src={logoImg}
+            src="/logoscatpublic.png"
             alt="Scatolin Imóveis"
+            width={500}
+            height={165}
             className="h-16 w-auto object-contain transition-transform group-hover:scale-105"
             priority
           />
@@ -76,5 +77,4 @@ export function PublicNavbar() {
     </nav>
   );
 }
-
 

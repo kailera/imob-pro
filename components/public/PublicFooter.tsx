@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, MapPin, MessageCircle } from "lucide-react";
-import logoImg from "./logoscatpublic.png";
 
 export function PublicFooter() {
   return (
@@ -13,8 +12,10 @@ export function PublicFooter() {
           <div className="space-y-4 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src={logoImg}
+                src="/logoscatpublic.png"
                 alt="Scatolin Imóveis"
+                width={500}
+                height={165}
                 className="h-16 w-auto object-contain"
               />
             </Link>
