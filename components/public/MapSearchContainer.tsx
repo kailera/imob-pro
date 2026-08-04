@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PropertyCard, Property } from "./PropertyCard";
 import { Search, Map, List, SlidersHorizontal, ChevronDown, Check } from "lucide-react";
+import { shouldMountSearchMap, type MapSearchViewMode } from "@/lib/map-search-visibility";
 
 // Carrega o componente de mapa dinamicamente para evitar problemas de SSR com o Leaflet
 const MapComponent = dynamic(() => import("./MapComponent"), {
@@ -59,7 +60,19 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
   const [hoveredPropertyId, setHoveredPropertyId] = useState<string | null>(null);
   
   // Controle de Visualização Mobile
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [viewMode, setViewMode] = useState<MapSearchViewMode>("list");
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const desktopMedia = window.matchMedia("(min-width: 768px)");
+    const updateViewport = () => setIsDesktop(desktopMedia.matches);
+
+    updateViewport();
+    desktopMedia.addEventListener("change", updateViewport);
+    return () => desktopMedia.removeEventListener("change", updateViewport);
+  }, []);
+
+  const shouldMountMap = shouldMountSearchMap(isDesktop, viewMode);
 
   // Filtragem dos Imóveis base (sem limites do mapa, para alimentar os pins no mapa)
   const filteredProperties = initialProperties.filter((p) => {
@@ -278,13 +291,15 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
             </label>
           </div>
 
-          <MapComponent
-            properties={filteredProperties}
-            hoveredPropertyId={hoveredPropertyId}
-            onHoverProperty={setHoveredPropertyId}
-            onClickProperty={handleMarkerClick}
-            onBoundsChange={setMapBounds}
-          />
+          {shouldMountMap && (
+            <MapComponent
+              properties={filteredProperties}
+              hoveredPropertyId={hoveredPropertyId}
+              onHoverProperty={setHoveredPropertyId}
+              onClickProperty={handleMarkerClick}
+              onBoundsChange={setMapBounds}
+            />
+          )}
         </section>
 
         {/* Floating Mobile Toggle Button */}
