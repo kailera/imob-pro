@@ -19,7 +19,7 @@ export default async function ImoveisSearchPage() {
       }
     },
     orderBy: {
-      codigo: "desc"
+      createdAt: "desc"
     }
   });
 
@@ -39,7 +39,9 @@ export default async function ImoveisSearchPage() {
     neighborhood: im.bairro,
     city: `${im.cidade}/${im.uf}`,
     latitude: im.latitude,
-    longitude: im.longitude
+    longitude: im.longitude,
+    condoFee: im.forLocacao && im.valorCondominio ? im.valorCondominio / 100 : null,
+    iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null
   }));
 
   return (

@@ -27,7 +27,7 @@ export default async function PublicHome() {
       }
     },
     orderBy: {
-      codigo: "desc"
+      createdAt: "desc"
     },
     take: 3
   });
@@ -46,7 +46,9 @@ export default async function PublicHome() {
     images: im.imagens || [],
     description: im.descricao || "",
     neighborhood: im.bairro,
-    city: `${im.cidade}/${im.uf}`
+    city: `${im.cidade}/${im.uf}`,
+    condoFee: im.forLocacao && im.valorCondominio ? im.valorCondominio / 100 : null,
+    iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null
   }));
 
   // Buscar configurações do site salvas no banco

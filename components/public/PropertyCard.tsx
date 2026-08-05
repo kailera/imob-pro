@@ -22,6 +22,8 @@ export interface Property {
   city: string;
   latitude?: number | null;
   longitude?: number | null;
+  condoFee?: number | null;
+  iptu?: number | null;
 }
 
 interface PropertyCardProps {
@@ -153,7 +155,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
         className="bg-white border border-zinc-200/80 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group overflow-hidden cursor-pointer"
       >
         {/* Property Image Container */}
-        <div className="relative overflow-hidden aspect-[4/3] w-full bg-zinc-100">
+        <div className="relative overflow-hidden aspect-[16/10] w-full bg-zinc-100">
           <img
             src={property.image}
             alt={property.title}
@@ -180,22 +182,37 @@ export function PropertyCard({ property }: PropertyCardProps) {
         </div>
 
         {/* Property Details Container */}
-        <div className="p-5 flex-1 flex flex-col justify-between">
+        <div className="p-6 flex-1 flex flex-col justify-between">
           <div>
             {/* Location */}
-            <div className="flex items-center gap-1 text-xs font-semibold text-brand-text/60 mb-2">
-              <MapPin className="w-3.5 h-3.5 text-brand-primary" />
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-brand-text/60 mb-2.5">
+              <MapPin className="w-4 h-4 text-brand-primary" />
               <span>{property.neighborhood}, {property.city}</span>
             </div>
 
             {/* Title */}
-            <h3 className="text-lg font-bold text-brand-text leading-snug mb-3 group-hover:text-brand-primary transition-colors line-clamp-1">
+            <h3 className="text-xl font-bold text-brand-text leading-snug mb-3 group-hover:text-brand-primary transition-colors line-clamp-1">
               {property.title}
             </h3>
 
-            {/* Price */}
-            <div className="text-2xl font-extrabold text-brand-primary tracking-tight mb-4">
-              {formattedPrice}
+            {/* Price & Costs */}
+            <div className="flex flex-col gap-1.5 mb-4">
+              <div className="text-3xl font-extrabold text-brand-primary tracking-tight">
+                {formattedPrice}
+              </div>
+              {property.operation === "locacao" && (property.condoFee || property.iptu) && (
+                <div className="text-[11px] font-bold text-brand-text/60 flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {property.condoFee && property.condoFee > 0 ? (
+                    <span>Condomínio: {property.condoFee.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                  ) : null}
+                  {property.condoFee && property.condoFee > 0 && property.iptu && property.iptu > 0 ? (
+                    <span className="text-zinc-300">•</span>
+                  ) : null}
+                  {property.iptu && property.iptu > 0 ? (
+                    <span>IPTU: {property.iptu.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
 
@@ -288,9 +305,22 @@ export function PropertyCard({ property }: PropertyCardProps) {
                   <h2 className="text-xl md:text-2xl font-bold text-zinc-900 leading-tight">
                     {property.title}
                   </h2>
-                  <div className="text-2xl font-extrabold text-brand-primary mt-2">
+                  <div className="text-3xl font-extrabold text-brand-primary mt-2">
                     {formattedPrice}
                   </div>
+                  {property.operation === "locacao" && (property.condoFee || property.iptu) && (
+                    <div className="text-sm font-bold text-brand-text/60 mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {property.condoFee && property.condoFee > 0 ? (
+                        <span>Condomínio: {property.condoFee.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                      ) : null}
+                      {property.condoFee && property.condoFee > 0 && property.iptu && property.iptu > 0 ? (
+                        <span className="text-zinc-300">•</span>
+                      ) : null}
+                      {property.iptu && property.iptu > 0 ? (
+                        <span>IPTU: {property.iptu.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 {/* Features Row */}

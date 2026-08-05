@@ -124,6 +124,9 @@ model Imovel {
   manutencoes            Manutencao[]
   leases                 Lease[]
 
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @default(now()) @updatedAt
+
   @@map("imovel")
 }
 

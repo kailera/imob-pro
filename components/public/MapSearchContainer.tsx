@@ -248,7 +248,7 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
               {listProperties.map((p) => (
                 <div
                   key={p.id}
