@@ -357,7 +357,11 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
       });
     }
 
-    revalidatePath("/imoveis"); 0
+    revalidatePath("/imoveis");
+    revalidatePath("/crm");
+    revalidatePath("/");
+    revalidatePath("/busca");
+    revalidatePath("/locacao");
     return { success: true, message: id ? "Imóvel atualizado com sucesso!" : "Imóvel cadastrado com sucesso!" };
   } catch (error: any) {
     console.error("Erro ao salvar imóvel:", error);
@@ -371,6 +375,10 @@ export async function deleteImovel(id: string) {
       where: { id },
     });
     revalidatePath("/imoveis");
+    revalidatePath("/crm");
+    revalidatePath("/");
+    revalidatePath("/busca");
+    revalidatePath("/locacao");
     return { success: true };
   } catch (error: any) {
     console.error("Erro ao excluir imóvel:", error);

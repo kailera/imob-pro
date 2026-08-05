@@ -609,13 +609,15 @@ export default function ImoveisClient({
       </div>
 
       {/* CRUD Form Modal */}
-      <ImovelFormModal
-        isOpen={isModalOpen}
-        editingImovel={editingImovel}
-        loteamentos={loteamentos}
-        onClose={() => setIsModalOpen(false)}
-        onSaveSuccess={handleSaveSuccess}
-      />
+      {isModalOpen && (
+        <ImovelFormModal
+          isOpen={isModalOpen}
+          editingImovel={editingImovel}
+          loteamentos={loteamentos}
+          onClose={() => setIsModalOpen(false)}
+          onSaveSuccess={handleSaveSuccess}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmModal
