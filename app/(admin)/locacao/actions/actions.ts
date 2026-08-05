@@ -429,6 +429,7 @@ export const criarPeriodoPelaAgenda = async (input: {
     manterValorDeflacao: boolean;
     periodoProvisorioId: string | null;
     criarReajusteSeguinte?: boolean;
+    valorReajusteSeguinte?: number | null;
 }) => {
     try {
         const { tenantId, userId, user } = await requireUserContext();
@@ -575,14 +576,27 @@ export const criarPeriodoPelaAgenda = async (input: {
                 }
 
                 const percentual = Number(calculo.percentual.toFixed(2));
-                const valorCalculado = percentual < 0 && input.manterValorDeflacao
+                if (input.valorReajusteSeguinte != null && (
+                    !Number.isFinite(input.valorReajusteSeguinte)
+                    || input.valorReajusteSeguinte <= 0
+                )) {
+                    return {
+                        success: false as const,
+                        error: "Informe um valor final de aluguel maior que zero.",
+                    };
+                }
+                const valorPeloIndice = percentual < 0 && input.manterValorDeflacao
                     ? input.valorAluguel
                     : input.valorAluguel * (1 + percentual / 100);
+                const valorCalculado = input.valorReajusteSeguinte ?? valorPeloIndice;
+                const percentualEfetivamenteAplicado = input.valorReajusteSeguinte == null
+                    ? percentual
+                    : calcularPercentualEntreValores(input.valorAluguel, valorCalculado) ?? 0;
                 reajusteSeguinte = {
                     dataInicio: dataInicioReajuste,
                     dataFim: dataFimReajuste,
                     valorAluguel: Number(valorCalculado.toFixed(2)),
-                    percentualReajuste: percentual,
+                    percentualReajuste: percentualEfetivamenteAplicado,
                     executadoPorNome: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
                 };
             }
@@ -622,13 +636,13 @@ export const criarPeriodoPelaAgenda = async (input: {
                         indiceReajuste,
                         valorAluguelAnterior: input.valorAluguel,
                         percentualReajuste: reajusteSeguinte.percentualReajuste,
-                        reajusteAutomatico: true,
+                        reajusteAutomatico: input.valorReajusteSeguinte == null,
                         manterValorDeflacao: input.manterValorDeflacao,
                         dataCalculoReajuste: new Date(),
                         reajusteExecutadoPorId: userId,
                         reajusteExecutadoPorNome: reajusteSeguinte.executadoPorNome,
                         tipoPeriodo: "REAJUSTE",
-                        origemPeriodo: "CALCULO_SISTEMA",
+                        origemPeriodo: input.valorReajusteSeguinte == null ? "CALCULO_SISTEMA" : "MANUAL",
                         diaVencimento: input.diaVencimento,
                     },
                 })

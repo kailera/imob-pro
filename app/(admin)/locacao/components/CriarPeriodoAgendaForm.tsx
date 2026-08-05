@@ -42,14 +42,21 @@ export function CriarPeriodoAgendaForm({
   );
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [valorReajusteManual, setValorReajusteManual] = useState<string | null>(null);
   const indiceSelecionado = indices.find((indice) => indice.codigo === indiceReajuste);
   const aluguelBase = parseNumeroFlexivel(valorAluguel) ?? 0;
   const percentualIndice = indiceSelecionado?.percentualAcumulado ?? null;
-  const percentualAplicado = percentualIndice != null
+  const percentualOficialAplicado = percentualIndice != null
     ? percentualIndice < 0 && manterValorDeflacao ? 0 : percentualIndice
     : null;
-  const aluguelCorrigido = percentualAplicado != null
-    ? Number((aluguelBase * (1 + percentualAplicado / 100)).toFixed(2))
+  const aluguelCalculado = percentualOficialAplicado != null
+    ? Number((aluguelBase * (1 + percentualOficialAplicado / 100)).toFixed(2))
+    : null;
+  const aluguelCorrigido = valorReajusteManual == null
+    ? aluguelCalculado
+    : parseNumeroFlexivel(valorReajusteManual);
+  const percentualAplicado = aluguelCorrigido != null && aluguelBase > 0
+    ? Number((((aluguelCorrigido / aluguelBase) - 1) * 100).toFixed(2))
     : null;
   const aumentoEmReais = aluguelCorrigido != null
     ? Number((aluguelCorrigido - aluguelBase).toFixed(2))
@@ -57,6 +64,8 @@ export function CriarPeriodoAgendaForm({
   const podeCriarReajuste = sugestao.tipoPeriodo === "BASE"
     && Boolean(sugestao.proximoPeriodoInicio && sugestao.proximoPeriodoFim)
     && percentualIndice != null
+    && aluguelCorrigido != null
+    && aluguelCorrigido > 0
     && !indiceSelecionado?.erro;
 
   const salvar = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -79,6 +88,7 @@ export function CriarPeriodoAgendaForm({
       manterValorDeflacao,
       periodoProvisorioId: sugestao.periodoProvisorioId,
       criarReajusteSeguinte: podeCriarReajuste,
+      valorReajusteSeguinte: valorReajusteManual == null ? null : aluguelCorrigido,
     });
     setSalvando(false);
 
@@ -167,7 +177,10 @@ export function CriarPeriodoAgendaForm({
           <select
             required
             value={indiceReajuste}
-            onChange={(event) => setIndiceReajuste(event.target.value)}
+            onChange={(event) => {
+              setIndiceReajuste(event.target.value);
+              setValorReajusteManual(null);
+            }}
             className="mt-1 min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/30"
           >
             {INDICES_REAJUSTE.map((indice) => (
@@ -214,7 +227,21 @@ export function CriarPeriodoAgendaForm({
               <ResumoCalculo rotulo="Índice acumulado" valor={formatarPercentual(percentualIndice)} />
               <ResumoCalculo rotulo="Percentual aplicado" valor={formatarPercentual(percentualAplicado)} />
               <ResumoCalculo rotulo="Aumento do aluguel" valor={formatarMoeda(aumentoEmReais)} />
-              <ResumoCalculo rotulo="Novo aluguel" valor={formatarMoeda(aluguelCorrigido)} destaque />
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <label htmlFor={`novo-aluguel-${eventoId}`} className="text-[9px] font-bold uppercase tracking-wide text-gray-500">
+                  Novo aluguel
+                </label>
+                <FormattedNumberInput
+                  id={`novo-aluguel-${eventoId}`}
+                  value={valorReajusteManual ?? (aluguelCalculado?.toFixed(2) || "")}
+                  onValueChange={setValorReajusteManual}
+                  format="currency"
+                  className="mt-1 w-full border-0 bg-transparent p-0 text-sm font-black text-emerald-700 outline-none"
+                />
+                <p className="mt-1 text-[9px] font-semibold text-emerald-700">
+                  {valorReajusteManual == null ? "Calculado pelo índice; você pode editar." : "Valor final informado manualmente."}
+                </p>
+              </div>
             </div>
           )}
 
