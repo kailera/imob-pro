@@ -477,7 +477,9 @@ export default function ControleLocaticioClient({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Variação aplicada</span>
                   <span className="font-bold text-[#004777]">
-                    {activePeriodo.percentualReajuste != null ? `${activePeriodo.percentualReajuste.toLocaleString("pt-BR")}%` : "-"}
+                    {activePeriodo.percentualReajuste != null
+                      ? `${activePeriodo.percentualReajuste.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                      : "-"}
                   </span>
                 </div>
                 {activePeriodo.valorAluguelAnterior != null && (
@@ -599,7 +601,7 @@ export default function ControleLocaticioClient({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Variação (%)</label>
-                    <FormattedNumberInput value={percentualReajuste} onValueChange={(value) => { setPercentualReajuste(value); aplicarPercentual(value); setReajusteAutomatico(false); }} format="percentage" decimals={4} className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
+                    <FormattedNumberInput value={percentualReajuste} onValueChange={(value) => { setPercentualReajuste(value); aplicarPercentual(value); setReajusteAutomatico(false); }} format="percentage" decimals={2} className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-semibold bg-white" />
                   </div>
                 </div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">

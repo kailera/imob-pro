@@ -99,7 +99,7 @@ export function datasSaoConsecutivas(fimAnterior: string | Date, inicioSeguinte:
 
 export function calcularPercentualEntreValores(valorAnterior: number, novoValor: number) {
   if (!Number.isFinite(valorAnterior) || valorAnterior <= 0 || !Number.isFinite(novoValor)) return null;
-  return Number((((novoValor / valorAnterior) - 1) * 100).toFixed(4));
+  return Number((((novoValor / valorAnterior) - 1) * 100).toFixed(2));
 }
 
 export function calcularIntervaloCompetenciasReajuste(

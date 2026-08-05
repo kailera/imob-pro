@@ -4,16 +4,18 @@ import { useState, useEffect } from "react";
 import EditorServices, { ServiceItem } from "../components/EditorServices";
 import EditorMediaItems, { MediaItem } from "../components/EditorMediaItems";
 import EditorReviews, { ReviewItem } from "../components/EditorReviews";
-import { Briefcase, Image as ImageIcon, MessageSquareQuote, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import EditorLoteamento from "../components/EditorLoteamento";
+import { Briefcase, Image as ImageIcon, MessageSquareQuote, CheckCircle2, Loader2, AlertCircle, Map } from "lucide-react";
 import { getSiteConfig, updateSiteConfig } from "@/app/actions/siteActions";
 
 export default function SiteEditor() {
-  const [activeTab, setActiveTab] = useState<"services" | "media" | "reviews">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "media" | "reviews" | "loteamento">("services");
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState("Alterações salvas com sucesso!");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,7 +65,8 @@ export default function SiteEditor() {
     }
   };
 
-  const showSuccessToast = () => {
+  const showSuccessToast = (message?: string) => {
+    setToastMessage(message || "Alterações salvas com sucesso!");
     setErrorMessage(null);
     setSavedSuccess(true);
     setTimeout(() => {
@@ -77,7 +80,7 @@ export default function SiteEditor() {
       {savedSuccess && (
         <div className="fixed bottom-6 right-6 bg-emerald-700 text-white px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center gap-2 text-xs font-bold animate-bounce">
           <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-          <span>Alterações salvas com sucesso!</span>
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -125,6 +128,18 @@ export default function SiteEditor() {
           <MessageSquareQuote className="w-4 h-4" />
           <span>Depoimentos</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab("loteamento")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === "loteamento"
+              ? "bg-brand-primary/10 text-brand-primary border border-brand-primary/30"
+              : "text-zinc-600 hover:bg-zinc-100"
+          }`}
+        >
+          <Map className="w-4 h-4" />
+          <span>Mapa do Loteamento</span>
+        </button>
       </div>
 
       {/* Conteúdo da Aba Ativa */}
@@ -144,6 +159,9 @@ export default function SiteEditor() {
             )}
             {activeTab === "reviews" && (
               <EditorReviews reviews={reviews} onSaveReviews={handleReviewsSave} />
+            )}
+            {activeTab === "loteamento" && (
+              <EditorLoteamento onShowToast={showSuccessToast} />
             )}
           </>
         )}

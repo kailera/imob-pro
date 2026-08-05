@@ -1,9 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { TipoImovel } from "@/generated/prisma";
+import { TipoImovel, StatusLote } from "@/generated/prisma";
 import { revalidatePath } from "next/cache";
 import { geocodeAddress } from "@/lib/geocoding";
+import { requireUserContext } from "@/lib/auth";
 
 // Tipo do estado retornado pela action
 export type FormState = {
@@ -31,6 +32,7 @@ export interface ImovelInput {
   loteamentoId?: string | null;
   aluguelDados?: any;
   publicado?: boolean;
+  highlight?: boolean;
   titulo?: string;
   descricao?: string | null;
   quartos?: number | null;
@@ -93,6 +95,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
 
     // Vitrine / Institutional site fields
     const publicado = formData.get("publicado") === "on";
+    const highlight = formData.get("highlight") === "on";
     const titulo = (formData.get("titulo") as string | null) || "";
     const descricao = formData.get("descricao") as string | null;
     const quartosStr = formData.get("quartos") as string | null;
@@ -186,7 +189,6 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     const valorAluguel = forLocacao ? parseFormattedInt(valorAluguelStr) : null;
     const valorCondominio = forLocacao ? parseFormattedInt(valorCondominioStr) : null;
     const valorIPTU = forLocacao ? parseFormattedInt(valorIPTUStr) : null;
-    const valorTotal = forLocacao ? ((valorAluguel || 0) + (valorCondominio || 0) + (valorIPTU || 0)) : null;
 
     // If CONDOMINIO and isCreatingLoteamento is true, let's create the loteamento first
     if (tipo === "CONDOMINIO" && isCreatingLoteamento && newLoteamentoNome && newLoteamentoNome.trim()) {
@@ -254,6 +256,16 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
       }
     }
 
+    let valorTotal = forLocacao ? ((valorAluguel || 0) + (valorCondominio || 0) + (valorIPTU || 0)) : null;
+    if (forLocacao && valorTotal !== null && aluguelDados && Array.isArray(aluguelDados.outrasContas)) {
+      for (const conta of aluguelDados.outrasContas) {
+        const valorConta = parseFormattedInt(conta.valor);
+        if (valorConta) {
+          valorTotal += valorConta;
+        }
+      }
+    }
+
     let finalCodigo = codigoInput?.trim();
     if (!finalCodigo || finalCodigo === "(Gerado automaticamente)") {
       finalCodigo = await generateCodigo();
@@ -292,6 +304,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           loteamentoId: tipo === "CONDOMINIO" ? (loteamentoId || null) : null,
           aluguelDados,
           publicado,
+          highlight,
           titulo,
           descricao,
           quartos,
@@ -332,6 +345,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           aluguelDados,
           imobId,
           publicado,
+          highlight,
           titulo,
           descricao,
           quartos,
@@ -548,5 +562,67 @@ export async function backfillImoveisCoordenadas() {
   } catch (error: any) {
     console.error("[Backfill] Erro crítico no backfill:", error);
     return { success: false, error: error.message || "Erro crítico no backfill." };
+  }
+}
+
+export async function updateLotStatusAction(lotId: string, status: StatusLote) {
+  try {
+    const { user } = await requireUserContext();
+    if (!user.ativo || !["ADMIN", "OPERADOR"].includes(user.role)) {
+      return { success: false, error: "Você não tem permissão para alterar o status do lote." };
+    }
+
+    const updated = await prisma.imovel.update({
+      where: { id: lotId },
+      data: {
+        statusLote: status,
+      },
+    });
+
+    revalidatePath("/loteamentos");
+    revalidatePath("/crm/site");
+    return { 
+      success: true, 
+      message: `Lote ${updated.quadra}-${updated.loteNumero} atualizado para ${status === "VENDIDO" ? "Ocupado" : status === "RESERVADO" ? "Reservado" : "Disponível"} com sucesso!` 
+    };
+  } catch (error: any) {
+    console.error("Erro ao atualizar status do lote:", error);
+    return { success: false, error: error.message || "Erro ao atualizar status do lote." };
+  }
+}
+
+export async function getLoteamentoLots(slug: string) {
+  try {
+    const loteamento = await prisma.loteamento.findUnique({
+      where: { slug },
+      include: {
+        lotes: {
+          orderBy: [
+            { quadra: "asc" },
+            { loteNumero: "asc" },
+          ],
+        },
+      },
+    });
+    if (!loteamento) {
+      return { success: false, error: "Loteamento não encontrado." };
+    }
+    
+    // Map db lotes to frontend LotInfo format
+    const formattedLots = loteamento.lotes.map((l) => ({
+      id: l.id,
+      codigo: l.codigo,
+      quadra: l.quadra || "",
+      loteNumero: l.loteNumero || "",
+      area: l.area,
+      topografia: l.topografia || "PLANO",
+      valorVenda: l.valorVenda || 0,
+      statusLote: l.statusLote as "DISPONIVEL" | "RESERVADO" | "VENDIDO",
+    }));
+
+    return { success: true, data: formattedLots };
+  } catch (error: any) {
+    console.error("Erro ao carregar lotes do loteamento:", error);
+    return { success: false, error: error.message || "Erro ao carregar lotes." };
   }
 }

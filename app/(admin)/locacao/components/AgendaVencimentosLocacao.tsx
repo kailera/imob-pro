@@ -48,7 +48,7 @@ const formatarCompetencia = (valor: string | null) => valor
   : "—";
 const formatarPercentual = (valor: number | null) => valor == null
   ? "—"
-  : `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  : `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
 export default function AgendaVencimentosLocacao({
   initialAno,
@@ -130,7 +130,7 @@ export default function AgendaVencimentosLocacao({
       if (agendaAtualizada.success) setEventos(agendaAtualizada.data);
       setSucesso(
         `Contrato reajustado para ${formatarMoeda(resultado.data.valorReajustado)} `
-        + `(${resultado.data.percentualReajuste.toLocaleString("pt-BR")}% – ${resultado.data.indice}).`
+        + `(${formatarPercentual(resultado.data.percentualReajuste)} – ${resultado.data.indice}).`
       );
       setExecutandoId(null);
     });
@@ -268,7 +268,7 @@ export default function AgendaVencimentosLocacao({
                   </p>
                   {evento.percentualReajuste != null && (
                     <p className="mt-1 text-[9px] font-black text-emerald-700">
-                      {evento.indiceReajuste} {evento.percentualReajuste.toLocaleString("pt-BR")}% aplicado
+                      {evento.indiceReajuste} {formatarPercentual(evento.percentualReajuste)} aplicado
                     </p>
                   )}
                 </div>
@@ -342,6 +342,7 @@ export default function AgendaVencimentosLocacao({
                   imovelLocacaoId={evento.imovelLocacaoId}
                   inquilino={evento.inquilino}
                   sugestao={evento.sugestaoPeriodo}
+                  indices={indices}
                   onCancel={() => setCriandoPeriodoId(null)}
                   onSaved={(mensagem) => {
                     setCriandoPeriodoId(null);
@@ -351,7 +352,7 @@ export default function AgendaVencimentosLocacao({
                 />
               )}
 
-              {detalheAberto && indicePainel && (
+              {detalheAberto && !criandoPeriodo && indicePainel && (
                 <div id={`calculo-${evento.id}`} className="border-t border-blue-100 bg-blue-50/50 px-4 py-4">
                   {indicePainel.erro ? (
                     <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

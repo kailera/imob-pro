@@ -194,26 +194,49 @@ async function main() {
     console.log("Seeded Loteamento:", loteamento);
 
     // 5. Seed lots for the Loteamento
-    const quadras = ["A", "B", "C", "D"];
-    const statusSequence = [
-      "DISPONIVEL", "VENDIDO", "DISPONIVEL", "RESERVADO", "DISPONIVEL", "VENDIDO",
-      "DISPONIVEL", "DISPONIVEL", "VENDIDO", "RESERVADO", "DISPONIVEL", "VENDIDO"
+    const quadraConfigs = [
+      { q: "A", range: [13, 16], occupied: [13, 14, 15, 16] },
+      { q: "B", range: [1, 8], occupied: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { q: "C", range: [1, 8], occupied: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { 
+        q: "F", 
+        range: [1, 30], 
+        occupied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 30] 
+      },
+      { 
+        q: "E", 
+        range: [1, 27], 
+        occupied: [1, 2, 3, 4, 6, 7, 8, 9, 13, 14, 15, 16, 23, 24, 25] 
+      },
+      { 
+        q: "D", 
+        range: [1, 33], 
+        occupied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33] 
+      },
+      { 
+        q: "D_EXT", 
+        range: [1, 26], 
+        occupied: [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 15, 16, 21, 22, 23, 26] 
+      }
     ];
 
-    for (const q of quadras) {
-      const numLotes = q === "A" || q === "B" ? 6 : 5;
-      for (let i = 1; i <= numLotes; i++) {
-        const lotIndex = (q.charCodeAt(0) - 65) * 6 + i;
-        const status = statusSequence[lotIndex % statusSequence.length] as "DISPONIVEL" | "RESERVADO" | "VENDIDO";
-        const codigo = `LOTE-${q}${String(i).padStart(2, "0")}`;
+    let lotIndex = 0;
+    for (const config of quadraConfigs) {
+      const [start, end] = config.range;
+      for (let i = start; i <= end; i++) {
+        lotIndex++;
+        const isOccupied = config.occupied.includes(i);
+        const status = isOccupied ? "VENDIDO" : "DISPONIVEL";
+        const codigo = `LOTE-${config.q}${String(i).padStart(2, "0")}`;
         
-        // Quadras C e D são lotes ligeiramente maiores
-        const area = q === "C" || q === "D" ? 300 : 253; 
+        // Quadras C, D, D_EXT são lotes ligeiramente maiores
+        const isBig = ["C", "D", "D_EXT"].includes(config.q);
+        const area = isBig ? 300 : 253; 
         
         // Preço total correspondente a aproximadamente R$ 530 mensais em 180 parcelas (sinal + saldo financiado)
         // Lotes de 253m² custando R$ 95.400, lotes maiores custando R$ 120.000
-        const precoBase = q === "C" || q === "D" ? 12000000 : 9540000;
-        const valorVenda = precoBase + (i * 300000); // variação leve de preço
+        const precoBase = isBig ? 12000000 : 9540000;
+        const valorVenda = precoBase + (i * 100000); // variação leve de preço
 
         const lotData = {
           codigo,
@@ -229,10 +252,10 @@ async function main() {
           area,
           imobId: imob.id,
           loteamentoId: loteamento.id,
-          quadra: q,
+          quadra: config.q,
           loteNumero: String(i),
           topografia: i % 3 === 0 ? "DECLIVE_SUAVE" : i % 2 === 0 ? "ACLIVE_SUAVE" : "PLANO",
-          statusLote: status,
+          statusLote: status as any,
         };
 
         await prisma.imovel.upsert({
@@ -242,7 +265,7 @@ async function main() {
         });
       }
     }
-    console.log("Seeded 22 subdivision lots successfully!");
+    console.log(`Seeded ${lotIndex} subdivision lots successfully!`);
 
     console.log("Database seed completed successfully!");
   } catch (error) {

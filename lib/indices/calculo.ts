@@ -10,7 +10,9 @@ export function calcularVariacaoSicadi(taxasMensais: Array<number | string>) {
     if (!Number.isFinite(taxa)) throw new Error(`Taxa mensal inválida: ${taxaInformada}`);
     return acumulado * (1 + taxa / 100);
   }, 1);
-  const percentual = Number(((fator - 1) * 100).toFixed(4));
+  // O Sicadi trabalha com o percentual acumulado arredondado em duas casas
+  // antes de aplicá-lo ao aluguel.
+  const percentual = Number(((fator - 1) * 100).toFixed(2));
 
   return {
     fator: 1 + percentual / 100,

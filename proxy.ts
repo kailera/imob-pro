@@ -44,6 +44,15 @@ export default clerkMiddleware(async (auth, request) => {
     return new Response("Not Found", { status: 404 });
   }
 
+  // Suporte a desenvolvimento local (localhost / 127.0.0.1)
+  if (hostname === "localhost" || hostname === "127.0.0.1" || process.env.NODE_ENV === "development") {
+    if (isPublicRoute(request) || isPublicSitePath(pathname) || isLegacyPublicInspection(pathname)) {
+      return;
+    }
+    await auth.protect();
+    return;
+  }
+
   // O domínio público expõe somente a vitrine e acessos públicos de vistoria.
   if (isPublicHost(hostname)) {
     if (isPublicSitePath(pathname)) return;

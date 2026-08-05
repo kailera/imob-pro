@@ -30,7 +30,7 @@ export function ReajusteAgendaForm({ evento, indices, pending, onApply }: Props)
   const percentualInicial = painelInicial?.percentualAcumulado ?? 0;
   const valorAtual = evento.valorAluguel ?? 0;
   const [indice, setIndice] = useState<string>(indiceInicial);
-  const [percentual, setPercentual] = useState(formatarNumeroEditavel(percentualInicial, 4));
+  const [percentual, setPercentual] = useState(formatarNumeroEditavel(percentualInicial, 2));
   const [valor, setValor] = useState(formatarNumeroEditavel(calcularValor(valorAtual, percentualInicial), 2));
   const [manual, setManual] = useState(false);
 
@@ -43,7 +43,7 @@ export function ReajusteAgendaForm({ evento, indices, pending, onApply }: Props)
       setValor("");
       return;
     }
-    setPercentual(formatarNumeroEditavel(novoPercentual, 4));
+    setPercentual(formatarNumeroEditavel(novoPercentual, 2));
     setValor(formatarNumeroEditavel(calcularValor(valorAtual, novoPercentual), 2));
     setManual(false);
   };
@@ -60,7 +60,7 @@ export function ReajusteAgendaForm({ evento, indices, pending, onApply }: Props)
     setManual(true);
     const numero = parseNumeroFlexivel(texto);
     if (numero != null && valorAtual > 0) {
-      setPercentual(formatarNumeroEditavel(((numero / valorAtual) - 1) * 100, 4));
+      setPercentual(formatarNumeroEditavel(((numero / valorAtual) - 1) * 100, 2));
     }
   };
 
@@ -101,7 +101,7 @@ export function ReajusteAgendaForm({ evento, indices, pending, onApply }: Props)
             value={percentual}
             onValueChange={alterarPercentual}
             format="percentage"
-            decimals={4}
+            decimals={2}
             className="min-h-11 w-full rounded-lg border border-gray-200 px-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#004777]/20"
           />
         </div>

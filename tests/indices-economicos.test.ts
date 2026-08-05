@@ -36,3 +36,9 @@ test("compõe as taxas mensais para calcular a prévia acumulada", () => {
   assert.equal(resultado.percentual, 2.01);
   assert.equal(resultado.fator, 1.0201);
 });
+
+test("arredonda o percentual acumulado para duas casas antes da aplicação", () => {
+  const resultado = calcularVariacaoSicadi([1.2345, 1.2345]);
+  assert.equal(resultado.percentual, 2.48);
+  assert.equal(resultado.fator, 1.0248);
+});

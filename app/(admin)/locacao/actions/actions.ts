@@ -126,6 +126,8 @@ export interface SugestaoPeriodoAgenda {
     tipoPeriodo: "BASE" | "REAJUSTE";
     manterValorDeflacao: boolean;
     periodoProvisorioId: string | null;
+    proximoPeriodoInicio: string | null;
+    proximoPeriodoFim: string | null;
     aviso: string;
 }
 
@@ -266,6 +268,26 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
                     ?? periodoProvisorio?.valorAluguel
                     ?? locacao.valorAluguel
                     ?? 0;
+            const inicioProximoPeriodo = faixaSugerida
+                ? adicionarDiasUTC(faixaSugerida.dataFim, 1)
+                : null;
+            const faixaProximoPeriodo = inicioProximoPeriodo
+                && inicioProximoPeriodo <= normalizarDataUTC(locacao.dataFim)
+                ? {
+                    dataInicio: inicioProximoPeriodo,
+                    dataFim: (() => {
+                        const fimCalculado = adicionarDiasUTC(
+                            adicionarMesesUTC(
+                                inicioProximoPeriodo,
+                                Math.max(1, locacao.periodicidadeReajuste || 12),
+                            ),
+                            -1,
+                        );
+                        const fimContrato = normalizarDataUTC(locacao.dataFim);
+                        return fimCalculado > fimContrato ? fimContrato : fimCalculado;
+                    })(),
+                }
+                : null;
             const sugestaoPeriodo: SugestaoPeriodoAgenda | null = faixaSugerida
                 ? {
                     dataInicio: faixaSugerida.dataInicio.toISOString().slice(0, 10),
@@ -286,6 +308,8 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
                         ?? periodoProvisorio?.manterValorDeflacao
                         ?? true,
                     periodoProvisorioId: periodoProvisorio?.id ?? null,
+                    proximoPeriodoInicio: faixaProximoPeriodo?.dataInicio.toISOString().slice(0, 10) ?? null,
+                    proximoPeriodoFim: faixaProximoPeriodo?.dataFim.toISOString().slice(0, 10) ?? null,
                     aviso: periodoProvisorio
                         ? "O período provisório importado será substituído por este período confirmado."
                         : tipoPeriodoSugerido === "BASE"
@@ -404,9 +428,10 @@ export const criarPeriodoPelaAgenda = async (input: {
     diaVencimento: number | null;
     manterValorDeflacao: boolean;
     periodoProvisorioId: string | null;
+    criarReajusteSeguinte?: boolean;
 }) => {
     try {
-        const { tenantId } = await requireUserContext();
+        const { tenantId, userId, user } = await requireUserContext();
         if (!Number.isFinite(input.valorAluguel) || input.valorAluguel <= 0) {
             return { success: false as const, error: "Informe um valor de aluguel maior que zero." };
         }
@@ -508,7 +533,62 @@ export const criarPeriodoPelaAgenda = async (input: {
             diaVencimento: input.diaVencimento,
         };
 
-        const periodo = await prisma.$transaction(async (tx) => {
+        let reajusteSeguinte: {
+            dataInicio: Date;
+            dataFim: Date;
+            valorAluguel: number;
+            percentualReajuste: number;
+            executadoPorNome: string;
+        } | null = null;
+
+        if (input.criarReajusteSeguinte && tipoPeriodo === "BASE") {
+            const dataInicioReajuste = adicionarDiasUTC(dataFim, 1);
+            const fimContrato = normalizarDataUTC(locacao.dataFim);
+            if (dataInicioReajuste <= fimContrato) {
+                const calculo = await calcularIndiceReajuste(
+                    indiceReajuste,
+                    input.dataInicio,
+                    input.dataFim,
+                );
+                if (!calculo.success || calculo.percentual === undefined) {
+                    return {
+                        success: false as const,
+                        error: calculo.error || "Não foi possível calcular o reajuste do novo período.",
+                    };
+                }
+
+                const periodicidade = Math.max(1, locacao.periodicidadeReajuste || 12);
+                const fimCalculado = adicionarDiasUTC(
+                    adicionarMesesUTC(dataInicioReajuste, periodicidade),
+                    -1,
+                );
+                const dataFimReajuste = fimCalculado > fimContrato ? fimContrato : fimCalculado;
+                const sobrepoePeriodoExistente = periodosComparacao.some((periodo) => (
+                    dataInicioReajuste <= normalizarDataUTC(periodo.dataFim)
+                    && dataFimReajuste >= normalizarDataUTC(periodo.dataInicio)
+                ));
+                if (sobrepoePeriodoExistente) {
+                    return {
+                        success: false as const,
+                        error: "O novo período reajustado sobrepõe um período já confirmado.",
+                    };
+                }
+
+                const percentual = Number(calculo.percentual.toFixed(2));
+                const valorCalculado = percentual < 0 && input.manterValorDeflacao
+                    ? input.valorAluguel
+                    : input.valorAluguel * (1 + percentual / 100);
+                reajusteSeguinte = {
+                    dataInicio: dataInicioReajuste,
+                    dataFim: dataFimReajuste,
+                    valorAluguel: Number(valorCalculado.toFixed(2)),
+                    percentualReajuste: percentual,
+                    executadoPorNome: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+                };
+            }
+        }
+
+        const periodosSalvos = await prisma.$transaction(async (tx) => {
             const salvo = periodoProvisorio
                 ? await tx.periodoContratoLocacao.update({
                     where: { id: periodoProvisorio.id },
@@ -520,17 +600,52 @@ export const criarPeriodoPelaAgenda = async (input: {
                         ...dadosPeriodo,
                     },
                 });
+            const reajustado = reajusteSeguinte
+                ? await tx.periodoContratoLocacao.create({
+                    data: {
+                        imovelLocacaoId: locacao.id,
+                        dataInicio: reajusteSeguinte.dataInicio,
+                        dataFim: reajusteSeguinte.dataFim,
+                        valorAluguel: reajusteSeguinte.valorAluguel,
+                        hasCondominio: dadosPeriodo.hasCondominio,
+                        valorCondominio: dadosPeriodo.valorCondominio,
+                        hasIPTU: dadosPeriodo.hasIPTU,
+                        valorIPTU: dadosPeriodo.valorIPTU,
+                        valorTotal: reajusteSeguinte.valorAluguel + valorCondominio + valorIPTU,
+                        descontoPontualidade: dadosPeriodo.descontoPontualidade,
+                        tipoDesconto: dadosPeriodo.tipoDesconto,
+                        diasAntecedenciaDesc: dadosPeriodo.diasAntecedenciaDesc,
+                        multaAtrasoPercentual: dadosPeriodo.multaAtrasoPercentual,
+                        diasCarenciaMulta: dadosPeriodo.diasCarenciaMulta,
+                        jurosAtrasoPercentual: dadosPeriodo.jurosAtrasoPercentual,
+                        diasCarenciaJuros: dadosPeriodo.diasCarenciaJuros,
+                        indiceReajuste,
+                        valorAluguelAnterior: input.valorAluguel,
+                        percentualReajuste: reajusteSeguinte.percentualReajuste,
+                        reajusteAutomatico: true,
+                        manterValorDeflacao: input.manterValorDeflacao,
+                        dataCalculoReajuste: new Date(),
+                        reajusteExecutadoPorId: userId,
+                        reajusteExecutadoPorNome: reajusteSeguinte.executadoPorNome,
+                        tipoPeriodo: "REAJUSTE",
+                        origemPeriodo: "CALCULO_SISTEMA",
+                        diaVencimento: input.diaVencimento,
+                    },
+                })
+                : null;
             await sincronizarHistoricoLocacao(tx, locacao.id);
-            return salvo;
+            return { salvo, reajustado };
         });
 
         revalidatePath("/locacao");
         return {
             success: true as const,
             data: {
-                id: periodo.id,
+                id: periodosSalvos.salvo.id,
                 tipoPeriodo,
                 substituiuProvisorio: Boolean(periodoProvisorio),
+                reajusteCriado: Boolean(periodosSalvos.reajustado),
+                valorReajustado: periodosSalvos.reajustado?.valorAluguel ?? null,
             },
         };
     } catch (error: unknown) {
@@ -645,7 +760,7 @@ export const executarReajusteAutomatico = async (
                 }
                 novoValorAluguel = Number(opcoes.valorManual.toFixed(2));
                 percentualAplicado = Number(
-                    (((novoValorAluguel / periodoAnterior.valorAluguel) - 1) * 100).toFixed(4),
+                    (((novoValorAluguel / periodoAnterior.valorAluguel) - 1) * 100).toFixed(2),
                 );
             } else {
                 if (
@@ -655,7 +770,7 @@ export const executarReajusteAutomatico = async (
                 ) {
                     return { success: false as const, error: "Informe um percentual manual válido." };
                 }
-                percentualAplicado = Number(opcoes.percentualManual.toFixed(4));
+                percentualAplicado = Number(opcoes.percentualManual.toFixed(2));
                 novoValorAluguel = Number(
                     (periodoAnterior.valorAluguel * (1 + percentualAplicado / 100)).toFixed(2),
                 );
@@ -1096,10 +1211,13 @@ export const addPeriodoContratoLocacao = async (input: {
             }
         }
 
-        const percentualInformado = input.percentualReajuste ?? calcularPercentualEntreValores(
+        const percentualCalculado = input.percentualReajuste ?? calcularPercentualEntreValores(
             input.valorAluguelAnterior || 0,
             input.valorAluguel,
         );
+        const percentualInformado = percentualCalculado == null
+            ? null
+            : Number(percentualCalculado.toFixed(2));
 
         const novoPeriodo = await prisma.$transaction(async (tx) => {
             const criado = await tx.periodoContratoLocacao.create({ data: {
@@ -1207,10 +1325,13 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
             }
         }
 
-        const percentualInformado = input.percentualReajuste ?? calcularPercentualEntreValores(
+        const percentualCalculado = input.percentualReajuste ?? calcularPercentualEntreValores(
             input.valorAluguelAnterior || 0,
             input.valorAluguel,
         );
+        const percentualInformado = percentualCalculado == null
+            ? null
+            : Number(percentualCalculado.toFixed(2));
 
         const periodoAtualizado = await prisma.$transaction(async (tx) => {
             const atualizado = await tx.periodoContratoLocacao.update({ where: { id }, data: {

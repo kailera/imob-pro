@@ -11,7 +11,8 @@ import {
   MapPin,
   Loader2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from "lucide-react";
 import { TipoImovel } from "@/generated/prisma";
 import {
@@ -41,6 +42,7 @@ interface Imovel {
   loteamentoId?: string | null;
   loteamento?: { id: string; nome: string } | null;
   aluguelDados?: any;
+  highlight?: boolean;
 }
 
 const TIPO_LABELS: Record<TipoImovel, string> = {
@@ -68,6 +70,7 @@ export default function ImoveisClient({
   const [selectedTipoFilter, setSelectedTipoFilter] = useState<string>("TODOS");
   const [selectedModFilter, setSelectedModFilter] = useState<string>("TODOS");
   const [selectedAdminFilter, setSelectedAdminFilter] = useState<string>("TODOS");
+  const [selectedHighlightFilter, setSelectedHighlightFilter] = useState<string>("TODOS");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -89,7 +92,7 @@ export default function ImoveisClient({
   // Reset pagination when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTipoFilter, selectedModFilter, selectedAdminFilter]);
+  }, [searchQuery, selectedTipoFilter, selectedModFilter, selectedAdminFilter, selectedHighlightFilter]);
 
 
 
@@ -179,7 +182,12 @@ export default function ImoveisClient({
       (selectedAdminFilter === "PENDENTES" && isPending) ||
       (selectedAdminFilter === "REGULARES" && !isPending);
 
-    return matchesSearch && matchesTipo && matchesMod && matchesAdmin;
+    const matchesHighlight =
+      selectedHighlightFilter === "TODOS" ||
+      (selectedHighlightFilter === "DESTAQUE" && imovel.highlight === true) ||
+      (selectedHighlightFilter === "NAO_DESTAQUE" && !imovel.highlight);
+
+    return matchesSearch && matchesTipo && matchesMod && matchesAdmin && matchesHighlight;
   });
 
   const totalPages = Math.ceil(filteredImoveis.length / itemsPerPage);
@@ -284,6 +292,20 @@ export default function ImoveisClient({
               <option value="REGULARES">Sem Pendências</option>
             </select>
           </div>
+
+          {/* Destaque Filter */}
+          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+            <span className="text-xs font-semibold text-[#280003]/60">Destaque:</span>
+            <select
+              value={selectedHighlightFilter}
+              onChange={(e) => setSelectedHighlightFilter(e.target.value)}
+              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+            >
+              <option value="TODOS">Todos</option>
+              <option value="DESTAQUE">Apenas Destaques</option>
+              <option value="NAO_DESTAQUE">Não Destaques</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -306,6 +328,12 @@ export default function ImoveisClient({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-[#004777]">{imovel.codigo}</span>
+                      {imovel.highlight === true && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-yellow-700">
+                          <Star className="h-3 w-3 shrink-0 text-yellow-500 fill-yellow-500" />
+                          Destaque
+                        </span>
+                      )}
                       {imovel.aluguelDados?.precisaAtualizar === true && (
                         <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
@@ -408,6 +436,15 @@ export default function ImoveisClient({
                     <td className="px-3 py-4 text-sm font-bold text-[#004777]">
                       <div className="flex min-w-0 flex-col items-start gap-1">
                         <span className="break-words">{imovel.codigo}</span>
+                        {imovel.highlight === true && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-yellow-50 border border-yellow-200 text-yellow-700"
+                            title="Imóvel destacado na Vitrine do Site"
+                          >
+                            <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 shrink-0" />
+                            Destaque
+                          </span>
+                        )}
                         {imovel.aluguelDados?.precisaAtualizar === true && (
                           <span 
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 animate-pulse"

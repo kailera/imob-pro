@@ -103,6 +103,7 @@ model Imovel {
   banheiros Int?     @default(0)
   vagas     Int?     @default(0)
   publicado Boolean  @default(false)
+  highlight Boolean  @default(false)
 
   loteamentoId String?
   loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)

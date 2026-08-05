@@ -1,7 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calculator, MessageSquare, ShieldAlert, BadgePercent, Landmark, Loader2 } from "lucide-react";
+import { 
+  Calculator, 
+  MessageSquare, 
+  ShieldAlert, 
+  BadgePercent, 
+  Landmark, 
+  Loader2, 
+  MapPin, 
+  Clock, 
+  Home, 
+  CheckCircle2, 
+  PhoneCall, 
+  Sparkles,
+  Ruler
+} from "lucide-react";
 import { LotInfo } from "./SubdivisionMap";
 import { createLead } from "@/app/actions/leadActions";
 
@@ -10,12 +24,13 @@ interface FinanceSimulatorProps {
 }
 
 export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
-  // Valores padrão caso nenhum lote esteja selecionado
-  const lotPrice = selectedLot ? selectedLot.valorVenda : 9540000; // em centavos (R$ 95.400,00)
+  // Valores padrão com base nos dados reais do Loteamento Village Parra
+  // Lote padrão de 253 m² com valor total de R$ 95.400,00 (resultando em 180x de R$ 530,00)
+  const lotPrice = selectedLot ? selectedLot.valorVenda : 9540000; // em centavos
   const lotPriceReal = lotPrice / 100;
   
-  // Estado dos sliders
-  const [downPaymentPercent, setDownPaymentPercent] = useState(15); // porcentagem mínima (15%)
+  // Estado dos sliders (entrada inicia em 0% para mostrar a parcela inicial a partir de R$ 530,00 em 180x)
+  const [downPaymentPercent, setDownPaymentPercent] = useState(0); 
   const [installmentsCount, setInstallmentsCount] = useState(180); // 15 anos (180 meses)
   const [includeBaloes, setIncludeBaloes] = useState(false);
   const [balaoValue, setBalaoValue] = useState(5000); // R$ 5.000 por ano
@@ -29,7 +44,7 @@ export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
 
   // Resetar porcentagem de entrada ao mudar de lote
   useEffect(() => {
-    setDownPaymentPercent(15);
+    setDownPaymentPercent(0);
   }, [selectedLot]);
 
   // Cálculos financeiros
@@ -45,14 +60,17 @@ export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
   // Saldo a financiar
   const remainingPrincipal = Math.max(0, lotPriceReal - downPaymentValue - totalBaloesValue);
 
-  // Taxa de juros de loteamento (ex: 0.5% ao mês)
-  const monthlyInterestRate = 0.005; 
+  // Financiamento direto com a Construtora Parra (parcelamento facilitado)
+  const monthlyInterestRate = 0; // Taxa nominal direta 0% base para parcelas a partir de R$ 530,00
 
-  // Fórmula Price para cálculo de parcelas mensais: PMT = P * ( i * (1+i)^n ) / ( (1+i)^n - 1 )
   let monthlyInstallment = 0;
   if (remainingPrincipal > 0) {
-    const pow = Math.pow(1 + monthlyInterestRate, installmentsCount);
-    monthlyInstallment = remainingPrincipal * (monthlyInterestRate * pow) / (pow - 1);
+    if (monthlyInterestRate > 0) {
+      const pow = Math.pow(1 + monthlyInterestRate, installmentsCount);
+      monthlyInstallment = remainingPrincipal * (monthlyInterestRate * pow) / (pow - 1);
+    } else {
+      monthlyInstallment = remainingPrincipal / installmentsCount;
+    }
   }
 
   // Gerar link para o WhatsApp com resumo da simulação
@@ -67,7 +85,7 @@ export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
     const phone = "5518996942082";
     const lotDesc = selectedLot 
       ? `Quadra ${selectedLot.quadra}, Lote ${selectedLot.loteNumero} (${selectedLot.area}m²)` 
-      : "Lote Geral";
+      : "Lote Padrão Village Parra (253m²)";
     
     // Salvar o lead no banco de dados
     try {
@@ -77,7 +95,7 @@ export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
         email: leadEmail,
         loteInfo: lotDesc,
         valorSimulado: monthlyInstallment,
-        origem: "Village Parra - Simulador",
+        origem: "Village Parra - Simulador Oficial",
       });
     } catch (err) {
       console.error("Erro ao salvar lead em segundo plano:", err);
@@ -85,63 +103,128 @@ export function FinanceSimulator({ selectedLot }: FinanceSimulatorProps) {
 
     setIsSubmitting(false);
 
-    const message = `Olá! Gostaria de falar com um consultor sobre o loteamento Village Parra.
-Fiz uma simulação para o lote: *${lotDesc}*
-- *Nome:* ${leadName}
-- *Telefone:* ${leadPhone}
-- *Valor Total:* R$ ${lotPriceReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-- *Entrada (${downPaymentPercent}%):* R$ ${downPaymentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-- *Financiamento:* ${installmentsCount} parcelas mensais de *R$ ${monthlyInstallment.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}*
-${includeBaloes ? `- *Balões Anuais:* ${years}x de R$ ${balaoValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}\n` : ""}
-Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
+    const message = `Olá! Gostaria de atendimento exclusivo sobre o *Loteamento Village Parra*.
+
+📍 *Localização:* Avenida Atlântica, S/N, Zona Sul - Ilha Solteira - SP
+🏡 *Interesse:* ${lotDesc}
+
+👤 *Nome:* ${leadName}
+📞 *Telefone:* ${leadPhone}
+
+📊 *Resumo da Simulação:*
+• *Valor Total:* R$ ${lotPriceReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+• *Entrada (${downPaymentPercent}%):* R$ ${downPaymentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+• *Parcelamento Direto Construtora:* ${installmentsCount}x de *R$ ${monthlyInstallment.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}*
+${includeBaloes ? `• *Balões Anuais:* ${years}x de R$ ${balaoValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}\n` : ""}
+Gostaria de tirar dúvidas ou agendar uma visita no Plantão de Vendas (Sábado, 09h às 12h)!`;
 
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${phone}?text=${encodedMessage}`, "_blank");
   };
 
   return (
-    <div className="bg-white border border-zinc-200/80 rounded-2xl p-6 md:p-8 shadow-md space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-brand-bg-primary pb-5">
-        <div className="p-3 bg-brand-primary/10 rounded-xl text-brand-primary">
-          <Calculator className="w-6 h-6" />
+    <div className="bg-white border border-zinc-200/80 rounded-3xl p-6 md:p-8 shadow-xl space-y-8">
+      
+      {/* 1. Header do Simulador com Marca e Dados Reais */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-3.5 bg-brand-primary/10 rounded-2xl text-brand-primary">
+            <Calculator className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-brand-accent-gold/20 text-brand-text text-[10px] font-extrabold uppercase tracking-wider border border-brand-accent-gold/30">
+                Financiamento Direto Parra
+              </span>
+            </div>
+            <h3 className="text-2xl font-black text-brand-text mt-0.5">Simulador Village Parra</h3>
+            <p className="text-xs md:text-sm text-brand-text/60 font-medium">
+              Calcule as parcelas do seu terreno direto com a Construtora Parra Empreendimentos.
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-xl font-bold text-brand-text">Simulador de Vendas</h3>
-          <p className="text-xs md:text-sm text-brand-text/60">
-            Ajuste as condições e monte o plano de parcelamento ideal para o seu bolso.
-          </p>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-brand-bg-primary/40 p-3 rounded-2xl border border-zinc-200/60">
+          <div className="text-left">
+            <span className="text-[10px] uppercase font-bold text-brand-text/50 block">Parcelas a partir de</span>
+            <span className="text-xl font-black text-brand-primary">R$ 530,00 <span className="text-xs font-normal text-brand-text/60">/mês</span></span>
+          </div>
+          <div className="h-8 w-px bg-zinc-200 hidden sm:block"></div>
+          <div className="text-left">
+            <span className="text-[10px] uppercase font-bold text-brand-text/50 block">Prazo Facilitado</span>
+            <span className="text-sm font-extrabold text-brand-text">Em até 180x</span>
+          </div>
         </div>
       </div>
 
-      {/* Lot Status Header Banner if none selected */}
-      {!selectedLot && (
-        <div className="bg-brand-accent-gold/15 text-brand-text/90 rounded-xl p-4 flex gap-3 text-xs md:text-sm border border-brand-accent-gold/20 items-start">
-          <ShieldAlert className="w-5 h-5 text-brand-text shrink-0 mt-0.5" />
+      {/* 2. Informações Oficiais do Imóvel & Plantão */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-brand-bg-primary/20 rounded-2xl border border-brand-bg-primary/40 text-xs">
+        <div className="flex items-start gap-2.5">
+          <MapPin className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold">Nenhum lote selecionado no mapa acima:</span> Simulando com o valor base de lote padrão de *R$ {lotPriceReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}*. Escolha um lote específico no mapa acima para carregar os valores exatos.
+            <span className="font-bold text-brand-text block">Localização</span>
+            <span className="text-brand-text/70">Av. Atlântica, S/N, Zona Sul — Ilha Solteira/SP</span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2.5">
+          <Home className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-brand-text block">Ficha do Terreno</span>
+            <span className="text-brand-text/70">0 Qtd • 0 Baet • 0 Vag • 253 m² área</span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2.5">
+          <Clock className="w-4 h-4 text-brand-accent-green shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-brand-text block">Plantão de Vendas</span>
+            <span className="text-brand-text/70">Sábados, 09h às 12h (Village Parra 1)</span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2.5">
+          <PhoneCall className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-brand-text block">Vendas Exclusivas</span>
+            <span className="text-brand-text/70">Scatolin Imóveis • (18) 99694-2082</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Lot Status Banner */}
+      {!selectedLot && (
+        <div className="bg-brand-accent-gold/15 text-brand-text/90 rounded-2xl p-4 flex gap-3 text-xs md:text-sm border border-brand-accent-gold/30 items-start">
+          <Sparkles className="w-5 h-5 text-brand-text shrink-0 mt-0.5" />
+          <div>
+            <span className="font-extrabold text-brand-text">Simulação Base de Lote Padrão (253 m²):</span> Exibindo condições de R$ 95.400,00 com parcelas em 180x de <strong className="text-brand-primary font-black">R$ 530,00</strong>. Clique em qualquer lote do mapa para carregar o valor exato da quadra.
           </div>
         </div>
       )}
 
       {selectedLot && (
-        <div className="bg-brand-primary/5 rounded-xl p-4 flex items-center justify-between border border-brand-primary/10">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-brand-primary block tracking-wider">Lote Selecionado</span>
-            <span className="text-base font-extrabold text-brand-text">
-              Quadra {selectedLot.quadra} — Lote {selectedLot.loteNumero} ({selectedLot.area}m²)
-            </span>
+        <div className="bg-brand-primary/5 rounded-2xl p-4 flex items-center justify-between border border-brand-primary/15">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
+              <Ruler className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-brand-primary block tracking-wider">Lote Selecionado no Mapa</span>
+              <span className="text-base font-black text-brand-text">
+                Quadra {selectedLot.quadra} — Lote {selectedLot.loteNumero} ({selectedLot.area} m²)
+              </span>
+            </div>
           </div>
           <div className="text-right">
             <span className="text-[10px] uppercase font-bold text-brand-text/50 block tracking-wider">Valor do Lote</span>
-            <span className="text-xl font-extrabold text-brand-primary">
+            <span className="text-xl font-black text-brand-primary">
               R$ {lotPriceReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
       )}
 
-      {/* Grid: Sliders vs Results */}
+      {/* Grid: Sliders Controls vs Results */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Left Side: Sliders Controls */}
@@ -150,11 +233,14 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
           {/* Slider 1: Entrada (Down Payment) */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-sm font-bold text-brand-text">
+              <label className="text-sm font-bold text-brand-text flex items-center gap-1.5">
                 Valor da Entrada ({downPaymentPercent}%)
+                {downPaymentPercent === 0 && (
+                  <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded-full">Sem Entrada</span>
+                )}
               </label>
               
-              {/* Campo numérico sincronizado para facilitar no mobile */}
+              {/* Campo numérico sincronizado */}
               <div className="relative w-full sm:w-44">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-text/50">R$</span>
                 <input
@@ -164,7 +250,7 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
                   onChange={(e) => {
                     const valRaw = e.target.value.replace(/\D/g, "");
                     const valNum = Number(valRaw);
-                    const valPercent = Math.min(90, Math.max(10, (valNum / lotPriceReal) * 100));
+                    const valPercent = Math.min(90, Math.max(0, (valNum / lotPriceReal) * 100));
                     setDownPaymentPercent(Math.round(valPercent));
                   }}
                   className="w-full pl-8 pr-3 py-1.5 bg-brand-bg-primary/45 border border-zinc-200 focus:border-brand-primary rounded-xl text-right text-sm font-extrabold text-brand-primary focus:outline-none transition-colors"
@@ -174,7 +260,7 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
             
             <input
               type="range"
-              min="10"
+              min="0"
               max="90"
               step="5"
               value={downPaymentPercent}
@@ -182,7 +268,7 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
               className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-brand-primary"
             />
             <div className="flex justify-between text-[10px] font-bold text-brand-text/40">
-              <span>Mínimo (10%)</span>
+              <span>Sem Entrada (0%)</span>
               <span>Médio (50%)</span>
               <span>Máximo (90%)</span>
             </div>
@@ -192,10 +278,10 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-sm font-bold text-brand-text">
-                Prazo de Financiamento
+                Prazo de Financiamento (Até 180x)
               </label>
               
-              {/* Campo numérico sincronizado para facilitar no mobile */}
+              {/* Campo numérico sincronizado */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <input
                   type="number"
@@ -245,7 +331,7 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
                 </label>
               </div>
               {includeBaloes && (
-                <span className="text-xs font-extrabold bg-brand-accent-gold/20 text-brand-text px-2 py-0.5 rounded border border-brand-accent-gold/40">
+                <span className="text-xs font-extrabold bg-brand-accent-gold/20 text-brand-text px-2.5 py-0.5 rounded-full border border-brand-accent-gold/40">
                   {years} parcelas balão
                 </span>
               )}
@@ -256,7 +342,6 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <span className="text-xs text-brand-text/70">Valor de cada Balão (1 por ano):</span>
                   
-                  {/* Campo numérico sincronizado para facilitar no mobile */}
                   <div className="relative w-full sm:w-36">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-text/50">R$</span>
                     <input
@@ -281,38 +366,38 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
                   className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-brand-primary"
                 />
                 <span className="text-[10px] text-brand-text/50 block leading-snug">
-                  * Balões reduzem o saldo financiado mensal. Total de balões no período: R$ {totalBaloesValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  * Balões reduzem o valor das parcelas mensais. Total de balões no período: R$ {totalBaloesValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Simulation Results / Pricing */}
-        <div className="lg:col-span-5 flex flex-col justify-between bg-brand-text text-white p-6 md:p-8 rounded-2xl shadow-xl relative overflow-hidden">
+        {/* Right Side: Simulation Results / Lead Form */}
+        <div className="lg:col-span-5 flex flex-col justify-between bg-brand-text text-white p-6 md:p-8 rounded-3xl shadow-xl relative overflow-hidden">
           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:12px_12px]"></div>
           
           <div className="relative z-10 space-y-6">
             
             {/* Opção à Vista */}
-            <div className="border-b border-white/10 pb-5 space-y-2">
+            <div className="border-b border-white/10 pb-5 space-y-1.5">
               <div className="flex items-center gap-1.5 text-brand-accent-gold text-xs font-bold uppercase tracking-wider">
                 <BadgePercent className="w-4 h-4" />
-                Pagamento à Vista (10% Off)
+                Pagamento à Vista (10% OFF)
               </div>
-              <div className="text-3xl font-extrabold text-white tracking-tight">
+              <div className="text-3xl font-black text-white tracking-tight">
                 R$ {cashPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </div>
-              <p className="text-[11px] text-white/55 font-light">
-                Economia de R$ {(lotPriceReal * discountRate).toLocaleString("pt-BR")} no boleto ou Pix
+              <p className="text-[11px] text-white/60 font-light">
+                Economia de R$ {(lotPriceReal * discountRate).toLocaleString("pt-BR")} no pagamento à vista.
               </p>
             </div>
 
-            {/* Opção Financiada */}
+            {/* Opção Financiada Construtora Parra */}
             <div className="space-y-4">
-              <div className="flex items-center gap-1.5 text-brand-accent-green text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 text-brand-accent-gold text-xs font-bold uppercase tracking-wider">
                 <Landmark className="w-4 h-4 text-brand-accent-gold" />
-                Plano Loteadora (Financiamento)
+                Financiamento Construtora Parra
               </div>
               
               <div className="space-y-1">
@@ -321,14 +406,14 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
                   R$ {monthlyInstallment.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </div>
                 <span className="text-[10px] text-white/50 block font-light">
-                  Saldo financiado em {installmentsCount} parcelas com juros de 0.75% a.m.
+                  {installmentsCount} parcelas mensais facilitadas direto com a loteadora.
                 </span>
               </div>
 
               {/* Detalhes de Entrada */}
               <div className="grid grid-cols-2 gap-4 pt-3 text-xs border-t border-white/10">
                 <div>
-                  <span className="text-white/50 block text-[10px] uppercase font-semibold">Entrada</span>
+                  <span className="text-white/50 block text-[10px] uppercase font-semibold">Entrada ({downPaymentPercent}%)</span>
                   <span className="font-extrabold text-white">R$ {downPaymentValue.toLocaleString("pt-BR")}</span>
                 </div>
                 {includeBaloes && (
@@ -342,50 +427,53 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
 
           </div>
 
-          {/* Action CTA */}
-          <div className="pt-6 border-t border-white/10 space-y-4 relative z-10 text-left">
-            <h4 className="text-xs font-bold text-brand-accent-gold uppercase tracking-wider">Seus Dados de Contato</h4>
+          {/* Action CTA & Lead Form */}
+          <div className="pt-6 border-t border-white/10 space-y-3.5 relative z-10 text-left">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-brand-accent-gold uppercase tracking-wider">Fale com a Scatolin Imóveis</h4>
+              <span className="text-[10px] text-white/50">(18) 99694-2082</span>
+            </div>
             
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-bold text-white/60 block">Nome Completo</label>
+              <label className="text-[10px] uppercase font-bold text-white/70 block">Nome Completo</label>
               <input
                 type="text"
-                placeholder="Digite seu nome"
+                placeholder="Digite seu nome completo"
                 value={leadName}
                 onChange={(e) => setLeadName(e.target.value)}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-brand-accent-gold focus:outline-none rounded-lg text-sm text-white placeholder-white/30 transition-colors"
+                className="w-full px-3.5 py-2 bg-white/10 border border-white/15 focus:border-brand-accent-gold focus:outline-none rounded-xl text-sm text-white placeholder-white/40 transition-colors"
                 required
                 disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-bold text-white/60 block">Telefone / WhatsApp</label>
+              <label className="text-[10px] uppercase font-bold text-white/70 block">Telefone / WhatsApp</label>
               <input
                 type="text"
-                placeholder="(00) 00000-0000"
+                placeholder="(18) 99694-2082"
                 value={leadPhone}
                 onChange={(e) => setLeadPhone(e.target.value)}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-brand-accent-gold focus:outline-none rounded-lg text-sm text-white placeholder-white/30 transition-colors"
+                className="w-full px-3.5 py-2 bg-white/10 border border-white/15 focus:border-brand-accent-gold focus:outline-none rounded-xl text-sm text-white placeholder-white/40 transition-colors"
                 required
                 disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-bold text-white/60 block">E-mail (Opcional)</label>
+              <label className="text-[10px] uppercase font-bold text-white/70 block">E-mail (Opcional)</label>
               <input
                 type="email"
                 placeholder="seuemail@exemplo.com"
                 value={leadEmail}
                 onChange={(e) => setLeadEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-brand-accent-gold focus:outline-none rounded-lg text-sm text-white placeholder-white/30 transition-colors"
+                className="w-full px-3.5 py-2 bg-white/10 border border-white/15 focus:border-brand-accent-gold focus:outline-none rounded-xl text-sm text-white placeholder-white/40 transition-colors"
                 disabled={isSubmitting}
               />
             </div>
             
             {formError && (
-              <span className="text-[10px] text-red-300 font-bold block bg-red-950/40 p-2 rounded border border-red-900/30 text-center">
+              <span className="text-[10px] text-red-300 font-bold block bg-red-950/50 p-2 rounded-lg border border-red-800/40 text-center">
                 {formError}
               </span>
             )}
@@ -400,11 +488,13 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
               ) : (
                 <MessageSquare className="w-4 h-4 fill-current" />
               )}
-              {isSubmitting ? "Salvando Simulação..." : "Simular e Reservar no WhatsApp"}
+              {isSubmitting ? "Enviando Simulação..." : "Simular e Reservar no WhatsApp"}
             </button>
-            <span className="text-[9px] text-white/40 block text-center mt-2.5 font-light">
-              Financiamento sujeito a análise simplificada direta pela loteadora.
-            </span>
+            
+            <div className="flex items-center justify-center gap-1.5 text-[9px] text-white/50 text-center pt-1 font-light">
+              <CheckCircle2 className="w-3 h-3 text-brand-accent-green shrink-0" />
+              <span>Plantão aos sábados (09h-12h) em frente ao Village Parra 1.</span>
+            </div>
           </div>
 
         </div>
@@ -413,3 +503,4 @@ Tenho interesse em agendar uma visita ou prosseguir com a reserva!`;
     </div>
   );
 }
+

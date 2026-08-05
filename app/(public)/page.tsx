@@ -19,6 +19,7 @@ export default async function PublicHome() {
   const rawImoveis = await prisma.imovel.findMany({
     where: {
       publicado: true,
+      highlight: true,
       NOT: {
         codigo: {
           startsWith: "LOTE-"

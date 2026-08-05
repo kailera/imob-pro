@@ -7,6 +7,7 @@ import { INDICES_REAJUSTE } from "@/lib/indices/catalogo";
 import { parseNumeroFlexivel } from "@/lib/locacao/financeiro";
 import {
   criarPeriodoPelaAgenda,
+  type PainelIndiceReajuste,
   type SugestaoPeriodoAgenda,
 } from "../actions/actions";
 
@@ -15,6 +16,7 @@ interface CriarPeriodoAgendaFormProps {
   imovelLocacaoId: string;
   inquilino: string;
   sugestao: SugestaoPeriodoAgenda;
+  indices: PainelIndiceReajuste[];
   onCancel: () => void;
   onSaved: (mensagem: string) => void;
 }
@@ -24,6 +26,7 @@ export function CriarPeriodoAgendaForm({
   imovelLocacaoId,
   inquilino,
   sugestao,
+  indices,
   onCancel,
   onSaved,
 }: CriarPeriodoAgendaFormProps) {
@@ -39,6 +42,22 @@ export function CriarPeriodoAgendaForm({
   );
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const indiceSelecionado = indices.find((indice) => indice.codigo === indiceReajuste);
+  const aluguelBase = parseNumeroFlexivel(valorAluguel) ?? 0;
+  const percentualIndice = indiceSelecionado?.percentualAcumulado ?? null;
+  const percentualAplicado = percentualIndice != null
+    ? percentualIndice < 0 && manterValorDeflacao ? 0 : percentualIndice
+    : null;
+  const aluguelCorrigido = percentualAplicado != null
+    ? Number((aluguelBase * (1 + percentualAplicado / 100)).toFixed(2))
+    : null;
+  const aumentoEmReais = aluguelCorrigido != null
+    ? Number((aluguelCorrigido - aluguelBase).toFixed(2))
+    : null;
+  const podeCriarReajuste = sugestao.tipoPeriodo === "BASE"
+    && Boolean(sugestao.proximoPeriodoInicio && sugestao.proximoPeriodoFim)
+    && percentualIndice != null
+    && !indiceSelecionado?.erro;
 
   const salvar = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,6 +78,7 @@ export function CriarPeriodoAgendaForm({
       diaVencimento: diaVencimento ? Number(diaVencimento) : null,
       manterValorDeflacao,
       periodoProvisorioId: sugestao.periodoProvisorioId,
+      criarReajusteSeguinte: podeCriarReajuste,
     });
     setSalvando(false);
 
@@ -68,7 +88,9 @@ export function CriarPeriodoAgendaForm({
     }
 
     onSaved(
-      resultado.data.substituiuProvisorio
+      resultado.data.reajusteCriado
+        ? `Período-base confirmado e novo período criado com aluguel de ${formatarMoeda(resultado.data.valorReajustado)}.`
+        : resultado.data.substituiuProvisorio
         ? "Período provisório confirmado e histórico atualizado."
         : "Período criado e histórico atualizado.",
     );
@@ -167,6 +189,43 @@ export function CriarPeriodoAgendaForm({
         </label>
       </div>
 
+      {sugestao.tipoPeriodo === "BASE" && sugestao.proximoPeriodoInicio && sugestao.proximoPeriodoFim && (
+        <section className="mt-4 rounded-2xl border border-[#004777]/20 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-xs font-black text-[#280003]">Novo período com reajuste</h4>
+              <p className="mt-1 text-[10px] text-gray-500">
+                {formatarData(sugestao.proximoPeriodoInicio)} a {formatarData(sugestao.proximoPeriodoFim)}
+              </p>
+            </div>
+            <span className="rounded-full bg-[#004777]/10 px-3 py-1 text-[10px] font-black text-[#004777]">
+              {indiceSelecionado?.nome || indiceReajuste}
+            </span>
+          </div>
+
+          {indiceSelecionado?.erro ? (
+            <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">
+              Índice indisponível: {indiceSelecionado.erro}
+            </p>
+          ) : percentualIndice == null ? (
+            <p className="mt-3 text-[10px] font-bold text-amber-700">Não há valor acumulado disponível para este índice.</p>
+          ) : (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <ResumoCalculo rotulo="Índice acumulado" valor={formatarPercentual(percentualIndice)} />
+              <ResumoCalculo rotulo="Percentual aplicado" valor={formatarPercentual(percentualAplicado)} />
+              <ResumoCalculo rotulo="Aumento do aluguel" valor={formatarMoeda(aumentoEmReais)} />
+              <ResumoCalculo rotulo="Novo aluguel" valor={formatarMoeda(aluguelCorrigido)} destaque />
+            </div>
+          )}
+
+          {podeCriarReajuste && (
+            <p className="mt-3 text-[10px] font-semibold text-emerald-700">
+              Ao salvar, o período-base e este novo período reajustado serão criados juntos.
+            </p>
+          )}
+        </section>
+      )}
+
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[10px] font-semibold text-gray-700">
           <input
@@ -194,11 +253,34 @@ export function CriarPeriodoAgendaForm({
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#004777] px-4 text-[10px] font-black text-white hover:bg-[#003355] disabled:cursor-wait disabled:opacity-60"
             >
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {salvando ? "Salvando..." : "Salvar período"}
+              {salvando ? "Salvando..." : podeCriarReajuste ? "Salvar base e reajuste" : "Salvar período"}
             </button>
           </div>
         </div>
       </div>
     </form>
+  );
+}
+
+function formatarMoeda(valor: number | null) {
+  if (valor == null) return "—";
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatarPercentual(valor: number | null) {
+  if (valor == null) return "—";
+  return `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+function formatarData(valor: string) {
+  return new Date(`${valor}T00:00:00.000Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+}
+
+function ResumoCalculo({ rotulo, valor, destaque = false }: { rotulo: string; valor: string; destaque?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${destaque ? "border-emerald-200 bg-emerald-50" : "border-gray-100 bg-gray-50"}`}>
+      <p className="text-[9px] font-bold uppercase tracking-wide text-gray-400">{rotulo}</p>
+      <p className={`mt-1 text-sm font-black ${destaque ? "text-emerald-700" : "text-[#280003]"}`}>{valor}</p>
+    </div>
   );
 }

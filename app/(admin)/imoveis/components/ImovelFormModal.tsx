@@ -29,6 +29,7 @@ interface Imovel {
   loteamento?: { id: string; nome: string } | null;
   aluguelDados?: any;
   publicado?: boolean;
+  highlight?: boolean;
   titulo?: string;
   descricao?: string | null;
   quartos?: number | null;
@@ -122,6 +123,7 @@ export default function ImovelFormModal({
   const [parcelasIntermediacao, setParcelasIntermediacao] = useState<{ data: string; valor: string }[]>([]);
   const [novaParcelaData, setNovaParcelaData] = useState("");
   const [novaParcelaValor, setNovaParcelaValor] = useState("");
+  const [outrasContas, setOutrasContas] = useState<{ nome: string; valor: string }[]>([]);
 
   // Locadores / Proprietários
   const [allLocadores, setAllLocadores] = useState<any[]>([]);
@@ -159,6 +161,7 @@ export default function ImovelFormModal({
 
   // Vitrine / Institutional states
   const [publicado, setPublicado] = useState(false);
+  const [highlight, setHighlight] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [quartos, setQuartos] = useState("0");
@@ -234,6 +237,7 @@ export default function ImovelFormModal({
       setIrrfResponsabilidade(d.irrfResponsabilidade || "LOCADOR");
       setParcelasIntermediacao(d.parcelasIntermediacao || [{ data: "2024-12-19", valor: "1050,00" }]);
       setPrecisaAtualizar(d.precisaAtualizar === true);
+      setOutrasContas(d.outrasContas || []);
       const pId = d.proprietarioId || "";
       const pObj = d.proprietario || allLocadores.find((l) => l.id === pId) || null;
       setProprietarioId(pId);
@@ -248,6 +252,7 @@ export default function ImovelFormModal({
       setAbrangenciaGarantia(d.abrangenciaGarantia || "SOMENTE_ALUGUEL");
 
       setPublicado(editingImovel.publicado || false);
+      setHighlight(editingImovel.highlight || false);
       setTitulo(editingImovel.titulo || "");
       setDescricao(editingImovel.descricao || "");
       setQuartos(String(editingImovel.quartos ?? 0));
@@ -304,8 +309,10 @@ export default function ImovelFormModal({
       setEmail("");
       setPeriodoCarencia("NAO_GARANTIR");
       setAbrangenciaGarantia("SOMENTE_ALUGUEL");
+      setOutrasContas([]);
 
       setPublicado(false);
+      setHighlight(false);
       setTitulo("");
       setDescricao("");
       setQuartos("0");
@@ -318,6 +325,24 @@ export default function ImovelFormModal({
     setNovaParcelaData("");
     setNovaParcelaValor("");
   }, [editingImovel, isOpen]);
+
+  const handleAddOutraConta = () => {
+    setOutrasContas([...outrasContas, { nome: "", valor: "" }]);
+  };
+
+  const handleRemoveOutraConta = (index: number) => {
+    setOutrasContas(outrasContas.filter((_, i) => i !== index));
+  };
+
+  const handleOutraContaChange = (index: number, key: "nome" | "valor", value: string) => {
+    const updated = [...outrasContas];
+    if (key === "valor") {
+      updated[index].valor = formatBRL(value);
+    } else {
+      updated[index].nome = value;
+    }
+    setOutrasContas(updated);
+  };
 
   const handleSelectLocador = (locadorId: string) => {
     setProprietarioId(locadorId);
@@ -573,6 +598,7 @@ export default function ImovelFormModal({
     },
     periodoCarencia,
     abrangenciaGarantia,
+    outrasContas,
   });
 
   const parseBRLToNumber = (val: string): number => {
@@ -581,6 +607,11 @@ export default function ImovelFormModal({
     if (!numStr) return 0;
     return parseFloat(numStr) / 100;
   };
+
+  const valorTotalLocacao = parseBRLToNumber(valorAluguel) + 
+    parseBRLToNumber(valorCondominio) + 
+    parseBRLToNumber(valorIPTU) + 
+    outrasContas.reduce((acc, c) => acc + parseBRLToNumber(c.valor), 0);
 
   const previewPrice = forLocacao 
     ? parseBRLToNumber(valorAluguel) 
@@ -676,6 +707,18 @@ export default function ImovelFormModal({
                         <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
                           <span className="block text-[10px] text-zinc-400 font-semibold uppercase">IPTU</span>
                           <span className="font-bold text-zinc-800 text-xs">{valorIPTU || "R$ 0,00"}</span>
+                        </div>
+                        {outrasContas.map((conta, idx) => (
+                          <div key={idx} className="bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                            <span className="block text-[10px] text-zinc-400 font-semibold uppercase truncate">{conta.nome || "Outra Conta"}</span>
+                            <span className="font-bold text-zinc-800 text-xs">{conta.valor ? `R$ ${conta.valor}` : "R$ 0,00"}</span>
+                          </div>
+                        ))}
+                        <div className="bg-zinc-50 p-2 rounded-lg border border-zinc-100 col-span-2 flex items-center justify-between">
+                          <span className="text-[10px] text-[#004777] font-bold uppercase">Total Locação</span>
+                          <span className="font-bold text-[#004777] text-xs">
+                            {valorTotalLocacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
                         </div>
                       </>
                     )}
@@ -1154,419 +1197,52 @@ export default function ImovelFormModal({
                             </div>
                           </div>
 
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Reajuste e Rescisão</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Índice de Reajuste</label>
-                                <select
-                                  value={indiceReajuste}
-                                  onChange={(e) => setIndiceReajuste(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                >
-                                  {INDICES_REAJUSTE.map((indice) => (
-                                    <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="relative">
-                                <label className="block text-xs font-bold text-[#280003] mb-1">
-                                  Multa por Quebra de Contrato*:
-                                </label>
-                                <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
+                          <div className="space-y-4 pt-4 border-t border-zinc-200/60">
+                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Outros Custos / Contas Adicionais</h5>
+                            
+                            {outrasContas.map((conta, index) => (
+                              <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end bg-[#EEEEF3]/25 p-4 rounded-2xl border border-zinc-150 relative group animate-fade-in">
+                                <div className="sm:col-span-2">
+                                  <label className="block text-xs font-bold text-[#280003] mb-1.5">Descrição da Conta / Custo</label>
                                   <input
                                     type="text"
-                                    placeholder={multaQuebraTipo === "VALOR" ? "Ex: R$ 3.000,00" : "Ex: 10,00 %"}
-                                    required={forLocacao}
-                                    value={multaQuebraValor}
-                                    onChange={(e) => {
-                                      if (multaQuebraTipo === "VALOR") {
-                                        setMultaQuebraValor(formatBRL(e.target.value));
-                                      } else {
-                                        let val = e.target.value.replace(/[^\d,]/g, "");
-                                        setMultaQuebraValor(val ? `${val} %` : "");
-                                      }
-                                    }}
-                                    className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
+                                    placeholder="Ex: Gás, Internet, Taxa Lixo, Água..."
+                                    value={conta.nome}
+                                    onChange={(e) => handleOutraContaChange(index, "nome", e.target.value)}
+                                    className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMultaQuebraTipo("MESES");
-                                      setShowMesesPopover(!showMesesPopover);
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 bg-zinc-50 border-l border-zinc-200 text-xs font-semibold text-[#004777] hover:bg-zinc-100 transition-colors"
-                                  >
-                                    <span className="text-sm">📅</span>
-                                    Meses
-                                  </button>
                                 </div>
-
-                                {showMesesPopover && (
-                                  <div className="absolute right-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
-                                    <div className="space-y-3">
-                                      <label className="block text-xs font-semibold text-gray-600">
-                                        Informe a multa em meses:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={multaEmMesesInput}
-                                        onChange={(e) => setMultaEmMesesInput(e.target.value)}
-                                        placeholder="Ex: 3.6"
-                                        className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                      />
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={handleConfirmarMeses}
-                                          className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
-                                        >
-                                          ✓ OK
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => setShowMesesPopover(false)}
-                                          className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
-                                        >
-                                          ✕ Cancelar
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Quebra Vence em</label>
-                                <input
-                                  type="date"
-                                  value={dataVenceQuebra}
-                                  onChange={(e) => setDataVenceQuebra(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Pontualidade</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className="relative">
-                                <label className="block text-xs font-bold text-[#280003] mb-1">
-                                  Desconto pontualidade:
-                                </label>
-                                <div className="flex rounded-xl border border-zinc-200 bg-white focus-within:ring-2 focus-within:ring-[#004777]/20 overflow-hidden">
-                                  <input
-                                    type="text"
-                                    placeholder="Ex: 8,33 %"
-                                    value={descontoPontualidade.includes("%") ? descontoPontualidade : `${descontoPontualidade} %`}
-                                    onChange={(e) => {
-                                      setDescontoTipo("PERCENTUAL");
-                                      let val = e.target.value.replace(/[^\d,]/g, "");
-                                      setDescontoPontualidade(val ? `${val} %` : "");
-                                    }}
-                                    className="block w-full border-0 px-3.5 py-2 text-sm text-[#280003] focus:outline-none"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const aluguelNumerico = parseFloat(valorAluguel.replace(/\D/g, "")) / 100;
-                                      const descPct = parseFloat(descontoPontualidade.replace(/[^\d,]/g, "").replace(",", "."));
-                                      if (!isNaN(aluguelNumerico) && !isNaN(descPct)) {
-                                        const valorSugerido = (descPct / 100) * aluguelNumerico;
-                                        setDescontoEmReaisInput(formatBRL(String(Math.round(valorSugerido * 100))));
-                                      }
-                                      setShowPontualidadeBrlPopover(!showPontualidadeBrlPopover);
-                                    }}
-                                    className="flex items-center justify-center px-4 bg-[#6366F1] text-xs font-bold text-white hover:bg-[#4F46E5] transition-colors"
-                                  >
-                                    R$
-                                  </button>
-                                </div>
-
-                                {showPontualidadeBrlPopover && (
-                                  <div className="absolute left-0 mt-2 p-4 bg-white rounded-xl shadow-xl border border-zinc-100 z-50 w-64 animate-fade-in">
-                                    <div className="space-y-3">
-                                      <label className="block text-xs font-semibold text-gray-600">
-                                        Informe o valor em reais:
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={descontoEmReaisInput}
-                                        onChange={(e) => setDescontoEmReaisInput(formatBRL(e.target.value))}
-                                        placeholder="Ex: R$ 150,00"
-                                        className="block w-full border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                      />
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={handleConfirmarDescontoBrl}
-                                          className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1"
-                                        >
-                                          ✓ OK
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => setShowPontualidadeBrlPopover(false)}
-                                          className="flex-1 bg-red-600 text-white rounded-lg py-1.5 text-xs font-bold hover:bg-red-700 flex items-center justify-center gap-1"
-                                        >
-                                          ✕ Cancelar
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Desc. até quantos dias antes? *</label>
-                                <input
-                                  type="number"
-                                  required={forLocacao}
-                                  value={diasDescontoPontualidade}
-                                  onChange={(e) => setDiasDescontoPontualidade(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Multas e Encargos de Atraso</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Multa por Atraso (%)</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: 10,00"
-                                  value={multaAtraso}
-                                  onChange={(e) => setMultaAtraso(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar multa após quantos dias? *</label>
-                                <input
-                                  type="number"
-                                  required={forLocacao}
-                                  value={carenciaMulta}
-                                  onChange={(e) => setCarenciaMulta(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Juros Mensal pro-rata (%)</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: 1,00"
-                                  value={jurosMensal}
-                                  onChange={(e) => setJurosMensal(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Cobrar juros após quantos dias? *</label>
-                                <input
-                                  type="number"
-                                  required={forLocacao}
-                                  value={carenciaJuros}
-                                  onChange={(e) => setCarenciaJuros(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Honorários Advocatícios (%)</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: 100,00"
-                                  value={honorariosAdv}
-                                  onChange={(e) => setHonorariosAdv(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Carência dos honorários (dias)</label>
-                                <input
-                                  type="number"
-                                  value={carenciaHonorarios}
-                                  onChange={(e) => setCarenciaHonorarios(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Repasse e Garantia</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Carência Repasse (dias úteis/corridos) *</label>
-                                <input
-                                  type="text"
-                                  required={forLocacao}
-                                  value={carenciaRepasse}
-                                  onChange={(e) => setCarenciaRepasse(e.target.value.replace(/\D/g, ""))}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Período Garantido *</label>
-                                <select
-                                  value={periodoCarencia}
-                                  onChange={(e) => setPeriodoCarencia(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                >
-                                  <option value="NAO_GARANTIR">Não Garantir</option>
-                                  <option value="GARANTIR_VIGENCIA_CONTRATOS">Garantir pela vigência do contrato</option>
-                                  <option value="GARANTIR_DEVOLUCAO_CHAVES">Garantir até a devolução das chaves</option>
-                                  <option value="GARANTIR_PAGAMENTO_1">Garantir 1 pagamento</option>
-                                  <option value="GARANTIR_PAGAMENTO_2">Garantir 2 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_3">Garantir 3 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_4">Garantir 4 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_5">Garantir 5 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_6">Garantir 6 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_7">Garantir 7 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_8">Garantir 8 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_9">Garantir 9 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_10">Garantir 10 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_11">Garantir 11 pagamentos</option>
-                                  <option value="GARANTIR_PAGAMENTO_12">Garantir 12 pagamentos</option>
-                                </select>
-                              </div>
-
-                              <div className="col-span-1 sm:col-span-2">
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Abrangência da garantia do aluguel *</label>
-                                <select
-                                  value={abrangenciaGarantia}
-                                  onChange={(e) => setAbrangenciaGarantia(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                >
-                                  <option value="SOMENTE_ALUGUEL">Somente o Aluguel</option>
-                                  <option value="ALUGUEL_LANCAMENTOS">Aluguel e demais lançamentos</option>
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Administração</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Taxa de Administração (%) *</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: 10,00"
-                                  required={forLocacao}
-                                  value={taxaAdministracao}
-                                  onChange={(e) => setTaxaAdministracao(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-[#280003] mb-1">Taxa sobre Multas e Encargos (%)</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: 50,00"
-                                  value={taxaMultasEncargos}
-                                  onChange={(e) => setTaxaMultasEncargos(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Retenção IRRF</h5>
-                            <div>
-                              <label className="block text-xs font-bold text-[#280003] mb-2">Responsabilidade de retenção</label>
-                              <div className="flex flex-wrap gap-4">
-                                {["LOCATARIO", "ADMINISTRADORA", "LOCADOR"].map((role) => (
-                                  <label key={role} className="flex items-center gap-2 text-sm font-medium text-[#280003] cursor-pointer">
+                                <div className="flex gap-2 items-center">
+                                  <div className="flex-1">
+                                    <label className="block text-xs font-bold text-[#280003] mb-1.5">Valor (R$)</label>
                                     <input
-                                      type="radio"
-                                      value={role}
-                                      checked={irrfResponsabilidade === role}
-                                      onChange={() => setIrrfResponsabilidade(role)}
-                                      className="h-4.5 w-4.5 text-[#004777] accent-[#004777]"
+                                      type="text"
+                                      placeholder="0,00"
+                                      value={conta.valor}
+                                      onChange={(e) => handleOutraContaChange(index, "valor", e.target.value)}
+                                      className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                                     />
-                                    {role === "LOCATARIO" ? "Locatário" : role === "ADMINISTRADORA" ? "Administradora" : "Locador"}
-                                  </label>
-                                ))}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveOutraConta(index)}
+                                    className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors mt-6 shrink-0 cursor-pointer border border-zinc-100"
+                                    title="Remover conta"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          </div>
+                            ))}
 
-                          <div className="space-y-3 pt-4 border-t border-zinc-200/60">
-                            <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider">Parcelas de Intermediação (apenas para conferência)</h5>
-
-                            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-                              <table className="w-full text-left text-xs">
-                                <thead className="bg-[#EEEEF3]/40 border-b border-zinc-200">
-                                  <tr>
-                                    <th className="px-4 py-2 font-bold text-[#280003]/60">Data</th>
-                                    <th className="px-4 py-2 font-bold text-[#280003]/60">Valor</th>
-                                    <th className="px-4 py-2 font-bold text-[#280003]/60 text-right">Ação</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-150">
-                                  {parcelasIntermediacao.map((p, idx) => (
-                                    <tr key={idx}>
-                                      <td className="px-4 py-2">{p.data.split("-").reverse().join("/")}</td>
-                                      <td className="px-4 py-2">R$ {p.valor}</td>
-                                      <td className="px-4 py-2 text-right">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveParcela(idx)}
-                                          className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
-                                        >
-                                          Remover
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                  {parcelasIntermediacao.length === 0 && (
-                                    <tr>
-                                      <td colSpan={3} className="px-4 py-3 text-center text-[#280003]/40">Nenhuma parcela cadastrada.</td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                              <div className="flex-1">
-                                <input
-                                  type="date"
-                                  value={novaParcelaData}
-                                  onChange={(e) => setNovaParcelaData(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <input
-                                  type="text"
-                                  placeholder="Valor (Ex: 1.050,00)"
-                                  value={novaParcelaValor}
-                                  onChange={(e) => setNovaParcelaValor(e.target.value)}
-                                  className="block w-full border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-[#280003] bg-white focus:outline-none"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleAddParcela}
-                                className="bg-[#004777] text-white px-4 py-1.5 rounded-xl hover:bg-[#003355] text-xs font-bold transition-all cursor-pointer shadow-sm"
-                              >
-                                Adicionar Parcela
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={handleAddOutraConta}
+                              className="inline-flex items-center gap-2 text-[#004777] hover:text-[#003355] text-xs font-bold transition-all p-2.5 hover:bg-[#EEEEF3]/50 rounded-xl cursor-pointer border border-dashed border-[#004777]/25 w-full justify-center bg-zinc-50/50"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Adicionar outra conta / custo
+                            </button>
                           </div>
                         </div>
                       )}
@@ -1598,6 +1274,22 @@ export default function ImovelFormModal({
                         <div>
                           <span className="block text-sm font-semibold text-[#280003]">Publicar imóvel no site institucional</span>
                           <span className="text-xs text-[#280003]/50">Habilita a exibição pública do imóvel na vitrine digital e buscas.</span>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="highlight"
+                          checked={highlight}
+                          onChange={(e) => setHighlight(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-[#280003]">Destacar imóvel no site</span>
+                          <span className="text-xs text-[#280003]/50">Exibe o imóvel na seção de destaques da página inicial pública.</span>
                         </div>
                       </label>
                     </div>
