@@ -200,7 +200,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
           </div>
 
           {/* Property Features/Specs */}
-          <div className="grid grid-cols-4 gap-2 pt-4 border-t border-brand-bg-primary text-xs font-medium text-brand-text/80">
+          <div className={`grid ${property.area && property.area > 0 ? "grid-cols-4" : "grid-cols-3"} gap-2 pt-4 border-t border-brand-bg-primary text-xs font-medium text-brand-text/80`}>
             
             <div className="flex flex-col items-center justify-center p-1.5 bg-brand-bg-primary/40 rounded-lg hover:bg-brand-bg-primary transition-colors text-center" title="Quartos">
               <Bed className="w-4 h-4 text-brand-primary mb-1" />
@@ -217,10 +217,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
               <span className="font-bold text-brand-text text-[11px]">{property.parking} {property.parking === 1 ? "Vaga" : "Vagas"}</span>
             </div>
 
-            <div className="flex flex-col items-center justify-center p-1.5 bg-brand-bg-primary/40 rounded-lg hover:bg-brand-bg-primary transition-colors text-center" title="Área Útil">
-              <Maximize2 className="w-4 h-4 text-brand-primary mb-1" />
-              <span className="font-bold text-brand-text text-[11px]">{property.area} m²</span>
-            </div>
+            {property.area && property.area > 0 ? (
+              <div className="flex flex-col items-center justify-center p-1.5 bg-brand-bg-primary/40 rounded-lg hover:bg-brand-bg-primary transition-colors text-center" title="Área Útil">
+                <Maximize2 className="w-4 h-4 text-brand-primary mb-1" />
+                <span className="font-bold text-brand-text text-[11px]">{property.area} m²</span>
+              </div>
+            ) : null}
 
           </div>
         </div>
@@ -292,7 +294,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
                 </div>
 
                 {/* Features Row */}
-                <div className="grid grid-cols-4 gap-2 py-4 border-y border-zinc-100 text-xs font-semibold text-zinc-700">
+                <div className={`grid ${property.area && property.area > 0 ? "grid-cols-4" : "grid-cols-3"} gap-2 py-4 border-y border-zinc-100 text-xs font-semibold text-zinc-700`}>
                   <div className="flex flex-col items-center p-2 bg-zinc-50 rounded-xl text-center">
                     <Bed className="w-5 h-5 text-brand-primary mb-1" />
                     <span>{property.beds} {property.beds === 1 ? "Quarto" : "Quartos"}</span>
@@ -305,10 +307,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
                     <Car className="w-5 h-5 text-brand-primary mb-1" />
                     <span>{property.parking} {property.parking === 1 ? "Vaga" : "Vagas"}</span>
                   </div>
-                  <div className="flex flex-col items-center p-2 bg-zinc-50 rounded-xl text-center">
-                    <Maximize2 className="w-5 h-5 text-brand-primary mb-1" />
-                    <span>{property.area} m²</span>
-                  </div>
+                  {property.area && property.area > 0 ? (
+                    <div className="flex flex-col items-center p-2 bg-zinc-50 rounded-xl text-center">
+                      <Maximize2 className="w-5 h-5 text-brand-primary mb-1" />
+                      <span>{property.area} m²</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Description */}

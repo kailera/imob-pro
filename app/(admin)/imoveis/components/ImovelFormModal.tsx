@@ -13,6 +13,8 @@ interface Imovel {
   id: string;
   codigo: string;
   numero: number;
+  logradouro?: string | null;
+  complemento?: string | null;
   bairro: string;
   cidade: string;
   uf: string;
@@ -183,6 +185,8 @@ export default function ImovelFormModal({
       setCidade(editingImovel.cidade);
       setUf(editingImovel.uf);
       setBairro(editingImovel.bairro);
+      setRua(editingImovel.logradouro || "");
+      setComplemento(editingImovel.complemento || "");
       setNumero(String(editingImovel.numero));
       setForVenda(editingImovel.forVenda);
       setForLocacao(editingImovel.forLocacao);
@@ -267,6 +271,8 @@ export default function ImovelFormModal({
       setCidade("");
       setUf("");
       setBairro("");
+      setRua("");
+      setComplemento("");
       setNumero("");
       setForVenda(true);
       setForLocacao(false);
@@ -1054,14 +1060,12 @@ export default function ImovelFormModal({
                           className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
                         />
                       </div>
-
                       <div className="col-span-3">
-                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Complemento *</label>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Complemento</label>
                         <input
                           type="text"
                           name="complemento"
                           placeholder="Ex: Bloco 1, Casa 1"
-                          required
                           value={complemento}
                           onChange={(e) => setComplemento(e.target.value)}
                           className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] placeholder-[#280003]/30 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] transition-all bg-white"
@@ -1340,13 +1344,11 @@ export default function ImovelFormModal({
                           className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
                         />
                       </div>
-
                       <div>
-                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Área Útil (m²) {publicado && "*"}</label>
+                        <label className="block text-xs font-bold text-[#280003] mb-1.5">Área Útil (m²)</label>
                         <input
                           type="number"
                           name="area"
-                          required={publicado}
                           value={area}
                           onChange={(e) => setArea(e.target.value)}
                           className="block w-full border border-zinc-200 rounded-xl px-3.5 py-2 text-sm text-[#280003] bg-white focus:outline-none focus:ring-2 focus:ring-[#004777]/20"

@@ -27,6 +27,8 @@ interface Imovel {
   id: string;
   codigo: string;
   numero: number;
+  logradouro?: string | null;
+  complemento?: string | null;
   bairro: string;
   cidade: string;
   uf: string;

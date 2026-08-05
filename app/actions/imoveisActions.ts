@@ -79,6 +79,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     const cepStr = formData.get("cep") as string;
     const cidade = formData.get("cidade") as string;
     const uf = formData.get("uf") as string;
+    const logradouro = formData.get("rua") as string | null;
+    const complemento = formData.get("complemento") as string | null;
     const bairro = formData.get("bairro") as string;
     const numeroStr = formData.get("numero") as string;
     const forVenda = formData.get("forVenda") === "on";
@@ -111,7 +113,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     const imagens = imagensJson ? JSON.parse(imagensJson) : [];
 
     // Validate inputs
-    if (!bairro || !cidade || !uf || !cepStr || !numeroStr) {
+    if (!bairro || !cidade || !uf || !cepStr || !numeroStr || !logradouro) {
       return { success: false, error: "Preencha todos os campos obrigatórios de endereço." };
     }
 
@@ -287,6 +289,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
         data: {
           codigo: finalCodigo,
           numero,
+          logradouro,
+          complemento,
           bairro,
           cidade,
           uf: uf.toUpperCase(),
@@ -327,6 +331,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
         data: {
           codigo: finalCodigo,
           numero,
+          logradouro,
+          complemento,
           bairro,
           cidade,
           uf: uf.toUpperCase(),
