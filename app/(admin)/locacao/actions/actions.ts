@@ -122,7 +122,6 @@ export interface SugestaoPeriodoAgenda {
     dataFim: string;
     valorAluguel: number;
     indiceReajuste: string;
-    diaVencimento: number | null;
     tipoPeriodo: "BASE" | "REAJUSTE";
     manterValorDeflacao: boolean;
     periodoProvisorioId: string | null;
@@ -299,10 +298,6 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
                         || periodoProvisorio?.indiceReajuste
                         || locacao.indiceReajuste,
                     ) || "IGP-M",
-                    diaVencimento: periodoAnterior?.diaVencimento
-                        ?? periodoSeguinte?.diaVencimento
-                        ?? periodoProvisorio?.diaVencimento
-                        ?? locacao.diaVencimento,
                     tipoPeriodo: tipoPeriodoSugerido,
                     manterValorDeflacao: periodoAnterior?.manterValorDeflacao
                         ?? periodoProvisorio?.manterValorDeflacao
@@ -425,7 +420,6 @@ export const criarPeriodoPelaAgenda = async (input: {
     dataFim: string;
     valorAluguel: number;
     indiceReajuste: string;
-    diaVencimento: number | null;
     manterValorDeflacao: boolean;
     periodoProvisorioId: string | null;
     criarReajusteSeguinte?: boolean;
@@ -436,14 +430,6 @@ export const criarPeriodoPelaAgenda = async (input: {
         if (!Number.isFinite(input.valorAluguel) || input.valorAluguel <= 0) {
             return { success: false as const, error: "Informe um valor de aluguel maior que zero." };
         }
-        if (input.diaVencimento != null && (
-            !Number.isInteger(input.diaVencimento)
-            || input.diaVencimento < 1
-            || input.diaVencimento > 31
-        )) {
-            return { success: false as const, error: "O dia de vencimento deve estar entre 1 e 31." };
-        }
-
         const indiceReajuste = normalizarCodigoIndice(input.indiceReajuste);
         if (!indiceReajuste) {
             return { success: false as const, error: "Selecione um índice de reajuste suportado." };
@@ -500,6 +486,7 @@ export const criarPeriodoPelaAgenda = async (input: {
         }
 
         const modeloFinanceiro = periodoAnterior || periodoProvisorio;
+        const diaVencimentoHerdado = modeloFinanceiro?.diaVencimento ?? locacao.diaVencimento;
         const valorCondominio = modeloFinanceiro?.valorCondominio || 0;
         const valorIPTU = modeloFinanceiro?.valorIPTU || 0;
         const percentualReajuste = tipoPeriodo === "REAJUSTE" && periodoAnterior
@@ -531,7 +518,7 @@ export const criarPeriodoPelaAgenda = async (input: {
             reajusteExecutadoPorNome: null,
             tipoPeriodo,
             origemPeriodo: "MANUAL",
-            diaVencimento: input.diaVencimento,
+            diaVencimento: diaVencimentoHerdado,
         };
 
         let reajusteSeguinte: {
@@ -643,7 +630,7 @@ export const criarPeriodoPelaAgenda = async (input: {
                         reajusteExecutadoPorNome: reajusteSeguinte.executadoPorNome,
                         tipoPeriodo: "REAJUSTE",
                         origemPeriodo: input.valorReajusteSeguinte == null ? "CALCULO_SISTEMA" : "MANUAL",
-                        diaVencimento: input.diaVencimento,
+                        diaVencimento: diaVencimentoHerdado,
                     },
                 })
                 : null;

@@ -34,9 +34,6 @@ export function CriarPeriodoAgendaForm({
   const [dataFim, setDataFim] = useState(sugestao.dataFim);
   const [valorAluguel, setValorAluguel] = useState(sugestao.valorAluguel.toFixed(2));
   const [indiceReajuste, setIndiceReajuste] = useState(sugestao.indiceReajuste);
-  const [diaVencimento, setDiaVencimento] = useState(
-    sugestao.diaVencimento?.toString() ?? "",
-  );
   const [manterValorDeflacao, setManterValorDeflacao] = useState(
     sugestao.manterValorDeflacao,
   );
@@ -84,7 +81,6 @@ export function CriarPeriodoAgendaForm({
       dataFim,
       valorAluguel: aluguel,
       indiceReajuste,
-      diaVencimento: diaVencimento ? Number(diaVencimento) : null,
       manterValorDeflacao,
       periodoProvisorioId: sugestao.periodoProvisorioId,
       criarReajusteSeguinte: podeCriarReajuste,
@@ -141,7 +137,7 @@ export function CriarPeriodoAgendaForm({
         <p>{sugestao.aviso}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
           Vigência inicial
           <input
@@ -187,18 +183,6 @@ export function CriarPeriodoAgendaForm({
               <option key={indice.codigo} value={indice.codigo}>{indice.nome}</option>
             ))}
           </select>
-        </label>
-        <label className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
-          Dia de vencimento
-          <input
-            type="number"
-            min={1}
-            max={31}
-            value={diaVencimento}
-            onChange={(event) => setDiaVencimento(event.target.value)}
-            placeholder="1 a 31"
-            className="mt-1 min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]/30"
-          />
         </label>
       </div>
 
