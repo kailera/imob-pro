@@ -98,6 +98,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     // Vitrine / Institutional site fields
     const publicado = formData.get("publicado") === "on";
     const highlight = formData.get("highlight") === "on";
+    const alugado = formData.get("alugado") === "on";
+    const vendido = formData.get("vendido") === "on";
     const titulo = (formData.get("titulo") as string | null) || "";
     const descricao = formData.get("descricao") as string | null;
     const quartosStr = formData.get("quartos") as string | null;
@@ -309,6 +311,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           aluguelDados,
           publicado,
           highlight,
+          alugado,
+          vendido,
           titulo,
           descricao,
           quartos,
@@ -352,6 +356,8 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           imobId,
           publicado,
           highlight,
+          alugado,
+          vendido,
           titulo,
           descricao,
           quartos,

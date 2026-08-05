@@ -104,6 +104,8 @@ model Imovel {
   vagas     Int?     @default(0)
   publicado Boolean  @default(false)
   highlight Boolean  @default(false)
+  alugado   Boolean  @default(false)
+  vendido   Boolean  @default(false)
 
   loteamentoId String?
   loteamento   Loteamento? @relation(fields: [loteamentoId], references: [id], onDelete: Cascade)

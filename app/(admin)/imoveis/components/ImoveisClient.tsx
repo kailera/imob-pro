@@ -12,7 +12,9 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Star
+  Star,
+  SlidersHorizontal,
+  X
 } from "lucide-react";
 import { TipoImovel } from "@/generated/prisma";
 import {
@@ -44,7 +46,16 @@ interface Imovel {
   loteamentoId?: string | null;
   loteamento?: { id: string; nome: string } | null;
   aluguelDados?: any;
+  publicado?: boolean;
   highlight?: boolean;
+  alugado?: boolean;
+  vendido?: boolean;
+  titulo?: string;
+  descricao?: string | null;
+  quartos?: number | null;
+  banheiros?: number | null;
+  vagas?: number | null;
+  area?: number;
 }
 
 const TIPO_LABELS: Record<TipoImovel, string> = {
@@ -76,6 +87,13 @@ export default function ImoveisClient({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Filtros Avançados
+  const [filterTitulo, setFilterTitulo] = useState("");
+  const [filterEndereco, setFilterEndereco] = useState("");
+  const [filterPrecoMin, setFilterPrecoMin] = useState<number | "">("");
+  const [filterPrecoMax, setFilterPrecoMax] = useState<number | "">("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
   // State for Create/Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingImovel, setEditingImovel] = useState<Imovel | null>(null);
@@ -94,7 +112,17 @@ export default function ImoveisClient({
   // Reset pagination when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTipoFilter, selectedModFilter, selectedAdminFilter, selectedHighlightFilter]);
+  }, [
+    searchQuery,
+    selectedTipoFilter,
+    selectedModFilter,
+    selectedAdminFilter,
+    selectedHighlightFilter,
+    filterTitulo,
+    filterEndereco,
+    filterPrecoMin,
+    filterPrecoMax
+  ]);
 
 
 
@@ -165,12 +193,51 @@ export default function ImoveisClient({
 
   // Filter and search logic
   const filteredImoveis = imoveis.filter((imovel) => {
+    // 1. Pesquisa geral (código, bairro, cidade, tipo, título, rua)
     const matchesSearch =
       imovel.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
       imovel.bairro.toLowerCase().includes(searchQuery.toLowerCase()) ||
       imovel.cidade.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (imovel.titulo && imovel.titulo.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (imovel.logradouro && imovel.logradouro.toLowerCase().includes(searchQuery.toLowerCase())) ||
       TIPO_LABELS[imovel.tipo].toLowerCase().includes(searchQuery.toLowerCase());
 
+    // 2. Filtros avançados dedicados
+    const matchesTitulo =
+      !filterTitulo ||
+      (imovel.titulo && imovel.titulo.toLowerCase().includes(filterTitulo.toLowerCase()));
+
+    const matchesEndereco =
+      !filterEndereco ||
+      (imovel.logradouro && imovel.logradouro.toLowerCase().includes(filterEndereco.toLowerCase())) ||
+      (imovel.bairro && imovel.bairro.toLowerCase().includes(filterEndereco.toLowerCase())) ||
+      (imovel.cidade && imovel.cidade.toLowerCase().includes(filterEndereco.toLowerCase())) ||
+      (imovel.complemento && imovel.complemento.toLowerCase().includes(filterEndereco.toLowerCase())) ||
+      (imovel.cep && String(imovel.cep).includes(filterEndereco));
+
+    const checkPriceMinMax = (value: number | null | undefined) => {
+      if (value === null || value === undefined) return false;
+      const priceReal = value / 100;
+      if (filterPrecoMin !== "" && priceReal < filterPrecoMin) return false;
+      if (filterPrecoMax !== "" && priceReal > filterPrecoMax) return false;
+      return true;
+    };
+
+    let matchesPreco = true;
+    if (filterPrecoMin !== "" || filterPrecoMax !== "") {
+      const hasVendaMatch = imovel.forVenda && checkPriceMinMax(imovel.valorVenda);
+      const hasLocacaoMatch = imovel.forLocacao && checkPriceMinMax(imovel.valorAluguel);
+
+      if (selectedModFilter === "VENDA") {
+        matchesPreco = hasVendaMatch;
+      } else if (selectedModFilter === "LOCACAO") {
+        matchesPreco = hasLocacaoMatch;
+      } else {
+        matchesPreco = hasVendaMatch || hasLocacaoMatch;
+      }
+    }
+
+    // 3. Filtros padrão
     const matchesTipo = selectedTipoFilter === "TODOS" || imovel.tipo === selectedTipoFilter;
 
     const matchesMod =
@@ -189,7 +256,16 @@ export default function ImoveisClient({
       (selectedHighlightFilter === "DESTAQUE" && imovel.highlight === true) ||
       (selectedHighlightFilter === "NAO_DESTAQUE" && !imovel.highlight);
 
-    return matchesSearch && matchesTipo && matchesMod && matchesAdmin && matchesHighlight;
+    return (
+      matchesSearch &&
+      matchesTitulo &&
+      matchesEndereco &&
+      matchesPreco &&
+      matchesTipo &&
+      matchesMod &&
+      matchesAdmin &&
+      matchesHighlight
+    );
   });
 
   const totalPages = Math.ceil(filteredImoveis.length / itemsPerPage);
@@ -233,82 +309,170 @@ export default function ImoveisClient({
       )}
 
       {/* Filters Bar */}
-      <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-sm flex flex-col md:flex-row gap-5 items-center justify-between">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-[#280003]/40" />
+      <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-sm flex flex-col gap-5">
+        <div className="flex flex-col md:flex-row gap-5 items-center justify-between">
+          <div className="flex w-full md:w-auto items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 md:w-80">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-[#280003]/40" />
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar por código, bairro, cidade..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-4 py-2.5 border border-zinc-200 shadow-sm rounded-xl leading-5 bg-white placeholder-[#280003]/40 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-sm text-[#280003] transition-all"
+              />
+            </div>
+
+            {/* Toggle Advanced Filters Button */}
+            <button
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${
+                showAdvancedFilters
+                  ? "bg-[#004777] text-white border-[#004777] shadow-sm"
+                  : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+              }`}
+              title="Filtros Avançados"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
+            </button>
           </div>
-          <input
-            type="text"
-            placeholder="Buscar por código, bairro, cidade..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-10 pr-4 py-2.5 border border-zinc-200 shadow-sm rounded-xl leading-5 bg-white placeholder-[#280003]/40 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-sm text-[#280003] transition-all"
-          />
+
+          {/* Filters Selectors */}
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* Tipo Filter */}
+            <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+              <span className="text-xs font-semibold text-[#280003]/60">Tipo:</span>
+              <select
+                value={selectedTipoFilter}
+                onChange={(e) => setSelectedTipoFilter(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+              >
+                <option value="TODOS">Todos os Tipos</option>
+                <option value="CASA">Casa</option>
+                <option value="CONDOMINIO">Condomínio</option>
+                <option value="LOTE">Lote</option>
+                <option value="COMERCIAL">Comercial</option>
+                <option value="RURAL">Rural</option>
+              </select>
+            </div>
+
+            {/* Modalidade Filter */}
+            <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+              <span className="text-xs font-semibold text-[#280003]/60">Modalidade:</span>
+              <select
+                value={selectedModFilter}
+                onChange={(e) => setSelectedModFilter(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+              >
+                <option value="TODOS">Todas as Modalidades</option>
+                <option value="VENDA">Apenas Venda</option>
+                <option value="LOCACAO">Apenas Locação</option>
+              </select>
+            </div>
+
+            {/* Pendência Admin Filter */}
+            <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+              <span className="text-xs font-semibold text-[#280003]/60">Pendências:</span>
+              <select
+                value={selectedAdminFilter}
+                onChange={(e) => setSelectedAdminFilter(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+              >
+                <option value="TODOS">Todos</option>
+                <option value="PENDENTES">Com Pendências</option>
+                <option value="REGULARES">Sem Pendências</option>
+              </select>
+            </div>
+
+            {/* Destaque Filter */}
+            <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
+              <span className="text-xs font-semibold text-[#280003]/60">Destaque:</span>
+              <select
+                value={selectedHighlightFilter}
+                onChange={(e) => setSelectedHighlightFilter(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
+              >
+                <option value="TODOS">Todos</option>
+                <option value="DESTAQUE">Apenas Destaques</option>
+                <option value="NAO_DESTAQUE">Não Destaques</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Filters Selectors */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Tipo Filter */}
-          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
-            <span className="text-xs font-semibold text-[#280003]/60">Tipo:</span>
-            <select
-              value={selectedTipoFilter}
-              onChange={(e) => setSelectedTipoFilter(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
-            >
-              <option value="TODOS">Todos os Tipos</option>
-              <option value="CASA">Casa</option>
-              <option value="CONDOMINIO">Condomínio</option>
-              <option value="LOTE">Lote</option>
-              <option value="COMERCIAL">Comercial</option>
-              <option value="RURAL">Rural</option>
-            </select>
-          </div>
+        {/* Collapsible Advanced Filters Section */}
+        {showAdvancedFilters && (
+          <div className="pt-4 border-t border-zinc-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+            {/* Título */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Título do Imóvel</label>
+              <input
+                type="text"
+                placeholder="Ex: Casa duplex..."
+                value={filterTitulo}
+                onChange={(e) => setFilterTitulo(e.target.value)}
+                className="block w-full px-3 py-2 border border-zinc-200 rounded-xl text-sm placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-[#280003] transition-all bg-zinc-50/50"
+              />
+            </div>
 
-          {/* Modalidade Filter */}
-          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
-            <span className="text-xs font-semibold text-[#280003]/60">Modalidade:</span>
-            <select
-              value={selectedModFilter}
-              onChange={(e) => setSelectedModFilter(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
-            >
-              <option value="TODOS">Todas as Modalidades</option>
-              <option value="VENDA">Apenas Venda</option>
-              <option value="LOCACAO">Apenas Locação</option>
-            </select>
-          </div>
+            {/* Endereço */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Endereço (Rua, Bairro, CEP)</label>
+              <input
+                type="text"
+                placeholder="Ex: Alameda das Flores..."
+                value={filterEndereco}
+                onChange={(e) => setFilterEndereco(e.target.value)}
+                className="block w-full px-3 py-2 border border-zinc-200 rounded-xl text-sm placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-[#280003] transition-all bg-zinc-50/50"
+              />
+            </div>
 
-          {/* Pendência Admin Filter */}
-          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
-            <span className="text-xs font-semibold text-[#280003]/60">Pendências:</span>
-            <select
-              value={selectedAdminFilter}
-              onChange={(e) => setSelectedAdminFilter(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
-            >
-              <option value="TODOS">Todos</option>
-              <option value="PENDENTES">Com Pendências</option>
-              <option value="REGULARES">Sem Pendências</option>
-            </select>
-          </div>
+            {/* Preço Mínimo */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Preço Mínimo (R$)</label>
+              <input
+                type="number"
+                placeholder="Mínimo em R$"
+                value={filterPrecoMin === "" ? "" : filterPrecoMin}
+                onChange={(e) => setFilterPrecoMin(e.target.value === "" ? "" : Number(e.target.value))}
+                className="block w-full px-3 py-2 border border-zinc-200 rounded-xl text-sm placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-[#280003] transition-all bg-zinc-50/50"
+              />
+            </div>
 
-          {/* Destaque Filter */}
-          <div className="flex items-center gap-2 bg-[#EEEEF3]/60 px-3 py-1.5 rounded-xl border border-zinc-100">
-            <span className="text-xs font-semibold text-[#280003]/60">Destaque:</span>
-            <select
-              value={selectedHighlightFilter}
-              onChange={(e) => setSelectedHighlightFilter(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-[#280003] outline-none border-none cursor-pointer"
-            >
-              <option value="TODOS">Todos</option>
-              <option value="DESTAQUE">Apenas Destaques</option>
-              <option value="NAO_DESTAQUE">Não Destaques</option>
-            </select>
+            {/* Preço Máximo */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Preço Máximo (R$)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="Máximo em R$"
+                  value={filterPrecoMax === "" ? "" : filterPrecoMax}
+                  onChange={(e) => setFilterPrecoMax(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="block w-full px-3 py-2 border border-zinc-200 rounded-xl text-sm placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#004777]/20 focus:border-[#004777] text-[#280003] transition-all bg-zinc-50/50"
+                />
+                {(filterTitulo || filterEndereco || filterPrecoMin !== "" || filterPrecoMax !== "") && (
+                  <button
+                    onClick={() => {
+                      setFilterTitulo("");
+                      setFilterEndereco("");
+                      setFilterPrecoMin("");
+                      setFilterPrecoMax("");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100 flex items-center gap-1 cursor-pointer transition-all"
+                    title="Limpar todos os filtros avançados"
+                  >
+                    <X className="h-3 w-3" />
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Table Container */}
@@ -334,6 +498,16 @@ export default function ImoveisClient({
                         <span className="inline-flex items-center gap-1 rounded-md border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-yellow-700">
                           <Star className="h-3 w-3 shrink-0 text-yellow-500 fill-yellow-500" />
                           Destaque
+                        </span>
+                      )}
+                      {imovel.alugado === true && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-bold text-zinc-700">
+                          Alugado
+                        </span>
+                      )}
+                      {imovel.vendido === true && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                          Vendido
                         </span>
                       )}
                       {imovel.aluguelDados?.precisaAtualizar === true && (
@@ -445,6 +619,22 @@ export default function ImoveisClient({
                           >
                             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 shrink-0" />
                             Destaque
+                          </span>
+                        )}
+                        {imovel.alugado === true && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-50 border border-zinc-200 text-zinc-700"
+                            title="Imóvel alugado"
+                          >
+                            Alugado
+                          </span>
+                        )}
+                        {imovel.vendido === true && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 border border-rose-200 text-rose-700"
+                            title="Imóvel vendido"
+                          >
+                            Vendido
                           </span>
                         )}
                         {imovel.aluguelDados?.precisaAtualizar === true && (

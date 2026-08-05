@@ -32,6 +32,8 @@ interface Imovel {
   aluguelDados?: any;
   publicado?: boolean;
   highlight?: boolean;
+  alugado?: boolean;
+  vendido?: boolean;
   titulo?: string;
   descricao?: string | null;
   quartos?: number | null;
@@ -164,6 +166,8 @@ export default function ImovelFormModal({
   // Vitrine / Institutional states
   const [publicado, setPublicado] = useState(false);
   const [highlight, setHighlight] = useState(false);
+  const [alugado, setAlugado] = useState(false);
+  const [vendido, setVendido] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [quartos, setQuartos] = useState("0");
@@ -257,6 +261,8 @@ export default function ImovelFormModal({
 
       setPublicado(editingImovel.publicado || false);
       setHighlight(editingImovel.highlight || false);
+      setAlugado(editingImovel.alugado || false);
+      setVendido(editingImovel.vendido || false);
       setTitulo(editingImovel.titulo || "");
       setDescricao(editingImovel.descricao || "");
       setQuartos(String(editingImovel.quartos ?? 0));
@@ -319,6 +325,8 @@ export default function ImovelFormModal({
 
       setPublicado(false);
       setHighlight(false);
+      setAlugado(false);
+      setVendido(false);
       setTitulo("");
       setDescricao("");
       setQuartos("0");
@@ -1294,6 +1302,38 @@ export default function ImovelFormModal({
                         <div>
                           <span className="block text-sm font-semibold text-[#280003]">Destacar imóvel no site</span>
                           <span className="text-xs text-[#280003]/50">Exibe o imóvel na seção de destaques da página inicial pública.</span>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="alugado"
+                          checked={alugado}
+                          onChange={(e) => setAlugado(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-[#280003]">Marcar imóvel como alugado</span>
+                          <span className="text-xs text-[#280003]/50">Exibe uma sinalização de indisponibilidade/alugado, mantendo a visualização pública.</span>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-[#EEEEF3]/25 rounded-xl border border-zinc-100">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="vendido"
+                          checked={vendido}
+                          onChange={(e) => setVendido(e.target.checked)}
+                          className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
+                        />
+                        <div>
+                          <span className="block text-sm font-semibold text-[#280003]">Marcar imóvel como vendido</span>
+                          <span className="text-xs text-[#280003]/50">Exibe uma sinalização de indisponibilidade/vendido, mantendo a visualização pública.</span>
                         </div>
                       </label>
                     </div>

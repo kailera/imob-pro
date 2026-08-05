@@ -32,7 +32,19 @@ export default async function PublicHome() {
     take: 3
   });
 
-  const properties = rawImoveis.map((im) => ({
+  const sortedRawImoveis = [...rawImoveis].sort((a, b) => {
+    const aDisponivel = !a.alugado && !a.vendido;
+    const bDisponivel = !b.alugado && !b.vendido;
+
+    if (aDisponivel && !bDisponivel) return -1;
+    if (!aDisponivel && bDisponivel) return 1;
+
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  const properties = sortedRawImoveis.map((im) => ({
     id: im.id,
     title: im.titulo || "Imóvel Scatolin",
     type: im.tipo === "CASA" ? "Casa" : im.tipo === "CONDOMINIO" ? "Apartamento" : im.tipo === "LOTE" ? "Lote" : im.tipo === "COMERCIAL" ? "Comercial" : "Rural",
@@ -48,7 +60,9 @@ export default async function PublicHome() {
     neighborhood: im.bairro,
     city: `${im.cidade}/${im.uf}`,
     condoFee: im.forLocacao && im.valorCondominio ? im.valorCondominio / 100 : null,
-    iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null
+    iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null,
+    alugado: im.alugado || false,
+    vendido: im.vendido || false
   }));
 
   // Buscar configurações do site salvas no banco

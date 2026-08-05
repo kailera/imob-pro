@@ -24,6 +24,8 @@ export interface Property {
   longitude?: number | null;
   condoFee?: number | null;
   iptu?: number | null;
+  alugado?: boolean;
+  vendido?: boolean;
 }
 
 interface PropertyCardProps {
@@ -163,7 +165,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
           />
           
           {/* Operation Badge */}
-          <div className="absolute top-4 left-4 z-10">
+          <div className="absolute top-4 left-4 z-10 flex gap-2">
             <span className={`inline-block font-bold text-xs uppercase px-3 py-1.5 rounded-lg shadow-md ${
               property.operation === "venda"
                 ? "bg-brand-accent-gold text-brand-text"
@@ -171,6 +173,16 @@ export function PropertyCard({ property }: PropertyCardProps) {
             }`}>
               {property.operation === "venda" ? "Venda" : "Locação"}
             </span>
+            {property.alugado && (
+              <span className="inline-block font-bold text-xs uppercase px-3 py-1.5 rounded-lg shadow-md bg-zinc-500 text-white">
+                Alugado
+              </span>
+            )}
+            {property.vendido && (
+              <span className="inline-block font-bold text-xs uppercase px-3 py-1.5 rounded-lg shadow-md bg-rose-600 text-white">
+                Vendido
+              </span>
+            )}
           </div>
 
           {/* Type Badge */}
@@ -305,8 +317,20 @@ export function PropertyCard({ property }: PropertyCardProps) {
                   <h2 className="text-xl md:text-2xl font-bold text-zinc-900 leading-tight">
                     {property.title}
                   </h2>
-                  <div className="text-3xl font-extrabold text-brand-primary mt-2">
-                    {formattedPrice}
+                  <div className="flex items-center flex-wrap gap-2 mt-2">
+                    <div className="text-3xl font-extrabold text-brand-primary">
+                      {formattedPrice}
+                    </div>
+                    {property.alugado && (
+                      <span className="inline-block font-bold text-xs uppercase px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-600 border border-zinc-200">
+                        Alugado
+                      </span>
+                    )}
+                    {property.vendido && (
+                      <span className="inline-block font-bold text-xs uppercase px-2.5 py-1 rounded-md bg-rose-50 text-rose-600 border border-rose-100">
+                        Vendido
+                      </span>
+                    )}
                   </div>
                   {property.operation === "locacao" && (property.condoFee || property.iptu) && (
                     <div className="text-sm font-bold text-brand-text/60 mt-1.5 flex flex-wrap items-center gap-1.5">

@@ -107,7 +107,8 @@ export function MapSearchContainer({ initialProperties }: MapSearchContainerProp
       if (p.latitude != null && p.longitude != null) {
         return mapBounds.contains([p.latitude, p.longitude]);
       }
-      return false;
+      // Se o imóvel não tiver coordenadas válidas, exibe na lista para que não fique invisível na busca
+      return true;
     }
     return true;
   });
