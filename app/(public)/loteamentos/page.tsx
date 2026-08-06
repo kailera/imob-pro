@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Loteamento Village Parra | Ilha Solteira - SP",
-  description: "Terrenos a partir de 253 m² ao lado do Residencial Portal do Sol e em frente ao Beach Tennis. Condições facilitadas de pagamento com parcelas em até 180x a partir de R$ 530,00 direto com a construtora.",
+  description: "Terrenos a partir de 253 m² ao lado do Residencial Portal do Sol e em frente ao Beach Tennis. Condições facilitadas de pagamento com parcelas em até 156x a partir de R$ 577,00 direto com a construtora.",
 };
 
 export default async function LoteamentosPage() {
@@ -40,22 +40,8 @@ export default async function LoteamentosPage() {
       }))
     : defaultLots;
 
-  // Infraestrutura em porcentagem
-  const infraStats = loteamento?.infraestrutura as Record<string, number> || {
-    asfalto: 100,
-    agua: 100,
-    esgoto: 100,
-    energia: 100,
-    lazer: 85,
-  };
-
-  const infraItems = [
-    { name: "Asfalto & Pavimentação", val: infraStats.asfalto },
-    { name: "Rede de Água Tratada", val: infraStats.agua },
-    { name: "Rede de Coleta de Esgoto", val: infraStats.esgoto },
-    { name: "Rede Elétrica e Iluminação", val: infraStats.energia },
-    { name: "Área de Lazer & Beach Tennis", val: infraStats.lazer },
-  ];
+  const coordsJson = loteamento?.coordenadasSvg as { mapaUrl?: string } | null;
+  const mapaUrl = coordsJson?.mapaUrl || null;
 
   return (
     <div className="min-h-screen bg-brand-bg-primary/20 space-y-0">
@@ -79,7 +65,7 @@ export default async function LoteamentosPage() {
             Loteamento <span className="text-brand-accent-gold font-black">Village Parra</span>
           </h1>
           <p className="text-sm md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed font-light drop-shadow-sm">
-            O espaço perfeito para você construir o seu futuro. Localização privilegiada ao lado do Residencial Portal do Sol e em frente ao Beach Tennis. Terrenos amplos com parcelamento em até 180x!
+            O espaço perfeito para você construir o seu futuro. Localização privilegiada ao lado do Residencial Portal do Sol e em frente ao Beach Tennis. Terrenos amplos com parcelamento em até 156x!
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
@@ -87,13 +73,13 @@ export default async function LoteamentosPage() {
               href="#mapa-section"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand-primary text-white font-bold text-sm shadow-lg hover:shadow-xl hover:bg-brand-primary/95 transition-all cursor-pointer"
             >
-              Escolher Lote no Mapa
+              Lotes Disponíveis
             </a>
             <a 
-              href="#simulador-section"
+              href="#pagamento-section"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white/10 text-white font-bold text-sm border border-white/20 hover:bg-white/20 transition-all cursor-pointer"
             >
-              Simular Parcelamento
+              Condições de Pagamento
             </a>
           </div>
         </div>
@@ -182,7 +168,7 @@ export default async function LoteamentosPage() {
             <ShieldCheck className="w-10 h-10 text-brand-primary shrink-0 group-hover:scale-110 transition-transform" />
             <div>
               <h4 className="font-extrabold text-brand-text text-base">Financiamento Direto</h4>
-              <p className="text-xs text-brand-text/60 leading-relaxed mt-1">Parcelas facilitadas em até 180x direto com a Construtora Parra Empreendimentos.</p>
+              <p className="text-xs text-brand-text/60 leading-relaxed mt-1">Parcelas facilitadas em até 156x direto com a Construtora Parra Empreendimentos.</p>
             </div>
           </div>
 
@@ -197,103 +183,41 @@ export default async function LoteamentosPage() {
         </div>
       </section>
 
-      {/* 4. Descrição Geral com Grid */}
+      {/* 4. Descrição Geral */}
       <section className="py-20 bg-white">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-          <div className="md:col-span-7 space-y-6">
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Sobre o Empreendimento</span>
-              <h2 className="text-3xl font-extrabold text-brand-text leading-tight">Village Parra: Construa Seu Futuro Aqui</h2>
-            </div>
-            <div className="text-brand-text/80 text-sm md:text-base leading-relaxed space-y-4 font-light">
-              <p>
-                O Loteamento Village Parra é o novo endereço dos seus sonhos, em uma localização privilegiada, ao lado do Residencial Portal do Sol e bem em frente ao Beach Tennis. Os lotes estão incríveis, com condições imperdíveis.
-              </p>
-              <p>
-                São terrenos amplos, a partir de 253 m², equivalentes a um lote de aproximadamente 20 x 13 metros, perfeitos para quem busca espaço e conforto. As condições de pagamento são facilitadas, com parcelas em até 180x e valores a partir de R$ 530,00.
-              </p>
-              <p>
-                O financiamento é direto com a construtora Parra Empreendimentos, garantindo praticidade e segurança na hora de comprar o seu terreno. O Village Parra é ideal tanto para quem deseja morar bem, quanto para quem quer investir com tranquilidade e valorização garantida.
-              </p>
-            </div>
+        <div className="max-w-4xl mx-auto px-4 space-y-6">
+          <div className="space-y-2 text-center md:text-left">
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Sobre o Empreendimento</span>
+            <h2 className="text-3xl font-extrabold text-brand-text leading-tight">Village Parra: Construa Seu Futuro Aqui</h2>
           </div>
-          
-          <div className="md:col-span-5 bg-brand-bg-primary/40 rounded-3xl p-8 border border-brand-bg-primary/70 space-y-5">
-            <h3 className="font-bold text-brand-text text-lg border-b border-brand-bg-primary pb-3">Ficha Técnica do Lote</h3>
-            <ul className="space-y-3 text-xs md:text-sm text-brand-text/80">
-              <li className="flex justify-between font-medium">
-                <span>Quartos:</span>
-                <span className="font-bold">0 Quartos (Terreno)</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Banheiros:</span>
-                <span className="font-bold">0 Banheiros (Terreno)</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Vagas:</span>
-                <span className="font-bold">0 Vagas (Terreno)</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Área Total Lote:</span>
-                <span className="font-bold">A partir de 253 m²</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Área Construída:</span>
-                <span className="font-bold">0 m² (A construir)</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Preço Parcelas:</span>
-                <span className="font-extrabold text-brand-primary">A partir de R$ 530,00</span>
-              </li>
-              <li className="flex justify-between font-medium">
-                <span>Vendas Exclusivas:</span>
-                <span className="font-bold text-brand-accent-green">Scatolin Imóveis</span>
-              </li>
-            </ul>
+          <div className="text-brand-text/80 text-sm md:text-base leading-relaxed space-y-4 font-light text-justify md:text-left">
+            <p>
+              O Loteamento Village Parra é o novo endereço dos seus sonhos, em uma localização privilegiada, ao lado do Residencial Portal do Sol e bem em frente ao Beach Tennis. Os lotes estão incríveis, com condições imperdíveis.
+            </p>
+            <p>
+              São terrenos amplos, a partir de 253 m², equivalentes a um lote de aproximadamente 20 x 13 metros, perfeitos para quem busca espaço e conforto. As condições de pagamento são facilitadas, com parcelas em até 156x e valores a partir de R$ 577,00.
+            </p>
+            <p>
+              O financiamento é direto com a construtora Parra Empreendimentos, garantindo praticidade e segurança na hora de comprar o seu terreno. O Village Parra é ideal tanto para quem deseja morar bem, quanto para quem quer investir com tranquilidade e valorização garantida.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* 5. Progresso das Obras */}
-      <section className="py-20 bg-brand-bg-primary/10">
-        <div className="max-w-4xl mx-auto px-4 space-y-12">
-          <div className="text-center space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Infraestrutura</span>
-            <h2 className="text-3xl font-extrabold text-brand-text">Andamento Geral das Obras</h2>
-            <p className="text-sm text-brand-text/60 max-w-md mx-auto">Empreendimento totalmente planejado e com obras em fase final.</p>
-          </div>
 
-          <div className="bg-white border border-zinc-200/80 p-6 md:p-8 rounded-2xl shadow-sm space-y-6">
-            {infraItems.map((item, idx) => (
-              <div key={idx} className="space-y-2">
-                <div className="flex justify-between text-xs md:text-sm font-bold text-brand-text">
-                  <span>{item.name}</span>
-                  <span className="text-brand-primary">{item.val}%</span>
-                </div>
-                <div className="h-3 w-full bg-zinc-100 rounded-full overflow-hidden border border-zinc-200/40">
-                  <div 
-                    className="h-full bg-brand-primary rounded-full transition-all duration-1000"
-                    style={{ width: `${item.val}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* 6. Interactive Section (Client coordinator wrapper) */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3 max-w-xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Simulador de Lotes</span>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-brand-text">Selecione no Mapa e Simule</h2>
+          <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Lotes Disponíveis</span>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-brand-text font-black">Escolha seu Lote no Mapa</h2>
           <p className="text-sm text-brand-text/60">
-            Navegue pelos lotes coloridos em azul (disponíveis) e amarelo (reservados) no mapa dinâmico para simular o parcelamento em até 180x.
+            Navegue pelas quadras e lotes coloridos abaixo para verificar quais unidades ainda estão disponíveis (Azul/Amarelo) ou vendidas (Vermelho).
           </p>
         </div>
 
         {/* Client component holding the map and simulator state */}
-        <LoteamentoClient initialLots={lots} />
+        <LoteamentoClient initialLots={lots} mapaUrl={mapaUrl} />
       </section>
 
       {/* 7. FAQ Section */}
@@ -309,10 +233,10 @@ export default async function LoteamentosPage() {
             <div className="bg-brand-bg-primary/20 p-6 rounded-2xl space-y-2 border border-brand-bg-primary/30">
               <h4 className="font-bold text-brand-text flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-brand-accent-green shrink-0" />
-                Como funciona o parcelamento em até 180x?
+                Como funciona o parcelamento em até 156x?
               </h4>
               <p className="text-xs text-brand-text/75 leading-relaxed font-light">
-                O parcelamento é facilitado com juros baixos diretamente com a loteadora Parra Empreendimentos, permitindo pagamentos mensais suaves a partir de R$ 530,00.
+                O parcelamento é facilitado com parcelas suaves diretamente com a loteadora Parra Empreendimentos, permitindo pagamentos mensais a partir de R$ 577,00.
               </p>
             </div>
 

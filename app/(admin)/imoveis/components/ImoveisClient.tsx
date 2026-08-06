@@ -50,6 +50,7 @@ interface Imovel {
   highlight?: boolean;
   alugado?: boolean;
   vendido?: boolean;
+  videos?: string[];
   titulo?: string;
   descricao?: string | null;
   quartos?: number | null;

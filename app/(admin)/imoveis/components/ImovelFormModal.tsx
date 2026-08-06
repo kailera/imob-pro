@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useActionState, useRef } from "react";
-import { X, DollarSign, Key, Loader2, AlertTriangle, Image as ImageIcon, Trash2, Plus, Eye } from "lucide-react";
+import { X, DollarSign, Key, Loader2, AlertTriangle, Image as ImageIcon, Trash2, Plus, Eye, Film } from "lucide-react";
 import { TipoImovel } from "@/generated/prisma";
 import { saveOrUpdateImovelAction, getLocadores, createLocador } from "@/app/actions/imoveisActions";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
@@ -41,6 +41,7 @@ interface Imovel {
   vagas?: number | null;
   area?: number;
   imagens?: string[];
+  videos?: string[];
 }
 
 interface ImovelFormModalProps {
@@ -175,8 +176,10 @@ export default function ImovelFormModal({
   const [vagas, setVagas] = useState("0");
   const [area, setArea] = useState("0");
   const [imagens, setImagens] = useState<string[]>([]);
+  const [videos, setVideos] = useState<string[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [precisaAtualizar, setPrecisaAtualizar] = useState(false);
 
   // Populate local states when editingImovel changes or modal opens
@@ -270,6 +273,7 @@ export default function ImovelFormModal({
       setVagas(String(editingImovel.vagas ?? 0));
       setArea(String(editingImovel.area ?? 0));
       setImagens(editingImovel.imagens || []);
+      setVideos(editingImovel.videos || []);
     } else {
       // Defaults for a new property
       setTipo("CASA");
@@ -334,6 +338,7 @@ export default function ImovelFormModal({
       setVagas("0");
       setArea("0");
       setImagens([]);
+      setVideos([]);
       setPrecisaAtualizar(false);
     }
     setNovaParcelaData("");
@@ -505,6 +510,35 @@ export default function ImovelFormModal({
 
   const handleRemovePhoto = (urlToRemove: string) => {
     setImagens((prev) => prev.filter((url) => url !== urlToRemove));
+  };
+
+  const handleUploadVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingVideo(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await uploadMediaToRustFS(formData);
+        if (res && res.url) {
+          setVideos((prev) => [...prev, res.url]);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao fazer upload do vídeo:", err);
+      alert("Erro ao fazer upload do vídeo.");
+    } finally {
+      setIsUploadingVideo(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveVideo = (urlToRemove: string) => {
+    setVideos((prev) => prev.filter((url) => url !== urlToRemove));
   };
 
   const handleCurrencyChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -692,6 +726,7 @@ export default function ImovelFormModal({
                       area: parseInt(area) || 0,
                       image: imagens[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
                       images: imagens,
+                      videos: videos,
                       description: descricao || "Nenhuma descrição informada.",
                       neighborhood: bairro || "Bairro",
                       city: cidade ? `${cidade}${uf ? `/${uf}` : ''}` : "Cidade/UF"
@@ -769,6 +804,7 @@ export default function ImovelFormModal({
                   <input type="hidden" name="id" value={editingImovel?.id || ""} />
                   <input type="hidden" name="aluguelDados" value={aluguelDadosJsonString} />
                   <input type="hidden" name="imagens" value={JSON.stringify(imagens)} />
+                  <input type="hidden" name="videos" value={JSON.stringify(videos)} />
                   {isCreatingLoteamento && (
                     <input type="hidden" name="isCreatingLoteamento" value="on" />
                   )}
@@ -1280,7 +1316,13 @@ export default function ImovelFormModal({
                           type="checkbox"
                           name="publicado"
                           checked={publicado}
-                          onChange={(e) => setPublicado(e.target.checked)}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setPublicado(val);
+                            if (!val) {
+                              setHighlight(false);
+                            }
+                          }}
                           className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
                         />
                         <div>
@@ -1296,7 +1338,13 @@ export default function ImovelFormModal({
                           type="checkbox"
                           name="highlight"
                           checked={highlight}
-                          onChange={(e) => setHighlight(e.target.checked)}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setHighlight(val);
+                            if (val) {
+                              setPublicado(true);
+                            }
+                          }}
                           className="mt-0.5 h-4.5 w-4.5 text-[#004777] focus:ring-[#004777]/20 rounded border-zinc-300 accent-[#004777]"
                         />
                         <div>
@@ -1491,6 +1539,70 @@ export default function ImovelFormModal({
                         </p>
                       )}
                     </div>
+
+                    <div className="space-y-3 pt-4 border-t border-zinc-200/60">
+                      <h5 className="text-xs font-bold uppercase text-[#280003]/60 tracking-wider flex items-center gap-1.5">
+                        <Film className="w-4 h-4 text-[#004777]" />
+                        Vídeos do Imóvel
+                      </h5>
+
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-zinc-300 border-dashed rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            {isUploadingVideo ? (
+                              <>
+                                <Loader2 className="w-8 h-8 animate-spin text-[#004777] mb-2" />
+                                <p className="text-xs font-bold text-zinc-500">Enviando vídeo para o storage...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-8 h-8 text-zinc-450 mb-2" />
+                                <p className="text-xs font-bold text-zinc-500">Clique para enviar vídeos</p>
+                                <p className="text-[10px] text-zinc-400 mt-1">MP4, MOV ou WebM</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            multiple
+                            accept="video/*"
+                            disabled={isUploadingVideo}
+                            onChange={handleUploadVideo}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {videos.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pt-2">
+                          {videos.map((url, idx) => (
+                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-sm">
+                              <video
+                                src={url}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVideo(url)}
+                                className="absolute top-1.5 right-1.5 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-md transition-all cursor-pointer"
+                                title="Remover vídeo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold py-1 text-center truncate">
+                                Vídeo {idx + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-400 italic text-center py-4 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                          Nenhum vídeo carregado.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1552,6 +1664,7 @@ export default function ImovelFormModal({
                 area: parseInt(area) || 0,
                 image: imagens[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
                 images: imagens,
+                videos: videos,
                 description: descricao || "Nenhuma descrição adicional fornecida.",
                 neighborhood: bairro || "Bairro",
                 city: `${cidade || "Cidade"}/${uf || "UF"}`

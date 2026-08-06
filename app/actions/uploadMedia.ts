@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import { PutObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, bucketName } from "@/lib/storage";
@@ -48,7 +50,7 @@ export async function getPresignedUploadUrl(
         rawUrlObj.host = publicUrlObj.host;
         uploadUrl = rawUrlObj.toString();
       } catch (err) {
-        console.error("Erro ao formatar URL pré-assinada com RUSTFS_PUBLIC_URL:", err);
+        console.error("Erro ao converter URL pública:", err);
       }
     }
 
@@ -75,13 +77,23 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
   const isVideo = file.type.startsWith("video/");
   const type = isVideo ? "video" as const : "image" as const;
 
-  // Se não houver credenciais definidas no ambiente, ativa o modo de demonstração off-line (Data URL)
+  // Se não houver credenciais definidas no ambiente, ativa o modo de demonstração off-line (Salva localmente)
   const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === "true";
 
+  const saveFileLocally = () => {
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${extension}`;
+    const filePath = path.join(uploadsDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/${filename}`;
+  };
+
   if (isDevMock) {
-    console.log("Modo de demonstração local ativado (Sem credenciais RustFS). Gerando Data URL temporária.");
-    const base64 = buffer.toString("base64");
-    const url = `data:${file.type};base64,${base64}`;
+    console.log("Modo de demonstração local ativado (Sem credenciais RustFS). Salvando arquivo na pasta public/uploads.");
+    const url = saveFileLocally();
     return { url, type };
   }
 
@@ -119,10 +131,9 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     }
 
     console.error("Erro no upload para o RustFS:", error);
-    // Caso ocorra um erro de rede/conexão na demo, fazemos o fallback resiliente para Data URL
-    console.warn("Fallback automático para Data URL para manter a demo funcionando.");
-    const base64 = buffer.toString("base64");
-    const url = `data:${file.type};base64,${base64}`;
+    // Caso ocorra um erro de rede/conexão na demo, fazemos o fallback resiliente para arquivo local
+    console.warn("Fallback automático para gravação local para manter a demo funcionando.");
+    const url = saveFileLocally();
     return { url, type };
   }
 }

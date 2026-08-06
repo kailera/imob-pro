@@ -107,12 +107,14 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
     const vagasStr = formData.get("vagas") as string | null;
     const areaStr = formData.get("area") as string | null;
     const imagensJson = formData.get("imagens") as string | null;
+    const videosJson = formData.get("videos") as string | null;
 
     const quartos = quartosStr ? parseInt(quartosStr) : 0;
     const banheiros = banheirosStr ? parseInt(banheirosStr) : 0;
     const vagas = vagasStr ? parseInt(vagasStr) : 0;
     const area = areaStr ? parseInt(areaStr) : 0;
     const imagens = imagensJson ? JSON.parse(imagensJson) : [];
+    const videos = videosJson ? JSON.parse(videosJson) : [];
 
     // Validate inputs
     if (!bairro || !cidade || !uf || !cepStr || !numeroStr || !logradouro) {
@@ -320,6 +322,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           vagas,
           area,
           imagens,
+          videos,
         },
       });
     } else {
@@ -365,6 +368,7 @@ export async function saveOrUpdateImovelAction(prevState: FormState, formData: F
           vagas,
           area,
           imagens,
+          videos,
         },
       });
     }
@@ -640,9 +644,51 @@ export async function getLoteamentoLots(slug: string) {
       statusLote: l.statusLote as "DISPONIVEL" | "RESERVADO" | "VENDIDO",
     }));
 
-    return { success: true, data: formattedLots };
+    const coordsJson = loteamento.coordenadasSvg as { mapaUrl?: string } | null;
+    const mapaUrl = coordsJson?.mapaUrl || null;
+
+    return { 
+      success: true, 
+      data: formattedLots, 
+      loteamentoId: loteamento.id,
+      mapaUrl 
+    };
   } catch (error: any) {
     console.error("Erro ao carregar lotes do loteamento:", error);
     return { success: false, error: error.message || "Erro ao carregar lotes." };
+  }
+}
+
+export async function updateLoteamentoMapa(loteamentoId: string, mapaUrl: string | null) {
+  try {
+    const { user } = await requireUserContext();
+    if (!user.ativo || !["ADMIN", "OPERADOR"].includes(user.role)) {
+      return { success: false, error: "Você não tem permissão para alterar o mapa do loteamento." };
+    }
+
+    const currentLoteamento = await prisma.loteamento.findUnique({
+      where: { id: loteamentoId },
+    });
+
+    if (!currentLoteamento) {
+      return { success: false, error: "Loteamento não encontrado." };
+    }
+
+    const currentCoords = (currentLoteamento.coordenadasSvg as Record<string, any>) || {};
+    const updatedCoords = { ...currentCoords, mapaUrl };
+
+    await prisma.loteamento.update({
+      where: { id: loteamentoId },
+      data: {
+        coordenadasSvg: updatedCoords,
+      },
+    });
+
+    revalidatePath("/loteamentos");
+    revalidatePath("/crm/site");
+    return { success: true, message: "Mapa do loteamento atualizado com sucesso!" };
+  } catch (error: any) {
+    console.error("Erro ao atualizar mapa do loteamento:", error);
+    return { success: false, error: error.message || "Erro ao atualizar mapa." };
   }
 }

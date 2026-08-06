@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Building, DollarSign } from "lucide-react";
 
+const BACKGROUND_IMAGES = [
+  "/hero/scatolin-container.jpg",
+  "/hero/scatolin3.jpg",
+  "/hero/scatolin4.jpg",
+  "/hero/scatolin5.jpg"
+];
+
 export function SiteHero() {
   const router = useRouter();
   const [operation, setOperation] = useState<"venda" | "locacao">("venda");
@@ -25,13 +32,16 @@ export function SiteHero() {
 
   return (
     <section className="relative min-h-[70vh] flex flex-col items-center justify-center bg-brand-bg-secondary pt-12 pb-24 md:pb-36 px-4 overflow-hidden">
-      {/* Background Image with Overlay */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80"
-          alt="Modern luxury house"
-          className="w-full h-full object-cover"
-        />
+      {/* Background Image montage side-by-side with Overlay */}
+      <div className="absolute inset-0 z-0 grid grid-cols-4 w-full h-full">
+        {BACKGROUND_IMAGES.map((src) => (
+          <img
+            key={src}
+            src={src}
+            alt="Scatolin Imóveis"
+            className="w-full h-full object-cover blur-[3px] scale-105"
+          />
+        ))}
         <div className="absolute inset-0 bg-[#280003]/60 backdrop-blur-[1px]"></div>
       </div>
 
@@ -47,26 +57,24 @@ export function SiteHero() {
 
         {/* Floating Minimalist Search Engine */}
         <div className="w-full max-w-4xl bg-white/95 backdrop-blur shadow-2xl rounded-2xl p-5 md:p-6 text-brand-text text-left border border-white/20">
-          
+
           {/* Tabs */}
           <div className="flex gap-2 border-b border-brand-bg-primary/50 pb-4 mb-5">
             <button
               onClick={() => setOperation("venda")}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-200 ${
-                operation === "venda"
-                  ? "bg-brand-primary text-white shadow-md shadow-brand-primary/10"
-                  : "text-brand-text/75 hover:bg-brand-bg-primary/70"
-              }`}
+              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-200 ${operation === "venda"
+                ? "bg-brand-primary text-white shadow-md shadow-brand-primary/10"
+                : "text-brand-text/75 hover:bg-brand-bg-primary/70"
+                }`}
             >
               Comprar
             </button>
             <button
               onClick={() => setOperation("locacao")}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-200 ${
-                operation === "locacao"
-                  ? "bg-brand-primary text-white shadow-md shadow-brand-primary/10"
-                  : "text-brand-text/75 hover:bg-brand-bg-primary/70"
-              }`}
+              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-200 ${operation === "locacao"
+                ? "bg-brand-primary text-white shadow-md shadow-brand-primary/10"
+                : "text-brand-text/75 hover:bg-brand-bg-primary/70"
+                }`}
             >
               Alugar
             </button>
@@ -74,7 +82,7 @@ export function SiteHero() {
 
           {/* Search Inputs Form */}
           <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            
+
             {/* Search Address/City */}
             <div className="md:col-span-5 space-y-1">
               <label className="text-xs font-semibold text-brand-text/60 uppercase tracking-wider block">Onde?</label>

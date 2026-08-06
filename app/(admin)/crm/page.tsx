@@ -32,7 +32,7 @@ export default async function CrmPage() {
 
 
       {/* Renderiza o Componente Client-Side do Kanban */}
-      <CrmKanbanBoard initialLeads={initialLeads} />
+      <CrmKanbanBoard initialLeads={initialLeads} initialImoveis={initialImoveis} />
       <Suspense
         fallback={(
           <div className="rounded-xl border border-brand-border bg-white p-6 text-sm text-brand-text/60">

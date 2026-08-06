@@ -23,6 +23,7 @@ interface Lead {
 
 interface CrmKanbanBoardProps {
   initialLeads: any[]; // tipo vindo do prisma
+  initialImoveis?: any[];
 }
 
 const COLUMNS: { status: LeadStatus; label: string; bg: string; text: string; border: string }[] = [
@@ -32,7 +33,7 @@ const COLUMNS: { status: LeadStatus; label: string; bg: string; text: string; bo
   { status: "FECHADO", label: "Fechado / Ganho", bg: "bg-emerald-50/50", text: "text-emerald-700", border: "border-emerald-200" },
 ];
 
-export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
+export function CrmKanbanBoard({ initialLeads, initialImoveis = [] }: CrmKanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads as Lead[]);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -146,6 +147,32 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                       month: "2-digit",
                     });
 
+                    // Parse lead.loteInfo
+                    const isContraproposta = lead.loteInfo?.startsWith("Contraproposta:");
+                    let parsedPropertyId: string | null = null;
+                    let parsedPropertyTitle: string | null = null;
+                    let procuraPart: string | null = null;
+
+                    if (isContraproposta && lead.loteInfo) {
+                      // Format: "Contraproposta: Código {idOrCode} - {title} | Procura: {text}"
+                      const withoutPrefix = lead.loteInfo.replace("Contraproposta: Código ", "");
+                      const parts = withoutPrefix.split(" | Procura:");
+                      const mainInfo = parts[0];
+                      procuraPart = parts[1] || null;
+
+                      const dashIndex = mainInfo.indexOf(" - ");
+                      if (dashIndex !== -1) {
+                        parsedPropertyId = mainInfo.substring(0, dashIndex).trim();
+                        parsedPropertyTitle = mainInfo.substring(dashIndex + 3).trim();
+                      } else {
+                        parsedPropertyId = mainInfo.trim();
+                      }
+                    }
+
+                    const associatedImovel = initialImoveis.find(
+                      (im) => im.id === parsedPropertyId || im.codigo === parsedPropertyId
+                    );
+
                     return (
                       <div
                         key={lead.id}
@@ -153,12 +180,12 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                       >
                         {/* Origem/Badge superior */}
                         <div className="flex items-center justify-between text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">
-                          <span>{lead.origem}</span>
+                          <span className="bg-brand-bg-primary/50 text-brand-text px-1.5 py-0.5 rounded border border-brand-border/40 font-bold">{lead.origem}</span>
                           <span>{formattedDate}</span>
                         </div>
 
-                        {/* Nome do Lead */}
-                        <div>
+                        {/* Nome & Dados da Pessoa */}
+                        <div className="space-y-1">
                           <h4
                             onClick={() => setSelectedLead(lead)}
                             className="font-extrabold text-sm text-brand-text group-hover:text-brand-primary transition-colors cursor-pointer hover:underline flex items-center gap-1.5"
@@ -166,53 +193,93 @@ export function CrmKanbanBoard({ initialLeads }: CrmKanbanBoardProps) {
                             {lead.nome}
                             <Sparkles className="w-3.5 h-3.5 text-brand-accent-gold opacity-0 group-hover:opacity-100 transition-opacity" />
                           </h4>
+                          <div className="text-[11px] text-zinc-500 space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-zinc-455" />
+                              <span>{lead.telefone}</span>
+                            </div>
+                            {lead.email && (
+                              <div className="flex items-center gap-1 truncate" title={lead.email}>
+                                <Mail className="w-3 h-3 text-zinc-455" />
+                                <span className="truncate">{lead.email}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Detalhes de Interesse */}
-                        <div className="bg-brand-bg-primary/30 p-2.5 rounded-lg border border-brand-bg-primary/50 text-xs space-y-1.5">
-                          {lead.loteInfo && (() => {
-                            // Contrapropostas: "Contraproposta: Código X - Título | Procura: ..."
-                            const isContraproposta = lead.loteInfo.startsWith("Contraproposta:");
-                            const imovelPart = isContraproposta
-                              ? lead.loteInfo.split(" | Procura:")[0].replace("Contraproposta: ", "")
-                              : null;
-                            const procuraPart = isContraproposta && lead.loteInfo.includes(" | Procura:")
-                              ? lead.loteInfo.split(" | Procura:")[1]
-                              : null;
+                        {/* Dados do Imóvel Selecionado */}
+                        {associatedImovel ? (
+                          <div className="bg-zinc-50 border border-zinc-200/60 rounded-lg p-2 flex gap-2">
+                            {associatedImovel.imagens?.[0] && (
+                              <div className="w-12 h-12 rounded overflow-hidden shrink-0 bg-zinc-100">
+                                <img
+                                  src={associatedImovel.imagens[0]}
+                                  alt="Foto do imóvel"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0 text-[10px]">
+                              <div className="flex items-center justify-between font-bold text-brand-primary">
+                                <span>Código: {associatedImovel.codigo}</span>
+                                <span className="text-[8px] uppercase tracking-wider bg-brand-primary/10 text-brand-primary px-1 py-0.2 rounded-xs">
+                                  {associatedImovel.tipo === "CASA" ? "Casa" : associatedImovel.tipo === "CONDOMINIO" ? "Apto" : "Imóvel"}
+                                </span>
+                              </div>
+                              <p className="font-extrabold text-zinc-800 truncate mb-0.5 mt-0.5">
+                                {associatedImovel.titulo || parsedPropertyTitle || "Imóvel Selecionado"}
+                              </p>
+                              <p className="text-zinc-500 truncate text-[9px]">
+                                {associatedImovel.bairro}, {associatedImovel.cidade}/{associatedImovel.uf}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          // Fallback if no matching imovel is found in DB, but has parsed code/title
+                          (parsedPropertyId || parsedPropertyTitle) ? (
+                            <div className="bg-zinc-50 border border-zinc-200/60 rounded-lg p-2 text-[10px]">
+                              <span className="text-[9px] text-zinc-450 block font-semibold">CÓDIGO REF: {parsedPropertyId}</span>
+                              <span className="font-extrabold text-zinc-800 line-clamp-1">{parsedPropertyTitle || "Imóvel Selecionado"}</span>
+                            </div>
+                          ) : !isContraproposta && lead.loteInfo ? (
+                            <div className="bg-zinc-50 border border-zinc-200/60 rounded-lg p-2 text-[11px] flex items-start gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
+                              <span className="font-semibold text-zinc-700">{lead.loteInfo}</span>
+                            </div>
+                          ) : null
+                        )}
 
-                            return (
-                              <>
-                                <div className="flex items-start gap-1.5 text-brand-text/80 font-medium">
-                                  <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0 mt-0.5" />
-                                  <span className="line-clamp-2">
-                                    {isContraproposta ? imovelPart : lead.loteInfo}
-                                  </span>
-                                </div>
-                                {procuraPart && (
-                                  <div className="flex items-start gap-1.5 text-zinc-500 italic">
-                                    <MessageSquare className="w-3 h-3 shrink-0 mt-0.5" />
-                                    <span className="line-clamp-1 text-[10px]">{procuraPart}</span>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
+                        {/* Dados da Proposta / Simulação */}
+                        <div className="bg-zinc-50 border border-zinc-200/60 rounded-lg p-2.5 space-y-1.5 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-zinc-450 uppercase tracking-wider">
+                              {lead.origem === "CONTRAPROPOSTA" ? "Proposta Feita" : "Simulação"}
+                            </span>
+                            {lead.interesseNegocio && lead.interesseNegocio !== "AMBOS" && (
+                              <span className={`text-[8px] font-extrabold uppercase px-1 py-0.2 rounded-xs ${
+                                lead.interesseNegocio === "VENDA" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                              }`}>
+                                {lead.interesseNegocio === "VENDA" ? "COMPRA" : "LOCAÇÃO"}
+                              </span>
+                            )}
+                          </div>
+
                           {lead.valorSimulado && (
-                            <div className="flex items-center gap-1.5 text-brand-primary font-bold">
-                              <DollarSign className="w-3.5 h-3.5 shrink-0" />
-                              <span>
-                                {lead.origem === "CONTRAPROPOSTA" ? "Proposta: " : "Parcela: "}
+                            <div className="flex items-baseline gap-1 font-bold text-brand-primary">
+                              <span>Valor:</span>
+                              <span className="text-xs">
                                 R$ {lead.valorSimulado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                {lead.origem !== "CONTRAPROPOSTA" && "/mês"}
+                                {lead.origem !== "CONTRAPROPOSTA" && <span className="text-[9px] font-semibold text-zinc-500">/mês</span>}
                               </span>
                             </div>
                           )}
-                          {lead.interesseNegocio && lead.interesseNegocio !== "AMBOS" && (
-                            <div className="flex items-center gap-1">
-                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${lead.interesseNegocio === "VENDA" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
-                                }`}>
-                                {lead.interesseNegocio === "VENDA" ? "Compra" : "Locação"}
-                              </span>
+
+                          {procuraPart && (
+                            <div className="border-t border-zinc-200/60 pt-1.5">
+                              <span className="text-[8px] text-zinc-450 block font-bold uppercase tracking-wider mb-0.5">Mensagem do Lead</span>
+                              <p className="text-[10px] text-zinc-600 italic leading-relaxed whitespace-pre-line bg-white/70 p-1.5 rounded border border-zinc-150/40">
+                                "{procuraPart}"
+                              </p>
                             </div>
                           )}
                         </div>

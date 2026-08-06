@@ -16,29 +16,36 @@ const LoteamentoProximidadeMap = dynamic(() => import("@/components/loteamentos/
 
 interface LoteamentoClientProps {
   initialLots: LotInfo[];
+  mapaUrl?: string | null;
 }
 
-export function LoteamentoClient({ initialLots }: LoteamentoClientProps) {
+export function LoteamentoClient({ initialLots, mapaUrl }: LoteamentoClientProps) {
   const [selectedLot, setSelectedLot] = useState<LotInfo | null>(null);
 
-  const handleSelectLot = (lot: LotInfo) => {
-    setSelectedLot(lot);
-  };
+  // Filter lots that are available or reserved for simulation
+  const availableLots = initialLots.filter(l => l.statusLote === "DISPONIVEL" || l.statusLote === "RESERVADO");
 
   return (
     <div className="space-y-12">
-      {/* Seção 1: O Mapa Interativo */}
+      {/* Seção 1: O Mapa */}
       <div id="mapa-section" className="scroll-mt-24">
-        <SubdivisionMap 
-          lots={initialLots} 
-          selectedLotId={selectedLot?.id} 
-          onSelectLot={handleSelectLot} 
-        />
+        <SubdivisionMap mapImageUrl={mapaUrl} />
       </div>
 
-      {/* Seção 2: O Simulador Financeiro */}
-      <div id="simulador-section" className="scroll-mt-24">
-        <FinanceSimulator selectedLot={selectedLot} />
+      {/* Seção 2: Condições de Pagamento */}
+      <div id="pagamento-section" className="scroll-mt-24 bg-white border border-zinc-200/80 rounded-3xl p-6 md:p-8 shadow-md space-y-6">
+        <div className="border-b border-zinc-100 pb-4">
+          <h3 className="text-lg font-bold text-zinc-800">Condições Especiais de Pagamento</h3>
+          <p className="text-xs text-zinc-500 mt-1">
+            Selecione o lote desejado no seletor abaixo (ou clique diretamente no mapa acima) para ver as condições específicas do terreno.
+          </p>
+        </div>
+
+
+
+        <div className="pt-4 border-t border-zinc-100">
+          <FinanceSimulator selectedLot={selectedLot} />
+        </div>
       </div>
 
       {/* Seção 3: Localização e Proximidades */}

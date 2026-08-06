@@ -55,7 +55,8 @@ export default async function ImoveisSearchPage() {
     condoFee: im.forLocacao && im.valorCondominio ? im.valorCondominio / 100 : null,
     iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null,
     alugado: im.alugado || false,
-    vendido: im.vendido || false
+    vendido: im.vendido || false,
+    videos: im.videos || []
   }));
 
   return (

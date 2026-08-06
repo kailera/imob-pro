@@ -37,11 +37,11 @@ const nextConfig: NextConfig = {
     cpus: Number.isFinite(buildCpus) && buildCpus > 0 ? buildCpus : 2,
     // Os anexos aceitam até 15 MB; 20 MB cobre o multipart da Server Action.
     serverActions: {
-      bodySizeLimit: '20mb',
+      bodySizeLimit: '100mb',
     },
     // O proxy interno do Next também clona o corpo da requisição e tem
     // limite próprio de 10 MB por padrão.
-    proxyClientMaxBodySize: '20mb',
+    proxyClientMaxBodySize: '100mb',
   }
 };
 

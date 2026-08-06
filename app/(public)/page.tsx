@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 export default async function PublicHome() {
-  // Buscar imóveis do banco de dados (excluindo lotes individuais de loteamento) - Limite de 3
+  // Buscar imóveis do banco de dados (excluindo lotes individuais de loteamento) - Sem limite
   const rawImoveis = await prisma.imovel.findMany({
     where: {
       publicado: true,
@@ -28,8 +28,7 @@ export default async function PublicHome() {
     },
     orderBy: {
       createdAt: "desc"
-    },
-    take: 3
+    }
   });
 
   const sortedRawImoveis = [...rawImoveis].sort((a, b) => {
@@ -62,7 +61,8 @@ export default async function PublicHome() {
     condoFee: im.forLocacao && im.valorCondominio ? im.valorCondominio / 100 : null,
     iptu: im.forLocacao && im.valorIPTU ? im.valorIPTU / 100 : null,
     alugado: im.alugado || false,
-    vendido: im.vendido || false
+    vendido: im.vendido || false,
+    videos: im.videos || []
   }));
 
   // Buscar configurações do site salvas no banco

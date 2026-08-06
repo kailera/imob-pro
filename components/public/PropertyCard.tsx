@@ -26,6 +26,7 @@ export interface Property {
   iptu?: number | null;
   alugado?: boolean;
   vendido?: boolean;
+  videos?: string[];
 }
 
 interface PropertyCardProps {
@@ -36,6 +37,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -95,14 +97,19 @@ export function PropertyCard({ property }: PropertyCardProps) {
     ? property.images
     : [property.image];
 
+  const mediaList = [
+    ...(property.videos || []).map((v) => ({ url: v, type: "video" as const })),
+    ...allImages.map((img) => ({ url: img, type: "image" as const })),
+  ];
+
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+    setCurrentImageIndex((prev) => (prev === 0 ? mediaList.length - 1 : prev - 1));
   };
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+    setCurrentImageIndex((prev) => (prev === mediaList.length - 1 ? 0 : prev + 1));
   };
 
   const handleSubmitProposal = async (e: React.FormEvent) => {
@@ -154,15 +161,28 @@ export function PropertyCard({ property }: PropertyCardProps) {
     <>
       <article 
         onClick={() => setIsModalOpen(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         className="bg-white border border-zinc-200/80 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group overflow-hidden cursor-pointer"
       >
         {/* Property Image Container */}
         <div className="relative overflow-hidden aspect-[16/10] w-full bg-zinc-100">
-          <img
-            src={property.image}
-            alt={property.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {property.videos && property.videos.length > 0 && isHovered ? (
+            <video
+              src={property.videos[0]}
+              className="absolute inset-0 w-full h-full object-cover z-0"
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          ) : (
+            <img
+              src={property.image}
+              alt={property.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          )}
           
           {/* Operation Badge */}
           <div className="absolute top-4 left-4 z-10 flex gap-2">
@@ -265,7 +285,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
           onClick={() => setIsModalOpen(false)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-zinc-150 flex flex-col md:flex-row relative animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl shadow-2xl w-[92vw] md:w-[80vw] h-[85vh] md:h-[80vh] overflow-hidden border border-zinc-150 flex flex-col md:flex-row relative animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -278,14 +298,25 @@ export function PropertyCard({ property }: PropertyCardProps) {
             </button>
 
             {/* Left Column: Image Gallery/Carousel */}
-            <div className="w-full md:w-1/2 bg-zinc-950 relative min-h-[300px] md:min-h-[500px] flex items-center justify-center group/carousel">
-              <img
-                src={allImages[currentImageIndex]}
-                alt={`${property.title} - Foto ${currentImageIndex + 1}`}
-                className="max-h-[500px] w-full object-contain"
-              />
+            <div className="w-full md:w-1/2 h-[45%] md:h-full bg-zinc-950 relative flex items-center justify-center group/carousel overflow-hidden shrink-0">
+              {mediaList[currentImageIndex]?.type === "video" ? (
+                <video
+                  key={mediaList[currentImageIndex].url}
+                  src={mediaList[currentImageIndex].url}
+                  className="w-full h-full object-cover"
+                  controls
+                  autoPlay
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={mediaList[currentImageIndex]?.url}
+                  alt={`${property.title} - Foto ${currentImageIndex + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              )}
 
-              {allImages.length > 1 && (
+              {mediaList.length > 1 && (
                 <>
                   <button
                     onClick={handlePrevImage}
@@ -300,14 +331,14 @@ export function PropertyCard({ property }: PropertyCardProps) {
                     <ChevronRight className="w-5 h-5" />
                   </button>
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                    {currentImageIndex + 1} / {allImages.length}
+                    {currentImageIndex + 1} / {mediaList.length}
                   </div>
                 </>
               )}
             </div>
 
             {/* Right Column: Property details + Proposal form */}
-            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto max-h-[90vh] md:max-h-[500px]">
+            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto h-[55%] md:h-full">
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-text/60 mb-2">

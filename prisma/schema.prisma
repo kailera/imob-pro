@@ -99,6 +99,7 @@ model Imovel {
   titulo    String   @default("")
   descricao String?  @db.Text
   imagens   String[] @default([])
+  videos    String[] @default([])
   quartos   Int?     @default(0)
   banheiros Int?     @default(0)
   vagas     Int?     @default(0)
