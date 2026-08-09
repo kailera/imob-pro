@@ -6,85 +6,29 @@ import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTabl
 import FinancialSummary from '@/components/cobrancas/FinancialSummary';
 import { gerarBolePixWrapperAction } from '@/app/actions/interActions';
 import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
-import { Zap, Play, X, CheckCircle, AlertTriangle, Loader2, Calendar } from 'lucide-react';
+import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar } from 'lucide-react';
 
-const DEFAULT_COBRANCAS: BilletData[] = [
-  {
-    id: '1',
-    recepcaoData: '25/06/2026',
-    recepcaoHora: '10:15',
-    movimentoData: '25/06/2026',
-    movimentoHora: '10:15',
-    vencimento: '30/06/2026',
-    situacao: 'Liquidado',
-    valor: 2500.00,
-    cedente: 'Imob Pro',
-    sacadoNome: 'João Silva Oliveira',
-    sacadoCpf: '111.222.333-44',
-    pagamentoData: '24/06/2026',
-    pagamentoValor: 2500.00,
-  },
-  {
-    id: '2',
-    recepcaoData: '24/06/2026',
-    recepcaoHora: '14:30',
-    movimentoData: '24/06/2026',
-    movimentoHora: '14:30',
-    vencimento: '05/07/2026',
-    situacao: 'Recepcionado',
-    valor: 1850.50,
-    cedente: 'Imob Pro',
-    sacadoNome: 'Maria Mendes',
-    sacadoCpf: '222.333.444-55',
-    pagamentoData: null,
-    pagamentoValor: null,
-  },
-  {
-    id: '3',
-    recepcaoData: '23/06/2026',
-    recepcaoHora: '09:00',
-    movimentoData: '23/06/2026',
-    movimentoHora: '09:00',
-    vencimento: '20/06/2026',
-    situacao: 'Pendente',
-    valor: 3200.00,
-    cedente: 'Imob Pro',
-    sacadoNome: 'Carlos Drummond',
-    sacadoCpf: '333.444.555-66',
-    pagamentoData: null,
-    pagamentoValor: null,
-  },
-  {
-    id: '4',
-    recepcaoData: '22/06/2026',
-    recepcaoHora: '11:45',
-    movimentoData: '22/06/2026',
-    movimentoHora: '11:45',
-    vencimento: '25/06/2026',
-    situacao: 'Cancelado',
-    valor: 1500.00,
-    cedente: 'Imob Pro',
-    sacadoNome: 'Ana Paula Rocha',
-    sacadoCpf: '444.555.666-77',
-    pagamentoData: null,
-    pagamentoValor: null,
-  },
-  {
-    id: '5',
-    recepcaoData: '21/06/2026',
-    recepcaoHora: '16:20',
-    movimentoData: '21/06/2026',
-    movimentoHora: '16:20',
-    vencimento: '10/06/2026',
-    situacao: 'Liquidado',
-    valor: 4100.00,
-    cedente: 'Imob Pro',
-    sacadoNome: 'Empresa Fictícia LTDA',
-    sacadoCpf: '12.345.678/0001-99',
-    pagamentoData: '09/06/2026',
-    pagamentoValor: 4100.00,
-  }
-];
+interface ApiTransaction {
+  id: string;
+  descricao: string;
+  valor: number;
+  status: 'PENDENTE' | 'LIQUIDADO' | 'CANCELADO';
+  createdAt: string;
+  updatedAt: string;
+  dataVencimento: string;
+  dataPagamento: string | null;
+  interNossoNumero?: string | null;
+  interCodigoSolicitacao?: string | null;
+  interPixCode?: string | null;
+  interBarcode?: string | null;
+  interPdfKey?: string | null;
+  interStatus?: string | null;
+  contrato?: {
+    locatarios?: Array<{ telefone?: unknown; cpfCnpj?: string | null }>;
+  } | null;
+}
+
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erro inesperado.';
 
 export default function CobrancasPage() {
   const loadDataRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
@@ -146,8 +90,8 @@ export default function CobrancasPage() {
       } else {
         setGenResult({ success: false, error: res.error });
       }
-    } catch (err: any) {
-      setGenResult({ success: false, error: err.message || "Erro inesperado." });
+    } catch (err: unknown) {
+      setGenResult({ success: false, error: errorMessage(err) });
     } finally {
       setIsGenerating(false);
     }
@@ -169,7 +113,12 @@ export default function CobrancasPage() {
 
       const res = await fetch(`/api/financeiro/transacoes?${params.toString()}`);
       if (!res.ok) throw new Error();
-      const responseData = await res.json();
+      const responseData = await res.json() as {
+        data?: ApiTransaction[];
+        total?: number;
+        totalPages?: number;
+        totals?: { registrado: number; liquidado: number; baixado: number; recepcionado: number; cancelado: number };
+      };
       
       const rawData = responseData.data || [];
       const total = responseData.total || 0;
@@ -180,66 +129,8 @@ export default function CobrancasPage() {
         setTotals(responseData.totals);
       }
 
-      const noFiltersApplied = 
-        filters.status === 'Todas' && 
-        filters.startDate === '' && 
-        filters.endDate === '' && 
-        filters.search === '';
-
-      if (rawData.length === 0 && noFiltersApplied && currentPage === 1) {
-        // Inicializar banco com dados mockados de demonstração se estiver vazio
-        const savedList: BilletData[] = [];
-        for (const item of DEFAULT_COBRANCAS) {
-          const parts = item.vencimento.split('/');
-          const vencDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-          
-          let pgDate = null;
-          if (item.pagamentoData) {
-            const pgParts = item.pagamentoData.split('/');
-            pgDate = new Date(parseInt(pgParts[2]), parseInt(pgParts[1]) - 1, parseInt(pgParts[0]));
-          }
-
-          const postRes = await fetch('/api/financeiro/transacoes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              descricao: `Aluguel - ${item.sacadoNome}`,
-              valor: item.valor,
-              tipo: 'RECEITA',
-              categoria: 'ALUGUEL',
-              status: item.situacao === 'Liquidado' ? 'LIQUIDADO' : item.situacao === 'Cancelado' ? 'CANCELADO' : 'PENDENTE',
-              dataVencimento: vencDate.toISOString(),
-              dataPagamento: pgDate ? pgDate.toISOString() : null
-            })
-          });
-          if (postRes.ok) {
-            const created = await postRes.json();
-            savedList.push({
-              ...item,
-              id: created.id
-            });
-          }
-        }
-        setCobrancas(savedList);
-        setTotalPages(1);
-        setTotalItems(savedList.length);
-
-        const mockTotals = savedList.reduce(
-          (acc, curr) => {
-            const val = curr.valor || 0;
-            acc.registrado += val;
-            if (curr.situacao === 'Liquidado') acc.liquidado += val;
-            else if (curr.situacao === 'Recepcionado') acc.recepcionado += val;
-            else if (curr.situacao === 'Cancelado') acc.cancelado += val;
-            else if (curr.situacao === 'Baixado') acc.baixado += val;
-            return acc;
-          },
-          { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
-        );
-        setTotals(mockTotals);
-      } else {
-        // Mapear do banco de dados para a interface da tabela
-        const mapped: BilletData[] = rawData.map((tx: any) => {
+      // Mapear do banco de dados para a interface da tabela
+      const mapped: BilletData[] = rawData.map((tx) => {
           const formatShortDate = (dStr: string | null) => {
             if (!dStr) return null;
             const d = new Date(dStr);
@@ -289,26 +180,13 @@ export default function CobrancasPage() {
             interPdfKey: tx.interPdfKey,
             interStatus: tx.interStatus,
           };
-        });
-        setCobrancas(mapped);
-      }
+      });
+      setCobrancas(mapped);
     } catch (err) {
       console.error(err);
       if (silent) return;
-      setCobrancas(DEFAULT_COBRANCAS);
-      const mockTotals = DEFAULT_COBRANCAS.reduce(
-        (acc, curr) => {
-          const val = curr.valor || 0;
-          acc.registrado += val;
-          if (curr.situacao === 'Liquidado') acc.liquidado += val;
-          else if (curr.situacao === 'Recepcionado') acc.recepcionado += val;
-          else if (curr.situacao === 'Cancelado') acc.cancelado += val;
-          else if (curr.situacao === 'Baixado') acc.baixado += val;
-          return acc;
-        },
-        { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
-      );
-      setTotals(mockTotals);
+      setCobrancas([]);
+      setTotals({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
     } finally {
       if (!silent) setLoading(false);
     }
@@ -325,7 +203,7 @@ export default function CobrancasPage() {
   };
 
   useEffect(() => {
-    loadData();
+    void loadDataRef.current();
   }, [currentPage]);
 
   useEffect(() => {
@@ -367,8 +245,8 @@ export default function CobrancasPage() {
         } else {
           setBatchErrors(prev => [...prev, { sacado: transacao.sacadoNome, error: res.error || 'Erro na API.' }]);
         }
-      } catch (err: any) {
-        setBatchErrors(prev => [...prev, { sacado: transacao.sacadoNome, error: err.message || 'Erro inesperado.' }]);
+      } catch (err: unknown) {
+        setBatchErrors(prev => [...prev, { sacado: transacao.sacadoNome, error: errorMessage(err) }]);
       }
 
       // Intervalo de 500ms entre as requisições para respeitar o rate-limit

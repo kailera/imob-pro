@@ -49,6 +49,8 @@ export async function findPersonByCpfCnpj(document: string): Promise<PersonDocum
     financialEmail: person.financialEmail ?? '', financialPhoneMobile: person.financialPhoneMobile ?? '',
     financialPhoneMobileDesc: person.financialPhoneMobileDesc ?? '', financialPhoneLandline: person.financialPhoneLandline ?? '',
     financialPhoneLandlineDesc: person.financialPhoneLandlineDesc ?? '',
+    bankName: person.bankName ?? '', bankAgency: person.bankAgency ?? '',
+    bankAccount: person.bankAccount ?? '', pixKey: person.pixKey ?? '',
   }
   const address = person.addresses[0]
   return {

@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import {
+  CategoriaTransacao,
+  StatusTransacao,
+  TipoTransacao,
+  type Prisma,
+} from '@/generated/prisma';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,10 +17,12 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate');
     const dateField = searchParams.get('dateField') || 'vencimento';
     const search = searchParams.get('search');
+    const nome = searchParams.get('nome')?.trim();
+    const cpf = searchParams.get('cpf')?.trim();
     const page = searchParams.get('page');
     const limit = searchParams.get('limit') || '10';
 
-    const where: any = {};
+    const where: Prisma.TransacaoFinanceiraWhereInput = {};
     const searchTerm = search?.trim();
     const searchDocumentDigits = searchTerm?.replace(/\D/g, '') || '';
     const searchDocumentVariants = new Set(
@@ -27,11 +35,15 @@ export async function GET(req: NextRequest) {
         searchDocumentDigits.length === 14
           ? searchDocumentDigits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
           : '',
-      ].filter(Boolean)
+      ].filter((value): value is string => Boolean(value))
     );
 
-    if (tipo) where.tipo = tipo;
-    if (categoria) where.categoria = categoria;
+    if (tipo && Object.values(TipoTransacao).includes(tipo as TipoTransacao)) {
+      where.tipo = tipo as TipoTransacao;
+    }
+    if (categoria && Object.values(CategoriaTransacao).includes(categoria as CategoriaTransacao)) {
+      where.categoria = categoria as CategoriaTransacao;
+    }
     // A busca do sacado deve localizar todas as cobranças correspondentes,
     // sem restringir o resultado por situação ou período.
     if (!searchTerm && status && status !== 'Todas') {
@@ -42,13 +54,13 @@ export async function GET(req: NextRequest) {
         where.status = 'LIQUIDADO';
       } else if (status === 'Cancelado') {
         where.status = 'CANCELADO';
-      } else {
-        where.status = status;
+      } else if (Object.values(StatusTransacao).includes(status as StatusTransacao)) {
+        where.status = status as StatusTransacao;
       }
     }
 
     if (searchTerm) {
-      const documentSearch = Array.from(searchDocumentVariants).map((document) => ({
+      const documentSearch: Prisma.LocatarioWhereInput[] = Array.from(searchDocumentVariants).map((document) => ({
         cpfCnpj: { contains: document, mode: 'insensitive' },
       }));
 
@@ -71,6 +83,42 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    const locatarioFilters: Prisma.LocatarioWhereInput[] = [];
+    if (nome) {
+      locatarioFilters.push({ nome: { contains: nome, mode: 'insensitive' } });
+    }
+    if (cpf) {
+      const cpfDigits = cpf.replace(/\D/g, '');
+      const cpfVariants = new Set(
+        [
+          cpf,
+          cpfDigits,
+          cpfDigits.length === 11
+            ? cpfDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            : '',
+          cpfDigits.length === 14
+            ? cpfDigits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+            : '',
+        ].filter(Boolean)
+      );
+
+      locatarioFilters.push({
+        OR: Array.from(cpfVariants).map((document) => ({
+          cpfCnpj: { contains: document, mode: 'insensitive' },
+        })),
+      });
+    }
+
+    if (locatarioFilters.length > 0) {
+      where.contrato = {
+        is: {
+          locatarios: {
+            some: { AND: locatarioFilters },
+          },
+        },
+      };
+    }
+
     const fieldMap: Record<string, string> = {
       vencimento: 'dataVencimento',
       movimento: 'updatedAt',
@@ -80,9 +128,14 @@ export async function GET(req: NextRequest) {
     const dbField = fieldMap[dateField] || 'dataVencimento';
 
     if (!searchTerm && (startDate || endDate)) {
-      where[dbField] = {};
-      if (startDate) where[dbField].gte = new Date(startDate);
-      if (endDate) where[dbField].lte = new Date(endDate);
+      const dateRange: Prisma.DateTimeFilter = {};
+      if (startDate) dateRange.gte = new Date(startDate);
+      if (endDate) dateRange.lte = new Date(endDate);
+
+      if (dbField === 'updatedAt') where.updatedAt = dateRange;
+      else if (dbField === 'createdAt') where.createdAt = dateRange;
+      else if (dbField === 'dataPagamento') where.dataPagamento = dateRange;
+      else where.dataVencimento = dateRange;
     }
 
     if (page) {
@@ -106,7 +159,7 @@ export async function GET(req: NextRequest) {
             contrato: {
               include: {
                 locatarios: {
-                  select: { telefone: true, cpfCnpj: true }
+                  select: { nome: true, telefone: true, cpfCnpj: true }
                 }
               }
             }
@@ -172,7 +225,7 @@ export async function GET(req: NextRequest) {
         contrato: {
           include: {
             locatarios: {
-              select: { telefone: true, cpfCnpj: true }
+              select: { nome: true, telefone: true, cpfCnpj: true }
             }
           }
         }

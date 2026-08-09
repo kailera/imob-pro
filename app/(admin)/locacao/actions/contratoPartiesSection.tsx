@@ -148,6 +148,12 @@ export async function addContratoParty(
                     financialPhoneMobileDesc: data.financialPhoneMobileDesc || null,
                     financialPhoneLandline: data.financialPhoneLandline || null,
                     financialPhoneLandlineDesc: data.financialPhoneLandlineDesc || null,
+                    ...(role === LeasePartyRole.LANDLORD ? {
+                        bankName: data.bankName || null,
+                        bankAgency: data.bankAgency || null,
+                        bankAccount: data.bankAccount || null,
+                        pixKey: data.pixKey || null,
+                    } : {}),
                 },
             })
         } else {
@@ -192,6 +198,12 @@ export async function addContratoParty(
                     financialPhoneMobileDesc: data.financialPhoneMobileDesc || null,
                     financialPhoneLandline: data.financialPhoneLandline || null,
                     financialPhoneLandlineDesc: data.financialPhoneLandlineDesc || null,
+                    ...(role === LeasePartyRole.LANDLORD ? {
+                        bankName: data.bankName || null,
+                        bankAgency: data.bankAgency || null,
+                        bankAccount: data.bankAccount || null,
+                        pixKey: data.pixKey || null,
+                    } : {}),
                 },
             })
             personId = newPerson.id

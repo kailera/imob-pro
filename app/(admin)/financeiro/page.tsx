@@ -1,393 +1,387 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-  Coins, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  DollarSign, 
-  Plus, 
-  Calendar, 
-  Filter, 
-  FileCheck, 
-  Check, 
-  X,
-  CreditCard,
-  UserCheck
-} from "lucide-react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarDays,
+  Coins,
+  FileCheck,
+  Filter,
+  LoaderCircle,
+  Plus,
+  RotateCcw,
+  Search,
+  UserCheck,
+  X,
+} from "lucide-react";
+
+type TransactionType = "RECEITA" | "DESPESA";
+type TransactionStatus = "PENDENTE" | "LIQUIDADO" | "CANCELADO";
+type TransactionCategory =
+  | "ALUGUEL"
+  | "REPASSE"
+  | "TAXA_ADM"
+  | "COMISSAO"
+  | "CUSTO_OPERACIONAL"
+  | "OUTRO";
+
+interface TenantSummary {
+  nome: string;
+  cpfCnpj: string;
+}
+
+interface FinancialTransaction {
+  id: string;
+  descricao: string;
+  valor: number;
+  tipo: TransactionType;
+  categoria: TransactionCategory;
+  status: TransactionStatus;
+  dataVencimento: string;
+  contrato?: { locatarios: TenantSummary[] } | null;
+}
+
+const CATEGORY_LABELS: Record<TransactionCategory, string> = {
+  ALUGUEL: "Aluguel",
+  REPASSE: "Repasse",
+  TAXA_ADM: "Taxa administrativa",
+  COMISSAO: "Comissão",
+  CUSTO_OPERACIONAL: "Custo operacional",
+  OUTRO: "Outro",
+};
+
+const currentMonth = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthRange = (month: string) => {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+  const end = new Date(Date.UTC(year, monthNumber, 1) - 1);
+  return { startDate: start.toISOString(), endDate: end.toISOString() };
+};
+
+const formatCurrency = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+
+const formatDocument = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+  if (digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
+  return value || "—";
+};
 
 export default function FinanceiroPage() {
-  const [transacoes, setTransacoes] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
+  const [summaryTransactions, setSummaryTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
 
-  // Campos do formulário de nova transação
-  const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
-  const [tipo, setTipo] = useState("RECEITA");
-  const [categoria, setCategoria] = useState("ALUGUEL");
-  const [dataVencimento, setDataVencimento] = useState("");
-  const [status, setStatus] = useState("PENDENTE");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCpf, setFilterCpf] = useState("");
+  const [filterName, setFilterName] = useState("");
 
-  const fetchTransacoes = async () => {
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [type, setType] = useState<TransactionType>("RECEITA");
+  const [category, setCategory] = useState<TransactionCategory>("ALUGUEL");
+  const [dueDate, setDueDate] = useState("");
+  const [status, setStatus] = useState<TransactionStatus>("PENDENTE");
+
+  const selectedMonthLabel = useMemo(() => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const label = new Intl.DateTimeFormat("pt-BR", {
+      month: "long",
+      year: "numeric",
+    }).format(new Date(year, month - 1, 1));
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [selectedMonth]);
+
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      const res = await fetch("/api/financeiro/transacoes");
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTransacoes(data);
-    } catch (err) {
-      console.error("Erro ao buscar transações:", err);
+      const range = monthRange(selectedMonth);
+      const summaryParams = new URLSearchParams({
+        dateField: "vencimento",
+        ...range,
+      });
+      const listParams = new URLSearchParams(summaryParams);
+
+      if (filterStatus) listParams.set("status", filterStatus);
+      if (filterCategory) listParams.set("categoria", filterCategory);
+      if (filterCpf.trim()) listParams.set("cpf", filterCpf.trim());
+      if (filterName.trim()) listParams.set("nome", filterName.trim());
+
+      const [summaryResponse, listResponse] = await Promise.all([
+        fetch(`/api/financeiro/transacoes?${summaryParams.toString()}`),
+        fetch(`/api/financeiro/transacoes?${listParams.toString()}`),
+      ]);
+
+      if (!summaryResponse.ok || !listResponse.ok) {
+        throw new Error("Não foi possível carregar as transações.");
+      }
+
+      const [summaryData, listData] = await Promise.all([
+        summaryResponse.json() as Promise<FinancialTransaction[]>,
+        listResponse.json() as Promise<FinancialTransaction[]>,
+      ]);
+
+      setSummaryTransactions(summaryData);
+      setTransactions(listData);
+    } catch (loadError) {
+      console.error("Erro ao buscar transações:", loadError);
+      setSummaryTransactions([]);
+      setTransactions([]);
+      setError("Não foi possível carregar os dados financeiros. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterCategory, filterCpf, filterName, filterStatus, selectedMonth]);
 
   useEffect(() => {
-    fetchTransacoes();
-  }, []);
+    const timeout = window.setTimeout(() => void loadTransactions(), 250);
+    return () => window.clearTimeout(timeout);
+  }, [loadTransactions]);
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!descricao || !valor || !dataVencimento) return;
+  const metrics = useMemo(() => {
+    const totalReceipts = summaryTransactions
+      .filter((transaction) => transaction.tipo === "RECEITA" && transaction.status === "LIQUIDADO")
+      .reduce((total, transaction) => total + transaction.valor, 0);
+    const totalExpenses = summaryTransactions
+      .filter((transaction) => transaction.tipo === "DESPESA" && transaction.status === "LIQUIDADO")
+      .reduce((total, transaction) => total + transaction.valor, 0);
+    const pendingReceipts = summaryTransactions
+      .filter((transaction) => transaction.tipo === "RECEITA" && transaction.status === "PENDENTE")
+      .reduce((total, transaction) => total + transaction.valor, 0);
+    const pendingExpenses = summaryTransactions
+      .filter((transaction) => transaction.tipo === "DESPESA" && transaction.status === "PENDENTE")
+      .reduce((total, transaction) => total + transaction.valor, 0);
+
+    return {
+      totalReceipts,
+      totalExpenses,
+      pendingReceipts,
+      pendingExpenses,
+      netResult: totalReceipts - totalExpenses,
+    };
+  }, [summaryTransactions]);
+
+  const resetFilters = () => {
+    setSelectedMonth(currentMonth());
+    setFilterStatus("");
+    setFilterCategory("");
+    setFilterCpf("");
+    setFilterName("");
+  };
+
+  const handleAddTransaction = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!description || !amount || !dueDate) return;
 
     try {
-      const res = await fetch("/api/financeiro/transacoes", {
+      const response = await fetch("/api/financeiro/transacoes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          descricao,
-          valor: parseFloat(valor),
-          tipo,
-          categoria,
+          descricao: description,
+          valor: Number(amount),
+          tipo: type,
+          categoria: category,
           status,
-          dataVencimento,
-          dataPagamento: status === "LIQUIDADO" ? new Date().toISOString() : null
-        })
+          dataVencimento: dueDate,
+          dataPagamento: status === "LIQUIDADO" ? new Date().toISOString() : null,
+        }),
       });
 
-      if (res.ok) {
-        setShowModal(false);
-        // Reset form
-        setDescricao("");
-        setValor("");
-        setDataVencimento("");
-        setStatus("PENDENTE");
-        fetchTransacoes();
-      }
-    } catch (err) {
-      console.error("Erro ao criar transação:", err);
+      if (!response.ok) throw new Error("Falha ao criar lançamento.");
+
+      setShowModal(false);
+      setDescription("");
+      setAmount("");
+      setDueDate("");
+      setStatus("PENDENTE");
+      await loadTransactions();
+    } catch (creationError) {
+      console.error("Erro ao criar transação:", creationError);
+      setError("Não foi possível salvar o lançamento.");
     }
   };
 
-  // Calcular resumos
-  const totalReceitas = transacoes
-    .filter(t => t.tipo === "RECEITA" && t.status === "LIQUIDADO")
-    .reduce((sum, t) => sum + t.valor, 0);
-
-  const totalDespesas = transacoes
-    .filter(t => t.tipo === "DESPESA" && t.status === "LIQUIDADO")
-    .reduce((sum, t) => sum + t.valor, 0);
-
-  const saldoLiquido = totalReceitas - totalDespesas;
-
-  const pendingReceitas = transacoes
-    .filter(t => t.tipo === "RECEITA" && t.status === "PENDENTE")
-    .reduce((sum, t) => sum + t.valor, 0);
-
-  const pendingDespesas = transacoes
-    .filter(t => t.tipo === "DESPESA" && t.status === "PENDENTE")
-    .reduce((sum, t) => sum + t.valor, 0);
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("pt-BR");
-  };
-
   return (
-    <div className="min-h-screen bg-[#EEEEF3] p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Cabeçalho */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#EEEEF3] p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h1 className="text-3xl font-extrabold text-[#280003] tracking-tight">Gestão Financeira</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Controle de fluxo de caixa, receitas, custos operacionais e liquidações.
+            <h1 className="text-2xl font-extrabold tracking-tight text-[#280003] sm:text-3xl">Gestão Financeira</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Fluxo de caixa real e consolidado mensal da imobiliária.
             </p>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-3">
-            <Link 
-              href="/comissoes" 
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#EEEEF3] hover:bg-[#EEEEF3] text-[#280003] font-medium rounded-xl text-sm transition-all shadow-sm"
-            >
-              <UserCheck className="w-4 h-4 text-[#004777]" />
-              <span>Gerenciar Comissões</span>
+            <Link href="/comissoes" className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2 text-sm font-medium text-[#280003] shadow-sm transition-colors hover:bg-gray-50">
+              <UserCheck className="h-4 w-4 text-[#004777]" />
+              Gerenciar Comissões
             </Link>
-            <Link 
-              href="/conciliacao" 
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#EEEEF3] hover:bg-[#EEEEF3] text-[#280003] font-medium rounded-xl text-sm transition-all shadow-sm"
-            >
-              <FileCheck className="w-4 h-4 text-emerald-600" />
-              <span>Conciliação Bancária</span>
+            <Link href="/conciliacao" className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2 text-sm font-medium text-[#280003] shadow-sm transition-colors hover:bg-gray-50">
+              <FileCheck className="h-4 w-4 text-emerald-600" />
+              Conciliação Bancária
             </Link>
-            <button 
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#004777] hover:bg-[#004777]/90 text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-[#004777]/10"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Lançamento Manual</span>
+            <button type="button" onClick={() => setShowModal(true)} className="flex items-center gap-2 rounded-xl bg-[#004777] px-4 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#00385e]">
+              <Plus className="h-4 w-4" />
+              Lançamento manual
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Cards de Métricas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card Receitas */}
-          <div className="bg-white rounded-3xl p-6 border border-white/60 shadow-sm flex items-center justify-between">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Receitas Liquidadas</span>
-              <h2 className="text-2xl font-bold text-emerald-600">{formatCurrency(totalReceitas)}</h2>
-              <span className="text-xs text-gray-500 block">Pendente: {formatCurrency(pendingReceitas)}</span>
-            </div>
-            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-              <ArrowUpRight className="w-6 h-6" />
+        <section aria-label={`Resumo financeiro de ${selectedMonthLabel}`} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard label="Receitas liquidadas" value={metrics.totalReceipts} detail={`A receber: ${formatCurrency(metrics.pendingReceipts)}`} tone="positive" icon={<ArrowUpRight className="h-6 w-6" />} />
+          <MetricCard label="Despesas pagas" value={metrics.totalExpenses} detail={`A pagar: ${formatCurrency(metrics.pendingExpenses)}`} tone="negative" icon={<ArrowDownRight className="h-6 w-6" />} />
+          <MetricCard label="Resultado líquido" value={metrics.netResult} detail={`Valores de ${selectedMonthLabel}`} tone={metrics.netResult >= 0 ? "neutral" : "warning"} icon={<Coins className="h-6 w-6" />} />
+        </section>
+
+        <section className="rounded-3xl border border-white/60 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="rounded-xl bg-[#004777]/10 p-2 text-[#004777]"><Filter className="h-5 w-5" /></div>
+            <div>
+              <h2 className="font-bold text-[#280003]">Filtros do fluxo de caixa</h2>
+              <p className="text-xs text-gray-500">Os dados são atualizados automaticamente ao alterar os campos.</p>
             </div>
           </div>
 
-          {/* Card Despesas */}
-          <div className="bg-white rounded-3xl p-6 border border-white/60 shadow-sm flex items-center justify-between">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Despesas Pagas</span>
-              <h2 className="text-2xl font-bold text-red-600">{formatCurrency(totalDespesas)}</h2>
-              <span className="text-xs text-gray-500 block">A pagar: {formatCurrency(pendingDespesas)}</span>
-            </div>
-            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600">
-              <ArrowDownRight className="w-6 h-6" />
-            </div>
-          </div>
-
-          {/* Card Saldo Líquido */}
-          <div className="bg-white rounded-3xl p-6 border border-white/60 shadow-sm flex items-center justify-between">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Resultado Líquido</span>
-              <h2 className={`text-2xl font-bold ${saldoLiquido >= 0 ? "text-[#004777]" : "text-amber-600"}`}>
-                {formatCurrency(saldoLiquido)}
-              </h2>
-              <span className="text-xs text-gray-500 block">Considerando liquidados</span>
-            </div>
-            <div className="w-12 h-12 bg-[#004777]/5 rounded-2xl flex items-center justify-center text-[#004777]">
-              <Coins className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-
-        {/* Tabela de Lançamentos */}
-        <div className="bg-white rounded-3xl border border-white/60 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-[#EEEEF3] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h3 className="font-bold text-lg text-[#280003]">Fluxo de Caixa e Lançamentos</h3>
-            
-            {/* Filtros simples */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 font-semibold flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" />
-                <span>Período:</span>
-              </span>
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="text-xs bg-[#EEEEF3] border-none rounded-lg py-1.5 px-3 font-medium text-[#280003] focus:outline-none"
-              >
-                <option value="all">Todas as transações</option>
-                <option value="this-month">Mês Atual</option>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <FilterField label="Mês" icon={<CalendarDays className="h-4 w-4" />}>
+              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value || currentMonth())} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10" />
+            </FilterField>
+            <FilterField label="Situação">
+              <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10">
+                <option value="">Todas</option>
+                <option value="PENDENTE">Pendente</option>
+                <option value="LIQUIDADO">Liquidado</option>
+                <option value="CANCELADO">Cancelado</option>
               </select>
+            </FilterField>
+            <FilterField label="Categoria">
+              <select value={filterCategory} onChange={(event) => setFilterCategory(event.target.value)} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10">
+                <option value="">Todas</option>
+                {Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </FilterField>
+            <FilterField label="CPF/CNPJ" icon={<Search className="h-4 w-4" />}>
+              <input type="search" inputMode="numeric" value={filterCpf} onChange={(event) => setFilterCpf(event.target.value)} placeholder="Digite o documento" className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition placeholder:text-gray-400 focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10" />
+            </FilterField>
+            <FilterField label="Nome" icon={<Search className="h-4 w-4" />}>
+              <input type="search" value={filterName} onChange={(event) => setFilterName(event.target.value)} placeholder="Digite o nome" className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition placeholder:text-gray-400 focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10" />
+            </FilterField>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button type="button" onClick={resetFilters} className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#280003]">
+              <RotateCcw className="h-4 w-4" /> Limpar filtros
+            </button>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-3xl border border-white/60 bg-white shadow-sm">
+          <div className="flex flex-col gap-1 border-b border-[#EEEEF3] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h2 className="text-lg font-bold text-[#280003]">Fluxo de caixa</h2>
+              <p className="text-xs text-gray-500">{selectedMonthLabel} · {transactions.length} {transactions.length === 1 ? "transação" : "transações"}</p>
             </div>
           </div>
 
           {loading ? (
-            <div className="p-12 text-center text-gray-500 font-semibold">Carregando livro caixa...</div>
-          ) : transacoes.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">Nenhuma transação encontrada no banco de dados.</div>
+            <div className="flex items-center justify-center gap-2 p-12 font-semibold text-gray-500"><LoaderCircle className="h-5 w-5 animate-spin" /> Carregando fluxo de caixa...</div>
+          ) : error ? (
+            <div className="p-12 text-center"><p className="text-sm font-medium text-red-600">{error}</p><button type="button" onClick={() => void loadTransactions()} className="mt-3 text-sm font-bold text-[#004777] hover:underline">Tentar novamente</button></div>
+          ) : transactions.length === 0 ? (
+            <div className="p-12 text-center"><p className="font-semibold text-gray-500">Nenhuma transação encontrada.</p><p className="mt-1 text-sm text-gray-400">Altere os filtros ou registre um novo lançamento.</p></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-[#280003]">
-                <thead className="bg-[#EEEEF3]/50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="px-6 py-4">Data Venc.</th>
-                    <th className="px-6 py-4">Descrição</th>
-                    <th className="px-6 py-4">Categoria</th>
-                    <th className="px-6 py-4">Tipo</th>
-                    <th className="px-6 py-4">Valor</th>
-                    <th className="px-6 py-4">Situação</th>
-                  </tr>
+              <table className="w-full min-w-[980px] text-left text-sm text-[#280003]">
+                <thead className="bg-[#EEEEF3]/50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <tr><th className="px-6 py-4">Vencimento</th><th className="px-6 py-4">Descrição</th><th className="px-6 py-4">Pessoa</th><th className="px-6 py-4">CPF/CNPJ</th><th className="px-6 py-4">Categoria</th><th className="px-6 py-4">Valor</th><th className="px-6 py-4">Situação</th></tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEEEF3]">
-                  {transacoes.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-[#EEEEF3]/20 transition-colors">
-                      <td className="px-6 py-4 font-medium whitespace-nowrap">
-                        {formatDate(tx.dataVencimento)}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-[#280003]">
-                        {tx.descricao}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#EEEEF3] text-[#280003]">
-                          {tx.categoria}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                          tx.tipo === "RECEITA" ? "text-emerald-600" : "text-red-600"
-                        }`}>
-                          {tx.tipo === "RECEITA" ? "+" : "-"} {tx.tipo}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-bold">
-                        {formatCurrency(tx.valor)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          tx.status === "LIQUIDADO" 
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
-                            : tx.status === "CANCELADO"
-                            ? "bg-gray-100 text-gray-500"
-                            : "bg-amber-50 text-amber-700 border border-amber-100"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            tx.status === "LIQUIDADO" ? "bg-emerald-600" : tx.status === "CANCELADO" ? "bg-gray-400" : "bg-amber-500"
-                          }`} />
-                          <span>
-                            {tx.status === "LIQUIDADO" ? "Liquidado" : tx.status === "CANCELADO" ? "Cancelado" : "Pendente"}
-                          </span>
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {transactions.map((transaction) => {
+                    const tenant = transaction.contrato?.locatarios?.[0];
+                    return (
+                      <tr key={transaction.id} className="transition-colors hover:bg-[#EEEEF3]/20">
+                        <td className="whitespace-nowrap px-6 py-4 font-medium">{formatDate(transaction.dataVencimento)}</td>
+                        <td className="max-w-[240px] px-6 py-4 font-semibold"><span className="line-clamp-2">{transaction.descricao}</span></td>
+                        <td className="px-6 py-4">{tenant?.nome || "—"}</td>
+                        <td className="whitespace-nowrap px-6 py-4 text-gray-600">{formatDocument(tenant?.cpfCnpj || "")}</td>
+                        <td className="px-6 py-4"><span className="rounded-full bg-[#EEEEF3] px-2.5 py-1 text-xs font-medium">{CATEGORY_LABELS[transaction.categoria]}</span></td>
+                        <td className={`whitespace-nowrap px-6 py-4 font-bold ${transaction.tipo === "RECEITA" ? "text-emerald-700" : "text-red-600"}`}>{transaction.tipo === "RECEITA" ? "+" : "−"} {formatCurrency(transaction.valor)}</td>
+                        <td className="px-6 py-4"><StatusBadge status={transaction.status} /></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Modal Lançamento Manual */}
       {showModal && (
-        <div className="fixed inset-0 bg-[#280003]/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-[#EEEEF3] animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-[#EEEEF3] flex items-center justify-between bg-[#EEEEF3]/30">
-              <h3 className="font-extrabold text-[#280003] text-lg">Novo Lançamento Manual</h3>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-[#EEEEF3] rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#280003]/40 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="new-transaction-title">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-[#EEEEF3] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#EEEEF3] bg-[#EEEEF3]/30 p-6">
+              <h2 id="new-transaction-title" className="text-lg font-extrabold text-[#280003]">Novo lançamento manual</h2>
+              <button type="button" aria-label="Fechar" onClick={() => setShowModal(false)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#EEEEF3] hover:text-gray-600"><X className="h-5 w-5" /></button>
             </div>
-            
-            <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Descrição</label>
-                <input 
-                  type="text" 
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Ex: Pagamento de Energia Escritório"
-                  className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  required
-                />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Valor (R$)</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Data Vencimento</label>
-                  <input 
-                    type="date" 
-                    value={dataVencimento}
-                    onChange={(e) => setDataVencimento(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                    required
-                  />
-                </div>
+            <form onSubmit={handleAddTransaction} className="space-y-4 p-6">
+              <FormField label="Descrição"><input type="text" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Energia do escritório" className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20" required /></FormField>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Valor (R$)"><input type="number" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,00" className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20" required /></FormField>
+                <FormField label="Data de vencimento"><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20" required /></FormField>
+                <FormField label="Tipo"><select value={type} onChange={(event) => setType(event.target.value as TransactionType)} className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20"><option value="RECEITA">Receita (+)</option><option value="DESPESA">Despesa (−)</option></select></FormField>
+                <FormField label="Categoria"><select value={category} onChange={(event) => setCategory(event.target.value as TransactionCategory)} className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20">{Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></FormField>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Tipo</label>
-                  <select 
-                    value={tipo}
-                    onChange={(e) => setTipo(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  >
-                    <option value="RECEITA">RECEITA (+)</option>
-                    <option value="DESPESA">DESPESA (-)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Categoria</label>
-                  <select 
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
-                  >
-                    <option value="ALUGUEL">Aluguel</option>
-                    <option value="REPASSE">Repasse proprietário</option>
-                    <option value="TAXA_ADM">Taxa Adm.</option>
-                    <option value="COMISSAO">Comissão</option>
-                    <option value="CUSTO_OPERACIONAL">Custo Operacional</option>
-                    <option value="OUTRO">Outro</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Situação</label>
-                <select 
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#EEEEF3]/60 border-none rounded-xl text-sm focus:outline-none"
-                >
-                  <option value="PENDENTE">Pendente</option>
-                  <option value="LIQUIDADO">Liquidado / Pago</option>
-                </select>
-              </div>
-
-              <div className="pt-4 border-t border-[#EEEEF3] flex items-center justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-[#EEEEF3] rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="px-5 py-2 text-sm font-bold bg-[#004777] hover:bg-[#004777]/90 text-white rounded-xl transition-colors shadow-md"
-                >
-                  Confirmar Lançamento
-                </button>
-              </div>
+              <FormField label="Situação"><select value={status} onChange={(event) => setStatus(event.target.value as TransactionStatus)} className="min-h-11 w-full rounded-xl border-0 bg-[#EEEEF3]/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#004777]/20"><option value="PENDENTE">Pendente</option><option value="LIQUIDADO">Liquidado / pago</option></select></FormField>
+              <div className="flex items-center justify-end gap-3 border-t border-[#EEEEF3] pt-4"><button type="button" onClick={() => setShowModal(false)} className="rounded-xl px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-[#EEEEF3]">Cancelar</button><button type="submit" className="rounded-xl bg-[#004777] px-5 py-2 text-sm font-bold text-white shadow-md hover:bg-[#00385e]">Confirmar lançamento</button></div>
             </form>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function MetricCard({ label, value, detail, tone, icon }: { label: string; value: number; detail: string; tone: "positive" | "negative" | "neutral" | "warning"; icon: React.ReactNode }) {
+  const tones = { positive: "text-emerald-600 bg-emerald-50", negative: "text-red-600 bg-red-50", neutral: "text-[#004777] bg-[#004777]/5", warning: "text-amber-600 bg-amber-50" };
+  const [textTone, backgroundTone] = tones[tone].split(" ");
+  return <article className="flex items-center justify-between rounded-3xl border border-white/60 bg-white p-6 shadow-sm"><div className="space-y-2"><span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</span><strong className={`block text-2xl ${textTone}`}>{formatCurrency(value)}</strong><span className="block text-xs text-gray-500">{detail}</span></div><div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${backgroundTone} ${textTone}`}>{icon}</div></article>;
+}
+
+function FilterField({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return <label className="space-y-1.5"><span className="flex items-center gap-1.5 text-xs font-bold text-[#280003]/70">{icon}{label}</span>{children}</label>;
+}
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><span className="mb-1.5 block text-xs font-bold uppercase text-gray-500">{label}</span>{children}</label>;
+}
+
+function StatusBadge({ status }: { status: TransactionStatus }) {
+  const styles = status === "LIQUIDADO" ? "border-emerald-100 bg-emerald-50 text-emerald-700" : status === "CANCELADO" ? "border-gray-200 bg-gray-100 text-gray-500" : "border-amber-100 bg-amber-50 text-amber-700";
+  const dot = status === "LIQUIDADO" ? "bg-emerald-600" : status === "CANCELADO" ? "bg-gray-400" : "bg-amber-500";
+  const label = status === "LIQUIDADO" ? "Liquidado" : status === "CANCELADO" ? "Cancelado" : "Pendente";
+  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${styles}`}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>;
 }

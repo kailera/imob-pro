@@ -70,6 +70,12 @@ export const addContratoPartySchema = z.object({
     financialPhoneMobileDesc: z.string().optional(),
     financialPhoneLandline: z.string().optional(),
     financialPhoneLandlineDesc: z.string().optional(),
+
+    // --- Dados bancários do proprietário ---
+    bankName: z.string().trim().max(120, 'Banco deve ter no máximo 120 caracteres').optional(),
+    bankAgency: z.string().trim().max(30, 'Agência deve ter no máximo 30 caracteres').optional(),
+    bankAccount: z.string().trim().max(40, 'Conta deve ter no máximo 40 caracteres').optional(),
+    pixKey: z.string().trim().max(180, 'Chave Pix deve ter no máximo 180 caracteres').optional(),
 })
 
 export type AddContratoPartyInput = z.infer<typeof addContratoPartySchema>

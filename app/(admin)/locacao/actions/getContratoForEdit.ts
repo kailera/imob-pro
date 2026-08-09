@@ -128,6 +128,10 @@ export async function getContratoForEdit(
         financeiroCelularDescricao: item.person.financialPhoneMobileDesc,
         financeiroFixo: item.person.financialPhoneLandline,
         financeiroFixoDescricao: item.person.financialPhoneLandlineDesc,
+        banco: item.person.bankName,
+        agencia: item.person.bankAgency,
+        conta: item.person.bankAccount,
+        pix: item.person.pixKey,
         telefones: item.person.phones.map(phone => ({
           id: phone.id,
           tipo: phone.type,

@@ -58,6 +58,10 @@ export type EditableContratoParty = {
         financeiroCelularDescricao?: string | null
         financeiroFixo?: string | null
         financeiroFixoDescricao?: string | null
+        banco?: string | null
+        agencia?: string | null
+        conta?: string | null
+        pix?: string | null
         telefones?: Array<{ id: string; tipo: string; numero: string; observacao: string | null }>
         endereco?: {
             cep: string
@@ -87,6 +91,7 @@ const emptyPhone = (): PhoneItem => ({
 
 export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit }: Props) {
     const formRef = useRef<HTMLFormElement>(null)
+    const [role, setRole] = useState(party?.papel ?? 'TENANT')
     const [category, setCategory] = useState<'FISICA' | 'JURIDICA'>(party?.pessoa.categoria ?? 'FISICA')
     const [monthlyIncome, setMonthlyIncome] = useState(
         party?.pessoa.rendaMensal == null ? '' : String(party.pessoa.rendaMensal),
@@ -142,7 +147,7 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
 
     useEffect(() => {
         if (personToPopulate) populateFormFields(personToPopulate)
-    }, [category, personToPopulate])
+    }, [category, personToPopulate, role])
 
     const handleDocumentBlur = (value: string) => {
         const document = value.replace(/\D/g, '')
@@ -242,7 +247,8 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
                         id="role"
                         name="role"
                         required
-                        defaultValue={party?.papel ?? 'TENANT'}
+                        value={role}
+                        onChange={event => setRole(event.target.value)}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#004777] outline-none"
                     >
                         <option value="TENANT">Locatário principal</option>
@@ -494,6 +500,67 @@ export function AddContratoPartyForm({ contratoId, party, onSaved, onCancelEdit 
                     </div>
                 </div>
             </div>
+
+            {role === 'LANDLORD' && (
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4" data-slot="landlord-bank-details">
+                    <div>
+                        <h4 className="font-semibold text-gray-800">Dados bancários para repasse</h4>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                            Informações opcionais vinculadas ao cadastro do proprietário.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                            <label htmlFor="bankName" className="mb-1 block font-medium text-gray-700">Banco</label>
+                            <input
+                                id="bankName"
+                                type="text"
+                                name="bankName"
+                                maxLength={120}
+                                defaultValue={party?.pessoa.banco ?? ''}
+                                placeholder="Ex.: Banco do Brasil"
+                                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[#004777]"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="bankAgency" className="mb-1 block font-medium text-gray-700">Agência</label>
+                            <input
+                                id="bankAgency"
+                                type="text"
+                                name="bankAgency"
+                                maxLength={30}
+                                defaultValue={party?.pessoa.agencia ?? ''}
+                                placeholder="Ex.: 1234-5"
+                                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[#004777]"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="bankAccount" className="mb-1 block font-medium text-gray-700">Conta</label>
+                            <input
+                                id="bankAccount"
+                                type="text"
+                                name="bankAccount"
+                                maxLength={40}
+                                defaultValue={party?.pessoa.conta ?? ''}
+                                placeholder="Ex.: 12345-6"
+                                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[#004777]"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="pixKey" className="mb-1 block font-medium text-gray-700">Chave Pix</label>
+                            <input
+                                id="pixKey"
+                                type="text"
+                                name="pixKey"
+                                maxLength={180}
+                                defaultValue={party?.pessoa.pix ?? ''}
+                                placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                                className="min-h-11 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[#004777]"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Dados Complementares - Pessoa Física */}
             {category === 'FISICA' && (
