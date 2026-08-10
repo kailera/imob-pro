@@ -16,6 +16,7 @@ import {
   ROOM_HEADER_HEIGHT,
   ROOM_SECTION_GAP,
 } from "@/lib/vistorias/pdfLayout";
+import { matchesRoomReference, normalizeRoomName } from "@/lib/vistorias/roomMatching";
 
 export interface Vistoria {
   id: string;
@@ -273,7 +274,6 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
       const qrCodeData = `${window.location.origin}/vistorias/ficha-vistoria/${vistoria.id}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCodeData)}`;
 
-      const normalizeRoomName = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
       const splitIntoChunks = <T,>(items: T[], size: number) =>
         Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
       const groupedRooms = Array.from(
@@ -290,6 +290,7 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
           return grouped;
         }, new Map<string, any>()).values()
       );
+      const currentRoomIds = new Set(rooms.map((room: any) => room.id));
       const textMeasurePdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       textMeasurePdf.setFont("helvetica", "normal");
       textMeasurePdf.setFontSize(8.5);
@@ -307,10 +308,10 @@ export function VistoriaDetails({ vistoria, onViewFullReport, pdfButtonOnly = fa
         | { type: "photo-row"; photos: any[]; photoStartIndex: number };
       const roomLayoutInputs = groupedRooms.map((room: any) => {
         const photos = preparedRoomPhotos.filter((photo: any) =>
-          room.sourceIds.includes(photo.roomId) || normalizeRoomName(photo.roomName) === normalizeRoomName(room.name)
+          matchesRoomReference(room.sourceIds, room.name, photo, currentRoomIds)
         );
         const linkedCommentTexts = inspectionComments
-          .filter((comment: any) => room.sourceIds.includes(comment.roomId) || normalizeRoomName(comment.roomName || "") === normalizeRoomName(room.name))
+          .filter((comment: any) => matchesRoomReference(room.sourceIds, room.name, comment, currentRoomIds))
           .map((comment: any) => String(comment.texto || comment.text || "").trim())
           .filter(Boolean);
         const roomComments = Array.from(new Set([String(room.comentarios || "").trim(), ...linkedCommentTexts].filter(Boolean))).join("\n\n");

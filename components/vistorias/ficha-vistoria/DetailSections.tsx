@@ -6,6 +6,7 @@ import { Room } from "./FloorPlanVisualizer";
 import { CommentData } from "./CommentsTimeline";
 import { PreviewableImage } from "./PreviewableImage";
 import type { InspectionAttachment } from "./DocumentsPhotosSection";
+import { matchesRoomReference } from "@/lib/vistorias/roomMatching";
 
 interface InfoGeralItem {
   id: number;
@@ -58,6 +59,7 @@ export function DetailSections({
   inquilinoCpf = "",
   onOpenChangeInquilinoModal
 }: DetailSectionsProps) {
+  const currentRoomIds = new Set(rooms.map((room) => room.id));
 
   return (
     <div className="flex flex-col gap-8 w-full bg-white print:gap-4 print:p-0">
@@ -192,8 +194,11 @@ export function DetailSections({
                 <p className="text-sm text-gray-400 italic">Nenhum ambiente adicionado a esta vistoria.</p>
               ) : (
                 rooms.map((room) => {
-                  // Filtrar fotos do ambiente nos comments
-                  const roomComments = comments.filter(c => c.roomId === room.id);
+                  // Mantém compatibilidade com comentários antigos cujo roomId
+                  // ficou desatualizado, mas que ainda guardam o nome do ambiente.
+                  const roomComments = comments.filter((comment) =>
+                    matchesRoomReference([room.id], room.name, comment, currentRoomIds)
+                  );
                   const roomMedia = roomComments.flatMap(c => c.media || []);
 
                   return (

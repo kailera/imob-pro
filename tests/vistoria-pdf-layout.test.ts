@@ -9,6 +9,36 @@ import {
   PHOTO_GRID_GAP,
   PHOTOS_PER_ROW,
 } from "../lib/vistorias/pdfLayout";
+import { matchesRoomReference, normalizeRoomName } from "../lib/vistorias/roomMatching";
+
+test("fotos legadas continuam vinculadas ao ambiente pelo nome", () => {
+  const currentRoomIds = new Set(["uuid-garagem", "uuid-sala"]);
+
+  assert.equal(
+    matchesRoomReference(
+      ["uuid-garagem"],
+      "Garagem",
+      { roomId: "id-antigo", roomName: "  GARÁGEM " },
+      currentRoomIds
+    ),
+    true
+  );
+  assert.equal(normalizeRoomName("Quarto  Suíte"), "quarto suite");
+});
+
+test("o nome não sobrepõe um vínculo válido com outro ambiente", () => {
+  const currentRoomIds = new Set(["uuid-garagem-1", "uuid-garagem-2"]);
+
+  assert.equal(
+    matchesRoomReference(
+      ["uuid-garagem-1"],
+      "Garagem",
+      { roomId: "uuid-garagem-2", roomName: "Garagem" },
+      currentRoomIds
+    ),
+    false
+  );
+});
 
 test("a grade mantém quatro fotos por linha em qualquer quantidade", () => {
   assert.equal(PHOTOS_PER_ROW, 4);
