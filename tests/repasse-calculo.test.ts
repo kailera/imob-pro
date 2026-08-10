@@ -1,6 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateRepasse, resolveRepasseGrossValue } from "../lib/financeiro/repasse-calculo";
+import { groupRepassesByOwner } from "../lib/financeiro/repasse-grouping";
+import type { RepasseItem } from "../lib/financeiro/repasse-types";
+
+function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> = {}): RepasseItem {
+  return {
+    key,
+    leaseId: `lease-${key}`,
+    legacyContractId: null,
+    rentTransactionId: `rent-${key}`,
+    repasseId: null,
+    competence: "2026-08",
+    contractCode: `contract-${key}`,
+    owner: { id: ownerId, name: "Humberto Franzotti", cpfCnpj: "00000000000", participation: null, bankName: null, bankAgency: null, bankAccount: null, pixKey: null },
+    additionalOwners: [],
+    tenantNames: [],
+    propertyId: `property-${key}`,
+    propertyCode: `IMB-${key}`,
+    propertyTitle: `Imóvel ${key}`,
+    propertyAddress: "Ilha Solteira/SP",
+    rentValue: 1_000,
+    grossValue: 1_000,
+    receivedAt: null,
+    adminFeePercent: 10,
+    adminFeeValue: 100,
+    deductions: [],
+    otherDeductions: [],
+    deductionTotal: 0,
+    netValue: 900,
+    transferDueDate: null,
+    paidAt: null,
+    status: "AGUARDANDO_RECEBIMENTO",
+    ...values,
+  };
+}
+
+test("agrupa os imóveis do mesmo proprietário e consolida os totais", () => {
+  const groups = groupRepassesByOwner([
+    repasseItem("00003", "owner-1"),
+    repasseItem("00006", "owner-1", { grossValue: 1_100, adminFeeValue: 110, deductionTotal: 50, netValue: 940, receivedAt: "2026-08-10" }),
+    repasseItem("00008", "owner-2"),
+  ]);
+
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].items.length, 2);
+  assert.equal(groups[0].grossTotal, 2_100);
+  assert.equal(groups[0].adminFeeTotal, 210);
+  assert.equal(groups[0].deductionTotal, 50);
+  assert.equal(groups[0].netTotal, 1_840);
+  assert.equal(groups[0].receivedCount, 1);
+});
 
 test("usa o aluguel contratual na projeção enquanto o boleto não foi recebido", () => {
   assert.equal(resolveRepasseGrossValue({
