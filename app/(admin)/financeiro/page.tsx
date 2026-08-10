@@ -40,6 +40,9 @@ interface FinancialTransaction {
   categoria: TransactionCategory;
   status: TransactionStatus;
   dataVencimento: string;
+  dataPagamento?: string | null;
+  interDataRecebimento?: string | null;
+  interValorRecebido?: number | string | null;
   contrato?: { locatarios: TenantSummary[] } | null;
 }
 
@@ -59,8 +62,8 @@ const currentMonth = () => {
 
 const monthRange = (month: string) => {
   const [year, monthNumber] = month.split("-").map(Number);
-  const start = new Date(Date.UTC(year, monthNumber - 1, 1));
-  const end = new Date(Date.UTC(year, monthNumber, 1) - 1);
+  const start = new Date(year, monthNumber - 1, 1, 0, 0, 0, 0);
+  const end = new Date(year, monthNumber, 0, 23, 59, 59, 999);
   return { startDate: start.toISOString(), endDate: end.toISOString() };
 };
 
@@ -83,7 +86,8 @@ const formatDocument = (value: string) => {
 
 export default function FinanceiroPage() {
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
-  const [summaryTransactions, setSummaryTransactions] = useState<FinancialTransaction[]>([]);
+  const [paidTransactions, setPaidTransactions] = useState<FinancialTransaction[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -101,6 +105,22 @@ export default function FinanceiroPage() {
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<TransactionStatus>("PENDENTE");
 
+  const monthOptions = useMemo(() => {
+    const year = new Date().getFullYear();
+    return Array.from({ length: 12 }, (_, index) => {
+      const value = `${year}-${String(index + 1).padStart(2, "0")}`;
+      const label = new Intl.DateTimeFormat("pt-BR", {
+        month: "long",
+        year: "numeric",
+      }).format(new Date(year, index, 1));
+
+      return {
+        value,
+        label: label.charAt(0).toUpperCase() + label.slice(1),
+      };
+    });
+  }, []);
+
   const selectedMonthLabel = useMemo(() => {
     const [year, month] = selectedMonth.split("-").map(Number);
     const label = new Intl.DateTimeFormat("pt-BR", {
@@ -116,37 +136,50 @@ export default function FinanceiroPage() {
 
     try {
       const range = monthRange(selectedMonth);
-      const summaryParams = new URLSearchParams({
+      const listParams = new URLSearchParams({
         dateField: "vencimento",
         ...range,
       });
-      const listParams = new URLSearchParams(summaryParams);
+      const paidParams = new URLSearchParams({
+        dateField: "pagamento",
+        status: "LIQUIDADO",
+        ...range,
+      });
+      const pendingParams = new URLSearchParams({
+        dateField: "vencimento",
+        status: "PENDENTE",
+        ...range,
+      });
 
       if (filterStatus) listParams.set("status", filterStatus);
       if (filterCategory) listParams.set("categoria", filterCategory);
       if (filterCpf.trim()) listParams.set("cpf", filterCpf.trim());
       if (filterName.trim()) listParams.set("nome", filterName.trim());
 
-      const [summaryResponse, listResponse] = await Promise.all([
-        fetch(`/api/financeiro/transacoes?${summaryParams.toString()}`),
+      const [listResponse, paidResponse, pendingResponse] = await Promise.all([
         fetch(`/api/financeiro/transacoes?${listParams.toString()}`),
+        fetch(`/api/financeiro/transacoes?${paidParams.toString()}`),
+        fetch(`/api/financeiro/transacoes?${pendingParams.toString()}`),
       ]);
 
-      if (!summaryResponse.ok || !listResponse.ok) {
+      if (!listResponse.ok || !paidResponse.ok || !pendingResponse.ok) {
         throw new Error("Não foi possível carregar as transações.");
       }
 
-      const [summaryData, listData] = await Promise.all([
-        summaryResponse.json() as Promise<FinancialTransaction[]>,
+      const [listData, paidData, pendingData] = await Promise.all([
         listResponse.json() as Promise<FinancialTransaction[]>,
+        paidResponse.json() as Promise<FinancialTransaction[]>,
+        pendingResponse.json() as Promise<FinancialTransaction[]>,
       ]);
 
-      setSummaryTransactions(summaryData);
       setTransactions(listData);
+      setPaidTransactions(paidData);
+      setPendingTransactions(pendingData);
     } catch (loadError) {
       console.error("Erro ao buscar transações:", loadError);
-      setSummaryTransactions([]);
       setTransactions([]);
+      setPaidTransactions([]);
+      setPendingTransactions([]);
       setError("Não foi possível carregar os dados financeiros. Tente novamente.");
     } finally {
       setLoading(false);
@@ -159,17 +192,20 @@ export default function FinanceiroPage() {
   }, [loadTransactions]);
 
   const metrics = useMemo(() => {
-    const totalReceipts = summaryTransactions
-      .filter((transaction) => transaction.tipo === "RECEITA" && transaction.status === "LIQUIDADO")
+    const totalReceipts = paidTransactions
+      .filter((transaction) => transaction.tipo === "RECEITA")
+      .reduce(
+        (total, transaction) => total + Number(transaction.interValorRecebido ?? transaction.valor),
+        0,
+      );
+    const totalExpenses = paidTransactions
+      .filter((transaction) => transaction.tipo === "DESPESA")
       .reduce((total, transaction) => total + transaction.valor, 0);
-    const totalExpenses = summaryTransactions
-      .filter((transaction) => transaction.tipo === "DESPESA" && transaction.status === "LIQUIDADO")
+    const pendingReceipts = pendingTransactions
+      .filter((transaction) => transaction.tipo === "RECEITA")
       .reduce((total, transaction) => total + transaction.valor, 0);
-    const pendingReceipts = summaryTransactions
-      .filter((transaction) => transaction.tipo === "RECEITA" && transaction.status === "PENDENTE")
-      .reduce((total, transaction) => total + transaction.valor, 0);
-    const pendingExpenses = summaryTransactions
-      .filter((transaction) => transaction.tipo === "DESPESA" && transaction.status === "PENDENTE")
+    const pendingExpenses = pendingTransactions
+      .filter((transaction) => transaction.tipo === "DESPESA")
       .reduce((total, transaction) => total + transaction.valor, 0);
 
     return {
@@ -179,7 +215,7 @@ export default function FinanceiroPage() {
       pendingExpenses,
       netResult: totalReceipts - totalExpenses,
     };
-  }, [summaryTransactions]);
+  }, [paidTransactions, pendingTransactions]);
 
   const resetFilters = () => {
     setSelectedMonth(currentMonth());
@@ -265,8 +301,12 @@ export default function FinanceiroPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <FilterField label="Mês" icon={<CalendarDays className="h-4 w-4" />}>
-              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value || currentMonth())} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10" />
+            <FilterField label="Mês de referência" icon={<CalendarDays className="h-4 w-4" />}>
+              <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10">
+                {monthOptions.map((month) => (
+                  <option key={month.value} value={month.value}>{month.label}</option>
+                ))}
+              </select>
             </FilterField>
             <FilterField label="Situação">
               <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} className="min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] outline-none transition focus:border-[#004777] focus:ring-2 focus:ring-[#004777]/10">

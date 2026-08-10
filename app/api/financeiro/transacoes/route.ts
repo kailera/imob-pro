@@ -134,7 +134,12 @@ export async function GET(req: NextRequest) {
 
       if (dbField === 'updatedAt') where.updatedAt = dateRange;
       else if (dbField === 'createdAt') where.createdAt = dateRange;
-      else if (dbField === 'dataPagamento') where.dataPagamento = dateRange;
+      else if (dbField === 'dataPagamento') {
+        where.OR = [
+          { dataPagamento: dateRange },
+          { interDataRecebimento: dateRange },
+        ];
+      }
       else where.dataVencimento = dateRange;
     }
 
