@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateRepasse } from "@/lib/financeiro/repasse-calculo";
+import { calculateRepasse, resolveRepasseGrossValue } from "@/lib/financeiro/repasse-calculo";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import type {
   RepasseDeduction,
@@ -209,9 +209,15 @@ export async function GET(request: NextRequest) {
               ?? lease.property.valorAluguel
               ?? 0,
       );
-      const grossValue = rentTransaction
-        ? asFiniteNumber(rentTransaction.interValorRecebido, rentTransaction.valor)
-        : rentValue;
+      const isRentReceived = rentTransaction?.status === "LIQUIDADO";
+      const grossValue = resolveRepasseGrossValue({
+        rentValue,
+        transactionValue: rentTransaction?.valor,
+        receivedValue: rentTransaction?.interValorRecebido == null
+          ? null
+          : Number(rentTransaction.interValorRecebido),
+        isReceived: isRentReceived,
+      });
 
       const landlordParties = lease.parties.filter((party) => party.role === "LANDLORD");
       let owners: RepasseOwner[] = landlordParties.map((party) => ({
@@ -302,7 +308,9 @@ export async function GET(request: NextRequest) {
       else if (repasse) status = "PENDENTE";
       else if (rentTransaction?.status === "LIQUIDADO") status = "PRONTO";
 
-      const receivedAt = rentTransaction?.interDataRecebimento ?? rentTransaction?.dataPagamento ?? null;
+      const receivedAt = isRentReceived
+        ? rentTransaction?.interDataRecebimento ?? rentTransaction?.dataPagamento ?? null
+        : null;
       const graceDays = activeTermsPeriod?.transferGraceDays
         ?? lease.terms?.transferGraceDays
         ?? legacy?.imovelLocacao?.carenciaRepasse
@@ -337,7 +345,7 @@ export async function GET(request: NextRequest) {
         deductions,
         otherDeductions,
         deductionTotal: calculation.deductionTotal,
-        netValue: repasse ? repasse.valor : calculation.netValue,
+        netValue: isRentReceived && repasse ? repasse.valor : calculation.netValue,
         transferDueDate: (repasse?.dataVencimento ?? projectedDueDate)?.toISOString() ?? null,
         paidAt: repasse?.dataPagamento?.toISOString() ?? null,
         status,
@@ -394,9 +402,24 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "A taxa de administração deve estar entre 0% e 100%." }, { status: 400 });
     }
 
+    const { start, end } = monthRange(competence);
     const lease = await prisma.lease.findFirst({
       where: { id: body.leaseId, tenantId: user.imobId },
-      select: { id: true, propertyId: true },
+      select: {
+        id: true,
+        propertyId: true,
+        property: { select: { valorAluguel: true } },
+        terms: { select: { rentValue: true } },
+        termsPeriods: {
+          where: {
+            effectiveFrom: { lte: end },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: start } }],
+          },
+          orderBy: { effectiveFrom: "desc" },
+          take: 1,
+          select: { rentAmount: true },
+        },
+      },
     });
     if (!lease?.propertyId) return NextResponse.json({ error: "Contrato não encontrado." }, { status: 404 });
     const propertyId = lease.propertyId;
@@ -431,8 +454,19 @@ export async function PATCH(request: NextRequest) {
     ]);
     const validSelectedIds = [...expenses.map((item) => item.id), ...maintenanceDiscounts.map((item) => item.id)];
     const rentMetadata = asRecord(rentTransaction.metadata);
-    const rentValue = asFiniteNumber(rentMetadata.rentValue, rentTransaction.valor);
-    const grossValue = asFiniteNumber(rentTransaction.interValorRecebido, rentTransaction.valor);
+    const contractualRentValue = lease.termsPeriods[0]?.rentAmount
+      ?? lease.terms?.rentValue
+      ?? lease.property?.valorAluguel
+      ?? rentTransaction.valor;
+    const rentValue = asFiniteNumber(rentMetadata.rentValue, Number(contractualRentValue));
+    const grossValue = resolveRepasseGrossValue({
+      rentValue,
+      transactionValue: rentTransaction.valor,
+      receivedValue: rentTransaction.interValorRecebido == null
+        ? null
+        : Number(rentTransaction.interValorRecebido),
+      isReceived: rentTransaction.status === "LIQUIDADO",
+    });
     const calculation = calculateRepasse({
       grossValue,
       rentValue,

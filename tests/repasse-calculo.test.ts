@@ -1,6 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateRepasse } from "../lib/financeiro/repasse-calculo";
+import { calculateRepasse, resolveRepasseGrossValue } from "../lib/financeiro/repasse-calculo";
+
+test("usa o aluguel contratual na projeção enquanto o boleto não foi recebido", () => {
+  assert.equal(resolveRepasseGrossValue({
+    rentValue: 978.12,
+    transactionValue: 0,
+    receivedValue: null,
+    isReceived: false,
+  }), 978.12);
+});
+
+test("usa o valor efetivamente recebido após a liquidação", () => {
+  assert.equal(resolveRepasseGrossValue({
+    rentValue: 1_000,
+    transactionValue: 1_000,
+    receivedValue: 1_035.50,
+    isReceived: true,
+  }), 1_035.50);
+});
 
 test("calcula repasse com taxa administrativa, manutenção e outros descontos", () => {
   const result = calculateRepasse({

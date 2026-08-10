@@ -5,18 +5,24 @@ import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { getPendingVideoFileKey, replacePendingVideoUrl } from "./vistorias/videoMedia";
+import type { Prisma } from "@/generated/prisma";
+
+export type VideoProcessingTarget =
+  | { kind: "inspection-comment"; id: string }
+  | { kind: "contestacao"; id: string };
 
 class VideoQueue {
-  private queue: { fileKey: string }[] = [];
+  private queue: { fileKey: string; target?: VideoProcessingTarget }[] = [];
   private processing = false;
 
-  async enqueue(fileKey: string) {
+  async enqueue(fileKey: string, target?: VideoProcessingTarget) {
     // Evita duplicatas na fila
     if (this.queue.some(item => item.fileKey === fileKey)) {
       console.log(`[VideoProcessor] Arquivo já está na fila: ${fileKey}`);
       return;
     }
-    this.queue.push({ fileKey });
+    this.queue.push({ fileKey, target });
     console.log(`[VideoProcessor] Adicionado à fila: ${fileKey}. Tamanho da fila: ${this.queue.length}`);
     this.processNext();
   }
@@ -29,7 +35,7 @@ class VideoQueue {
     this.processing = true;
     try {
       console.log(`[VideoProcessor] Iniciando processamento de: ${next.fileKey}`);
-      await this.compressVideo(next.fileKey);
+      await this.compressVideo(next.fileKey, next.target);
       console.log(`[VideoProcessor] Concluído processamento de: ${next.fileKey}`);
     } catch (err) {
       console.error(`[VideoProcessor] Falha ao processar ${next.fileKey}:`, err);
@@ -40,7 +46,7 @@ class VideoQueue {
     }
   }
 
-  private async compressVideo(fileKey: string) {
+  private async compressVideo(fileKey: string, target?: VideoProcessingTarget) {
     const isDevMock = !process.env.RUSTFS_ENDPOINT || process.env.RUSTFS_MOCK === "true";
     const endpoint = process.env.RUSTFS_PUBLIC_URL || process.env.RUSTFS_ENDPOINT || "http://localhost:9000";
     
@@ -50,10 +56,7 @@ class VideoQueue {
     const finalPublicUrl = `${endpoint}/${bucketName}/${finalKey}`;
 
     if (isDevMock) {
-      console.log(`[VideoProcessor][Mock] Simulando compressão de 2s para: ${fileKey}`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await this.updateDatabaseUrls(fileKey, finalPublicUrl);
-      console.log(`[VideoProcessor][Mock] URL atualizada para: ${finalPublicUrl}`);
+      console.log(`[VideoProcessor][Mock] Compressão ignorada; mantendo o arquivo original: ${fileKey}`);
       return;
     }
 
@@ -69,15 +72,9 @@ class VideoQueue {
         Key: fileKey,
       }));
       
-      const bodyStream = response.Body as any;
-      if (!bodyStream) throw new Error("Stream de arquivo vindo do S3 está vazio.");
-      
-      const writeStream = fs.createWriteStream(localInputPath);
-      await new Promise<void>((resolve, reject) => {
-        bodyStream.pipe(writeStream);
-        bodyStream.on("end", () => resolve());
-        bodyStream.on("error", (err: any) => reject(err));
-      });
+      if (!response.Body) throw new Error("Stream de arquivo vindo do S3 está vazio.");
+      const inputBytes = await response.Body.transformToByteArray();
+      fs.writeFileSync(localInputPath, inputBytes);
 
       // 2. Executar compressão via FFmpeg local
       console.log(`[VideoProcessor] Compactando ${localInputPath} para ${localOutputPath}...`);
@@ -107,7 +104,7 @@ class VideoQueue {
 
       // 4. Atualizar banco de dados
       console.log(`[VideoProcessor] Atualizando URLs no banco de dados para ${finalPublicUrl}...`);
-      await this.updateDatabaseUrls(fileKey, finalPublicUrl);
+      await this.updateDatabaseUrls(fileKey, finalPublicUrl, target);
 
       // 5. Excluir original do S3
       console.log(`[VideoProcessor] Removendo arquivo original bruto do S3: ${fileKey}`);
@@ -131,7 +128,7 @@ class VideoQueue {
     }
   }
 
-  private async updateDatabaseUrls(fileKey: string, finalPublicUrl: string) {
+  private async updateDatabaseUrls(fileKey: string, finalPublicUrl: string, target?: VideoProcessingTarget) {
     // 1. Atualizar MidiaComentario
     try {
       const midias = await prisma.midiaComentario.findMany({
@@ -153,7 +150,36 @@ class VideoQueue {
       console.error("[VideoProcessor] Erro ao atualizar URLs em MidiaComentario:", err);
     }
 
-    // 2. Atualizar ContestacaoVistoria
+    // 2. Atualizar diretamente o registro que originou o processamento.
+    if (target?.kind === "inspection-comment") {
+      const comment = await prisma.comentarioVistoria.findUnique({ where: { id: target.id } });
+      if (!comment) throw new Error(`Comentário de vistoria ${target.id} não encontrado.`);
+
+      const replacement = replacePendingVideoUrl(comment.midias, fileKey, finalPublicUrl);
+      if (!replacement.updated) throw new Error(`URL temporária não encontrada no comentário ${target.id}.`);
+
+      await prisma.comentarioVistoria.update({
+        where: { id: target.id },
+        data: { midias: replacement.media as Prisma.InputJsonValue },
+      });
+      return;
+    }
+
+    if (target?.kind === "contestacao") {
+      const contestacao = await prisma.contestacaoVistoria.findUnique({ where: { id: target.id } });
+      if (!contestacao) throw new Error(`Contestação ${target.id} não encontrada.`);
+
+      const replacement = replacePendingVideoUrl(contestacao.midias, fileKey, finalPublicUrl);
+      if (!replacement.updated) throw new Error(`URL temporária não encontrada na contestação ${target.id}.`);
+
+      await prisma.contestacaoVistoria.update({
+        where: { id: target.id },
+        data: { midias: replacement.media as Prisma.InputJsonValue },
+      });
+      return;
+    }
+
+    // 3. Compatibilidade para chamadas antigas sem alvo explícito.
     try {
       // Buscamos contestações recentes e não resolvidas que possam ter essa mídia temporária
       const contestations = await prisma.contestacaoVistoria.findMany({
@@ -164,20 +190,12 @@ class VideoQueue {
 
       for (const c of contestations) {
         if (c.midias && Array.isArray(c.midias)) {
-          let updated = false;
-          const newMidias = c.midias.map((m: any) => {
-            // Verifica se a URL contém o fileKey temporário
-            if (m.url && m.url.includes(fileKey)) {
-              updated = true;
-              return { ...m, url: finalPublicUrl };
-            }
-            return m;
-          });
+          const replacement = replacePendingVideoUrl(c.midias, fileKey, finalPublicUrl);
 
-          if (updated) {
+          if (replacement.updated) {
             await prisma.contestacaoVistoria.update({
               where: { id: c.id },
-              data: { midias: newMidias },
+              data: { midias: replacement.media as Prisma.InputJsonValue },
             });
             console.log(`[VideoProcessor] ContestacaoVistoria id ${c.id} atualizado com nova URL de mídia.`);
           }
@@ -190,3 +208,15 @@ class VideoQueue {
 }
 
 export const videoQueue = new VideoQueue();
+
+export async function enqueueMediaVideos(media: unknown, target: VideoProcessingTarget): Promise<void> {
+  if (!Array.isArray(media)) return;
+
+  const keys = Array.from(new Set(
+    media
+      .map((item) => item && typeof item === "object" && "url" in item ? getPendingVideoFileKey(String(item.url)) : null)
+      .filter((key): key is string => Boolean(key))
+  ));
+
+  await Promise.all(keys.map((fileKey) => videoQueue.enqueue(fileKey, target)));
+}

@@ -5,7 +5,6 @@ import path from "path";
 import { PutObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, bucketName } from "@/lib/storage";
-import { videoQueue } from "@/lib/videoProcessor";
 
 export async function getPresignedUploadUrl(
   fileName: string,
@@ -136,16 +135,5 @@ export async function uploadMediaToRustFS(formData: FormData): Promise<{ url: st
     const url = saveFileLocally();
     return { url, type };
   }
-}
-
-export async function triggerVideoCompression(fileKey: string): Promise<{ success: boolean }> {
-  console.log(`[triggerVideoCompression] Recebida notificação para enfileirar compressão do arquivo: ${fileKey}`);
-  
-  // Enfileira de forma assíncrona sem bloquear a resposta HTTP
-  videoQueue.enqueue(fileKey).catch(err => {
-    console.error("[triggerVideoCompression] Falha ao enfileirar processamento:", err);
-  });
-
-  return { success: true };
 }
 

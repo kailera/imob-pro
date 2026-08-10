@@ -20,7 +20,7 @@ import {
   Film
 } from "lucide-react";
 import { getVistoriaByToken, submitContestacao } from "@/app/(admin)/vistorias/actions";
-import { getPresignedUploadUrl, triggerVideoCompression } from "@/app/actions/uploadMedia";
+import { getPresignedUploadUrl } from "@/app/actions/uploadMedia";
 import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
 
 interface MidiaItem {
@@ -83,7 +83,7 @@ export default function TenantDashboardPage() {
       let idx = 0;
       for (const file of files) {
         setUploadProgress(`Preparando arquivo ${idx + 1}...`);
-        const { uploadUrl, fileKey, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
+        const { uploadUrl, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
         
         const isVideo = file.type.startsWith("video/");
         
@@ -114,11 +114,6 @@ export default function TenantDashboardPage() {
           nome: file.name,
           type: isVideo ? "video" : "image"
         }]);
-
-        if (isVideo) {
-          setUploadProgress(`Enfileirando vídeo ${idx + 1}...`);
-          await triggerVideoCompression(fileKey);
-        }
 
         idx++;
       }

@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { normalizeVistoriaAddress, snapshotVistoriaAddress } from "@/lib/vistorias/formatters";
+import { enqueueMediaVideos } from "@/lib/videoProcessor";
 
 // Auxiliar para gerar código sequencial de vistoria (ex: VIS-2026-001)
 async function generateVistoriaCode(): Promise<string> {
@@ -407,6 +408,7 @@ export async function addVistoriaComment(
                 midias: input.media ? (input.media as any) : undefined,
             },
         });
+        await enqueueMediaVideos(input.media, { kind: "inspection-comment", id: novoComentario.id });
         revalidatePath(`/vistorias/ficha-vistoria/${vistoriaId}`);
         return { success: true, data: novoComentario };
     } catch (error: any) {
@@ -673,6 +675,7 @@ export async function submitContestacao(input: {
                 resolvido: false
             }
         });
+        await enqueueMediaVideos(input.midias, { kind: "contestacao", id: novaContestacao.id });
 
         // Atualiza status da vistoria para CONTESTADA
         await prisma.vistoria.update({

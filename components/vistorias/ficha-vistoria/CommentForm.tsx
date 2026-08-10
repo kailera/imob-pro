@@ -5,7 +5,7 @@ import { Save, CheckCircle2, AlertTriangle, Image as ImageIcon, Camera, Mic, Squ
 import { Room } from "./FloorPlanVisualizer";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { processAudioComment } from "@/app/actions/processAudio";
-import { getPresignedUploadUrl, triggerVideoCompression } from "@/app/actions/uploadMedia";
+import { getPresignedUploadUrl } from "@/app/actions/uploadMedia";
 import { db } from "@/lib/db";
 
 interface CommentFormProps {
@@ -153,7 +153,7 @@ export function CommentForm({
         let idx = 0;
         for (const file of selectedFiles) {
           setUploadProgress(`Obtendo permissão de upload para o arquivo ${idx + 1}...`);
-          const { uploadUrl, fileKey, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
+          const { uploadUrl, publicUrl } = await getPresignedUploadUrl(file.name, file.type);
           
           const isVideo = file.type.startsWith("video/");
           
@@ -183,11 +183,6 @@ export function CommentForm({
             url: publicUrl,
             type: isVideo ? "video" : "image"
           });
-
-          if (isVideo) {
-            setUploadProgress(`Enfileirando vídeo ${idx + 1} para compressão...`);
-            await triggerVideoCompression(fileKey);
-          }
 
           idx++;
         }

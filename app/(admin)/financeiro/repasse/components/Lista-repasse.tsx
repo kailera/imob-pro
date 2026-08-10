@@ -17,17 +17,52 @@ const currency = (value: number) => new Intl.NumberFormat("pt-BR", {
 
 const date = (value: string | null) => value ? new Date(value).toLocaleDateString("pt-BR") : "—";
 
-const STATUS: Record<RepasseStatus, { label: string; className: string }> = {
-  AGUARDANDO_RECEBIMENTO: { label: "Aguardando aluguel", className: "bg-amber-50 text-amber-700 border-amber-100" },
-  PRONTO: { label: "Pronto para gerar", className: "bg-blue-50 text-blue-700 border-blue-100" },
-  PENDENTE: { label: "Repasse pendente", className: "bg-violet-50 text-violet-700 border-violet-100" },
-  PAGO: { label: "Repassado", className: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+const STATUS: Record<RepasseStatus, { label: string; dotClassName: string; textClassName: string }> = {
+  AGUARDANDO_RECEBIMENTO: {
+    label: "Aluguel não recebido",
+    dotClassName: "bg-amber-500",
+    textClassName: "text-amber-700",
+  },
+  PRONTO: {
+    label: "Pronto para gerar",
+    dotClassName: "bg-blue-500",
+    textClassName: "text-blue-700",
+  },
+  PENDENTE: {
+    label: "Repasse pendente",
+    dotClassName: "bg-violet-500",
+    textClassName: "text-violet-700",
+  },
+  PAGO: {
+    label: "Repassado",
+    dotClassName: "bg-emerald-500",
+    textClassName: "text-emerald-700",
+  },
 };
+
+function ValueBlock({ label, value, tone = "default" }: {
+  label: string;
+  value: string;
+  tone?: "default" | "negative" | "total";
+}) {
+  const valueClassName = tone === "negative"
+    ? "text-red-600"
+    : tone === "total"
+      ? "text-[#004777]"
+      : "text-gray-800";
+
+  return (
+    <div className={`min-w-0 rounded-2xl p-3 ${tone === "total" ? "bg-[#004777]/[0.06]" : "bg-[#EEEEF3]/55"}`}>
+      <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</div>
+      <div className={`mt-1 break-words text-sm font-black sm:text-base ${valueClassName}`}>{value}</div>
+    </div>
+  );
+}
 
 export default function ListaRepasse({ items, company, onEdit }: RepasseListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
+      <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-center sm:p-12">
         <WalletCards className="mx-auto h-9 w-9 text-gray-300" />
         <p className="mt-3 font-semibold text-gray-600">Nenhum contrato encontrado para os filtros selecionados.</p>
         <p className="mt-1 text-sm text-gray-400">Altere o mês, o status ou o nome pesquisado.</p>
@@ -36,67 +71,78 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/70 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] text-left text-sm">
-          <thead className="bg-[#EEEEF3]/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-            <tr>
-              <th className="px-5 py-4">Proprietário</th>
-              <th className="px-5 py-4">Imóvel / contrato</th>
-              <th className="px-5 py-4">Recebimento</th>
-              <th className="px-5 py-4 text-right">Bruto</th>
-              <th className="px-5 py-4 text-right">Taxa adm.</th>
-              <th className="px-5 py-4 text-right">Descontos</th>
-              <th className="px-5 py-4 text-right">A repassar</th>
-              <th className="px-5 py-4">Situação</th>
-              <th className="px-5 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#EEEEF3]">
-            {items.map((item) => {
-              const status = STATUS[item.status];
-              const missingBankData = !item.owner.pixKey && !item.owner.bankAccount;
-              return (
-                <tr key={item.key} className="align-top transition-colors hover:bg-[#EEEEF3]/25">
-                  <td className="px-5 py-4">
-                    <div className="font-bold text-[#280003]">{item.owner.name}</div>
-                    <div className="mt-0.5 text-xs text-gray-500">{item.owner.cpfCnpj || "Documento não informado"}</div>
-                    {item.additionalOwners.length > 0 && <div className="mt-1 text-[11px] font-medium text-[#004777]">+ {item.additionalOwners.length} coproprietário(s)</div>}
-                    {missingBankData && <div className="mt-1 text-[10px] font-semibold text-amber-700">Dados bancários pendentes</div>}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5 font-semibold text-gray-800"><Building2 className="h-3.5 w-3.5 text-[#004777]" />{item.propertyCode} · {item.propertyTitle}</div>
-                    <div className="mt-1 max-w-[250px] text-xs leading-relaxed text-gray-500">{item.propertyAddress}</div>
-                    <div className="mt-1 text-[11px] text-gray-400">Contrato {item.contractCode}</div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="font-medium text-gray-700">{date(item.receivedAt)}</div>
-                    <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-400"><CalendarClock className="h-3 w-3" />Repasse: {date(item.transferDueDate)}</div>
-                  </td>
-                  <td className="px-5 py-4 text-right font-semibold text-gray-800">{currency(item.grossValue)}</td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="font-semibold text-red-600">− {currency(item.adminFeeValue)}</div>
-                    <div className="text-[10px] text-gray-400">{item.adminFeePercent.toLocaleString("pt-BR")}%</div>
-                  </td>
-                  <td className="px-5 py-4 text-right font-semibold text-red-600">− {currency(item.deductionTotal)}</td>
-                  <td className="px-5 py-4 text-right text-base font-black text-[#004777]">{currency(item.netValue)}</td>
-                  <td className="px-5 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${status.className}`}>{status.label}</span></td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => onEdit(item)} disabled={!item.rentTransactionId} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#280003] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
-                        <Pencil className="h-3.5 w-3.5" />Editar
-                      </button>
-                      <button type="button" onClick={() => printRepasseReceipt(item, company)} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[#004777] px-3 text-xs font-bold text-white transition hover:bg-[#00385e]">
-                        <FileText className="h-3.5 w-3.5" />Recibo
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-3">
+      {items.map((item) => {
+        const status = !item.receivedAt ? STATUS.AGUARDANDO_RECEBIMENTO : STATUS[item.status];
+        const missingBankData = !item.owner.pixKey && !item.owner.bankAccount;
+
+        return (
+          <article key={item.key} className="min-w-0 rounded-3xl border border-white/70 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+            <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:items-start">
+              <section className="min-w-0 xl:col-span-3">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="break-words font-black leading-snug text-[#280003]">{item.owner.name}</h3>
+                    <p className="mt-0.5 break-all text-xs text-gray-500">{item.owner.cpfCnpj || "Documento não informado"}</p>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center gap-1.5 text-[10px] font-bold ${status.textClassName}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} aria-hidden="true" />
+                    <span>{status.label}</span>
+                  </span>
+                </div>
+                {item.additionalOwners.length > 0 && (
+                  <p className="mt-2 text-[11px] font-semibold text-[#004777]">+ {item.additionalOwners.length} coproprietário(s)</p>
+                )}
+                {missingBankData && (
+                  <p className="mt-1 text-[10px] font-semibold text-amber-700">Dados bancários pendentes</p>
+                )}
+              </section>
+
+              <section className="min-w-0 xl:col-span-3">
+                <div className="flex min-w-0 items-start gap-2 font-bold text-gray-800">
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#004777]" />
+                  <span className="min-w-0 break-words">{item.propertyCode} · {item.propertyTitle}</span>
+                </div>
+                <p className="mt-1.5 break-words text-xs leading-relaxed text-gray-500">{item.propertyAddress}</p>
+                <p className="mt-1 text-[11px] text-gray-400">Contrato {item.contractCode}</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
+                  {item.receivedAt && <span>Recebido em {date(item.receivedAt)}</span>}
+                  {item.transferDueDate && (
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarClock className="h-3 w-3" />Repasse em {date(item.transferDueDate)}
+                    </span>
+                  )}
+                </div>
+              </section>
+
+              <section aria-label="Cálculo do repasse" className="grid min-w-0 grid-cols-2 gap-2 xl:col-span-4">
+                <ValueBlock label="Aluguel bruto" value={currency(item.grossValue)} />
+                <ValueBlock label={`Taxa adm. · ${item.adminFeePercent.toLocaleString("pt-BR")}%`} value={`− ${currency(item.adminFeeValue)}`} tone="negative" />
+                <ValueBlock label="Outros descontos" value={`− ${currency(item.deductionTotal)}`} tone="negative" />
+                <ValueBlock label="A repassar" value={currency(item.netValue)} tone="total" />
+              </section>
+
+              <section className="flex min-w-0 flex-col gap-2 md:flex-row xl:col-span-2 xl:flex-col">
+                <button
+                  type="button"
+                  onClick={() => onEdit(item)}
+                  disabled={!item.rentTransactionId}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#280003] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Pencil className="h-4 w-4" />Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printRepasseReceipt(item, company)}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#004777] px-3 text-xs font-bold text-white transition hover:bg-[#00385e]"
+                >
+                  <FileText className="h-4 w-4" />Recibo
+                </button>
+              </section>
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

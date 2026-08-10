@@ -7,6 +7,7 @@ import { CommentData } from "./CommentsTimeline";
 import { PreviewableImage } from "./PreviewableImage";
 import type { InspectionAttachment } from "./DocumentsPhotosSection";
 import { matchesRoomReference } from "@/lib/vistorias/roomMatching";
+import { InspectionVideo } from "./InspectionVideo";
 
 interface InfoGeralItem {
   id: number;
@@ -235,7 +236,7 @@ export function DetailSections({
                                 {media.type === "image" ? (
                                   <PreviewableImage src={media.url} alt={`Foto do cômodo ${room.name}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                 ) : (
-                                  <video src={media.url} controls className="h-full w-full object-cover" />
+                                  <InspectionVideo src={media.url} className="h-full w-full object-cover" />
                                 )}
                               </div>
                             ))}

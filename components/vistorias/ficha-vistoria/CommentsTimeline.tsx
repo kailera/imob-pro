@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CheckCircle2, AlertTriangle, Clock, Edit2, Trash2, Save, X, Film } from "lucide-react";
 import { PreviewableImage } from "./PreviewableImage";
+import { InspectionVideo } from "./InspectionVideo";
 
 export interface CommentMedia {
   url: string;
@@ -223,19 +224,7 @@ export function CommentsTimeline({ comments, onUpdateComment, onDeleteComment, d
                           {med.type === "image" ? (
                             <PreviewableImage src={med.url} alt={`Foto de ${comment.roomName}`} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                           ) : (
-                            <div className="relative w-full h-full">
-                              <video 
-                                src={med.url} 
-                                controls 
-                                className="w-full h-full object-cover" 
-                              />
-                              {med.url.includes("/temp/") && (
-                                <div className="absolute top-1 left-1 bg-black/75 text-white text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shadow flex items-center gap-1 select-none animate-pulse z-10">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
-                                  Otimizando
-                                </div>
-                              )}
-                            </div>
+                            <InspectionVideo src={med.url} className="h-full w-full object-cover" />
                           )}
                         </div>
                       ))}

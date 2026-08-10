@@ -10,6 +10,26 @@ import {
   PHOTOS_PER_ROW,
 } from "../lib/vistorias/pdfLayout";
 import { matchesRoomReference, normalizeRoomName } from "../lib/vistorias/roomMatching";
+import { getOptimizedVideoUrl, getPendingVideoFileKey, replacePendingVideoUrl } from "../lib/vistorias/videoMedia";
+
+test("a URL temporária de vídeo aponta para o MP4 otimizado", () => {
+  const temporaryUrl = "https://storage.exemplo/bucket/comments/temp/abc-123.mov";
+
+  assert.equal(getPendingVideoFileKey(temporaryUrl), "comments/temp/abc-123.mov");
+  assert.equal(getOptimizedVideoUrl(temporaryUrl), "https://storage.exemplo/bucket/comments/abc-123.mp4");
+});
+
+test("a compactação substitui a URL no JSON do comentário", () => {
+  const replacement = replacePendingVideoUrl(
+    [{ url: "https://storage/bucket/comments/temp/abc.webm", type: "video", nome: "vistoria.webm" }],
+    "comments/temp/abc.webm",
+    "https://storage/bucket/comments/abc.mp4"
+  );
+
+  assert.equal(replacement.updated, true);
+  assert.equal(replacement.media[0].url, "https://storage/bucket/comments/abc.mp4");
+  assert.equal(replacement.media[0].nome, "vistoria.webm");
+});
 
 test("fotos legadas continuam vinculadas ao ambiente pelo nome", () => {
   const currentRoomIds = new Set(["uuid-garagem", "uuid-sala"]);
