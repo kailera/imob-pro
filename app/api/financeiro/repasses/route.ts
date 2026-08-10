@@ -6,6 +6,8 @@ import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import type {
   RepasseDeduction,
   RepasseItem,
+  RepasseNewMaintenance,
+  RepasseOtherAddition,
   RepasseOtherDeduction,
   RepasseOwner,
   RepasseStatus,
@@ -41,6 +43,42 @@ function parseOtherDeductions(value: unknown): RepasseOtherDeduction[] {
       id: typeof record.id === "string" ? record.id : `outro-${index}`,
       description,
       value: amount,
+    }];
+  });
+}
+
+function parseOtherAdditions(value: unknown): RepasseOtherAddition[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    const record = asRecord(item);
+    const description = typeof record.description === "string" ? record.description.trim() : "";
+    const amount = asFiniteNumber(record.value, -1);
+    if (!description || amount < 0) return [];
+    return [{
+      id: typeof record.id === "string" ? record.id : `acrescimo-${index}`,
+      description,
+      value: amount,
+    }];
+  });
+}
+
+function parseNewMaintenances(value: unknown): RepasseNewMaintenance[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 20).flatMap((item, index) => {
+    const record = asRecord(item);
+    const description = typeof record.description === "string" ? record.description.trim() : "";
+    const maintenanceDate = typeof record.maintenanceDate === "string" ? record.maintenanceDate : "";
+    const amount = asFiniteNumber(record.value, -1);
+    const status = record.status === "EM_ANDAMENTO" ? "EM_ANDAMENTO" : "FINALIZADA";
+    const parsedDate = new Date(`${maintenanceDate}T12:00:00`);
+    if (!description || description.length > 3000 || !/^\d{4}-\d{2}-\d{2}$/.test(maintenanceDate) || Number.isNaN(parsedDate.getTime()) || amount <= 0) return [];
+    return [{
+      id: typeof record.id === "string" ? record.id : `manutencao-${index}`,
+      description,
+      maintenanceDate,
+      value: amount,
+      status,
+      deductFromOwner: status === "FINALIZADA" && record.deductFromOwner === true,
     }];
   });
 }
@@ -288,19 +326,22 @@ export async function GET(request: NextRequest) {
             value: expense.valor,
           })),
       ];
+      const hasSavedSelection = Object.prototype.hasOwnProperty.call(editMetadata, "deductedMaintenanceIds");
       const savedSelection = asStringArray(editMetadata.deductedMaintenanceIds);
-      const selectedIds = new Set(savedSelection.length > 0 ? savedSelection : availableDeductions.map((item) => item.id));
+      const selectedIds = new Set(hasSavedSelection ? savedSelection : availableDeductions.map((item) => item.id));
       const deductions: RepasseDeduction[] = availableDeductions.map((deduction) => ({
         ...deduction,
         selected: selectedIds.has(deduction.id),
       }));
       const otherDeductions = parseOtherDeductions(editMetadata.otherDeductions);
+      const otherAdditions = parseOtherAdditions(editMetadata.otherAdditions);
       const calculation = calculateRepasse({
         grossValue,
         rentValue,
         adminFeePercent,
         deductionValues: deductions.filter((item) => item.selected).map((item) => item.value),
         otherDeductionValues: otherDeductions.map((item) => item.value),
+        additionValues: otherAdditions.map((item) => item.value),
       });
 
       let status: RepasseStatus = "AGUARDANDO_RECEBIMENTO";
@@ -344,6 +385,8 @@ export async function GET(request: NextRequest) {
         adminFeeValue: calculation.adminFeeValue,
         deductions,
         otherDeductions,
+        otherAdditions,
+        additionTotal: calculation.additionTotal,
         deductionTotal: calculation.deductionTotal,
         netValue: isRentReceived && repasse ? repasse.valor : calculation.netValue,
         transferDueDate: (repasse?.dataVencimento ?? projectedDueDate)?.toISOString() ?? null,
@@ -357,9 +400,10 @@ export async function GET(request: NextRequest) {
       received: total.received + (item.receivedAt ? 1 : 0),
       grossTotal: total.grossTotal + item.grossValue,
       adminFeeTotal: total.adminFeeTotal + item.adminFeeValue,
+      additionTotal: total.additionTotal + item.additionTotal,
       deductionTotal: total.deductionTotal + item.deductionTotal,
       netTotal: total.netTotal + item.netValue,
-    }), { contracts: 0, received: 0, grossTotal: 0, adminFeeTotal: 0, deductionTotal: 0, netTotal: 0 });
+    }), { contracts: 0, received: 0, grossTotal: 0, adminFeeTotal: 0, additionTotal: 0, deductionTotal: 0, netTotal: 0 });
 
     return NextResponse.json({
       success: true,
@@ -387,6 +431,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Atualiza a composição mensal do repasse e, opcionalmente, registra novas
+ * manutenções vinculadas ao contrato. Toda a gravação ocorre em uma única
+ * transação para evitar divergência entre manutenção, desconto e repasse.
+ */
 export async function PATCH(request: NextRequest) {
   try {
     const user = await requireImob();
@@ -438,6 +487,12 @@ export async function PATCH(request: NextRequest) {
 
     const selectedIds = Array.from(new Set(body.selectedDeductionIds?.filter((id): id is string => typeof id === "string") ?? []));
     const otherDeductions = parseOtherDeductions(body.otherDeductions).slice(0, 50);
+    const otherAdditions = parseOtherAdditions(body.otherAdditions).slice(0, 50);
+    const rawNewMaintenances = Array.isArray(body.newMaintenances) ? body.newMaintenances : [];
+    const newMaintenances = parseNewMaintenances(rawNewMaintenances);
+    if (newMaintenances.length !== rawNewMaintenances.length) {
+      return NextResponse.json({ error: "Preencha descrição, data e valor válido em todas as novas manutenções." }, { status: 400 });
+    }
     const [expenses, maintenanceDiscounts] = await Promise.all([
       prisma.transacaoFinanceira.findMany({
         where: { id: { in: selectedIds }, imovelId: propertyId, tipo: "DESPESA", status: "LIQUIDADO" },
@@ -471,8 +526,13 @@ export async function PATCH(request: NextRequest) {
       grossValue,
       rentValue,
       adminFeePercent,
-      deductionValues: [...expenses.map((item) => item.valor), ...maintenanceDiscounts.map((item) => Number(item.valor))],
+      deductionValues: [
+        ...expenses.map((item) => item.valor),
+        ...maintenanceDiscounts.map((item) => Number(item.valor)),
+        ...newMaintenances.filter((item) => item.deductFromOwner).map((item) => item.value),
+      ],
       otherDeductionValues: otherDeductions.map((item) => item.value),
+      additionValues: otherAdditions.map((item) => item.value),
     });
     const transferDueDate = body.transferDueDate ? new Date(body.transferDueDate) : null;
     if (transferDueDate && Number.isNaN(transferDueDate.getTime())) {
@@ -484,17 +544,62 @@ export async function PATCH(request: NextRequest) {
       description: item.description,
       value: item.value,
     }));
-    const draft: Prisma.InputJsonObject = {
-      adminFeePercent,
-      adminFeeValue: calculation.adminFeeValue,
-      deductedMaintenanceIds: validSelectedIds,
-      deductedMaintenanceValue: calculation.deductionTotal - otherDeductions.reduce((sum, item) => sum + item.value, 0),
-      otherDeductions: otherDeductionsJson,
-      transferDueDate: transferDueDate?.toISOString() ?? null,
-      updatedAt: new Date().toISOString(),
-    };
+    const otherAdditionsJson: Prisma.InputJsonArray = otherAdditions.map((item) => ({
+      id: item.id,
+      description: item.description,
+      value: item.value,
+    }));
+
+    const legacyContract = newMaintenances.length > 0
+      ? await prisma.contratoImovelLocacao.findFirst({
+          where: {
+            imobId: user.imobId,
+            imovelId: propertyId,
+            ...(body.legacyContractId ? { id: body.legacyContractId } : {}),
+          },
+          select: { id: true },
+        })
+      : null;
+    if (newMaintenances.length > 0 && !legacyContract) {
+      return NextResponse.json({ error: "Não foi possível vincular a manutenção ao contrato de locação." }, { status: 400 });
+    }
 
     const result = await prisma.$transaction(async (db) => {
+      const createdMaintenanceDeductionIds: string[] = [];
+      for (const maintenance of newMaintenances) {
+        const shouldDeduct = maintenance.status === "FINALIZADA" && maintenance.deductFromOwner;
+        const created = await db.manutencao.create({
+          data: {
+            imobId: user.imobId,
+            contratoId: legacyContract!.id,
+            imovelId: propertyId,
+            descricao: maintenance.description,
+            dataManutencao: new Date(`${maintenance.maintenanceDate}T12:00:00`),
+            valor: maintenance.value,
+            status: maintenance.status,
+            repassarProprietario: shouldDeduct,
+            descontos: shouldDeduct ? {
+              create: [{ competencia: competence, valor: maintenance.value }],
+            } : undefined,
+          },
+          select: { descontos: { select: { id: true } } },
+        });
+        createdMaintenanceDeductionIds.push(...created.descontos.map((discount) => discount.id));
+      }
+
+      const allSelectedIds = [...validSelectedIds, ...createdMaintenanceDeductionIds];
+      const draft: Prisma.InputJsonObject = {
+        adminFeePercent,
+        adminFeeValue: calculation.adminFeeValue,
+        deductedMaintenanceIds: allSelectedIds,
+        deductedMaintenanceValue: calculation.deductionTotal - otherDeductions.reduce((sum, item) => sum + item.value, 0),
+        otherDeductions: otherDeductionsJson,
+        otherAdditions: otherAdditionsJson,
+        additionTotal: calculation.additionTotal,
+        transferDueDate: transferDueDate?.toISOString() ?? null,
+        updatedAt: new Date().toISOString(),
+      };
+
       await db.transacaoFinanceira.update({
         where: { id: rentTransaction.id },
         data: { metadata: { ...rentMetadata, repasseDraft: draft } as Prisma.InputJsonObject },
@@ -525,6 +630,13 @@ export async function PATCH(request: NextRequest) {
       } else if (rentTransaction.status === "LIQUIDADO") {
         const created = await createPendingRepasseForRent(db, rentTransaction.id);
         repasseId = created.repasseId ?? null;
+      }
+
+      if (repasseId && createdMaintenanceDeductionIds.length > 0) {
+        await db.descontoManutencao.updateMany({
+          where: { id: { in: createdMaintenanceDeductionIds } },
+          data: { status: "APLICADO", repasseId, aplicadoEm: new Date() },
+        });
       }
 
       return repasseId;

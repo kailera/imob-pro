@@ -6,6 +6,7 @@ export interface RepasseOwnerGroup {
   items: RepasseItem[];
   grossTotal: number;
   adminFeeTotal: number;
+  additionTotal: number;
   deductionTotal: number;
   netTotal: number;
   receivedCount: number;
@@ -34,6 +35,7 @@ export function groupRepassesByOwner(items: RepasseItem[]): RepasseOwnerGroup[] 
       existing.items.push(item);
       existing.grossTotal += item.grossValue;
       existing.adminFeeTotal += item.adminFeeValue;
+      existing.additionTotal += item.additionTotal;
       existing.deductionTotal += item.deductionTotal;
       existing.netTotal += item.netValue;
       if (item.receivedAt) existing.receivedCount += 1;
@@ -46,6 +48,7 @@ export function groupRepassesByOwner(items: RepasseItem[]): RepasseOwnerGroup[] 
       items: [item],
       grossTotal: item.grossValue,
       adminFeeTotal: item.adminFeeValue,
+      additionTotal: item.additionTotal,
       deductionTotal: item.deductionTotal,
       netTotal: item.netValue,
       receivedCount: item.receivedAt ? 1 : 0,

@@ -6,6 +6,7 @@ import { ArrowLeft, CalendarDays, Download, Filter, LoaderCircle, RefreshCcw, Se
 import ListaRepasse from "./components/Lista-repasse";
 import EditarRepasse from "./components/editar-repasse";
 import type { RepasseCompany, RepasseItem, RepasseListResponse, RepasseStatus, RepasseSummary } from "@/lib/financeiro/repasse-types";
+import { downloadRepasseXlsx } from "@/lib/financeiro/repasse-xlsx";
 
 const currentCompetence = () => {
     const date = new Date();
@@ -17,7 +18,7 @@ const currency = (value: number) => new Intl.NumberFormat("pt-BR", {
     currency: "BRL",
 }).format(value);
 
-const emptySummary: RepasseSummary = { contracts: 0, received: 0, grossTotal: 0, adminFeeTotal: 0, deductionTotal: 0, netTotal: 0 };
+const emptySummary: RepasseSummary = { contracts: 0, received: 0, grossTotal: 0, adminFeeTotal: 0, additionTotal: 0, deductionTotal: 0, netTotal: 0 };
 const emptyCompany: RepasseCompany = { name: "Imobiliária", legalName: null, cnpj: null, creci: null, phone: null, email: null, logoUrl: null, address: "" };
 
 export default function RepassePage() {
@@ -28,6 +29,7 @@ export default function RepassePage() {
     const [status, setStatus] = useState<"" | RepasseStatus>("");
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
     const [error, setError] = useState("");
     const [editing, setEditing] = useState<RepasseItem | null>(null);
 
@@ -66,9 +68,9 @@ export default function RepassePage() {
         return () => window.clearTimeout(timeout);
     }, [load]);
 
-    const filteredItems = useMemo(() => {
+    const filterItems = useCallback((source: RepasseItem[]) => {
         const term = search.trim().toLocaleLowerCase("pt-BR");
-        return items.filter((item) => {
+        return source.filter((item) => {
             if (status && item.status !== status) return false;
             if (!term) return true;
             return [
@@ -81,29 +83,26 @@ export default function RepassePage() {
                 ...item.tenantNames,
             ].some((value) => value.toLocaleLowerCase("pt-BR").includes(term));
         });
-    }, [items, search, status]);
+    }, [search, status]);
 
-    const exportCsv = () => {
-        const header = ["Proprietário", "CPF/CNPJ", "Contrato", "Imóvel", "Endereço", "Valor bruto", "Taxa adm.", "Manutenções/outros", "Valor líquido", "Situação"];
-        const rows = filteredItems.map((item) => [
-            item.owner.name,
-            item.owner.cpfCnpj,
-            item.contractCode,
-            `${item.propertyCode} - ${item.propertyTitle}`,
-            item.propertyAddress,
-            item.grossValue.toFixed(2).replace(".", ","),
-            item.adminFeeValue.toFixed(2).replace(".", ","),
-            item.deductionTotal.toFixed(2).replace(".", ","),
-            item.netValue.toFixed(2).replace(".", ","),
-            item.status,
-        ]);
-        const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\r\n");
-        const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = `repasses-${competence}.csv`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+    const filteredItems = useMemo(() => filterItems(items), [filterItems, items]);
+
+    const exportXlsx = async () => {
+        setExporting(true);
+        setError("");
+        try {
+            const response = await fetch(`/api/financeiro/repasses?competencia=${encodeURIComponent(competence)}`);
+            const result = await response.json() as RepasseListResponse | { error?: string };
+            if (!response.ok || !("success" in result)) throw new Error("Não foi possível atualizar os dados da planilha.");
+            setItems(result.data);
+            setSummary(result.summary);
+            setCompany(result.company);
+            downloadRepasseXlsx(filterItems(result.data), result.company, competence);
+        } catch (exportError) {
+            setError(exportError instanceof Error ? exportError.message : "Não foi possível exportar a planilha.");
+        } finally {
+            setExporting(false);
+        }
     };
 
     return (
@@ -117,14 +116,15 @@ export default function RepassePage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => void load()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-600 shadow-sm hover:bg-gray-50"><RefreshCcw className="h-4 w-4" />Atualizar</button>
-                        <button type="button" onClick={exportCsv} disabled={filteredItems.length === 0} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777] px-4 text-sm font-bold text-white shadow-md hover:bg-[#00385e] disabled:opacity-40"><Download className="h-4 w-4" />Exportar planilha</button>
+                        <button type="button" onClick={() => void exportXlsx()} disabled={filteredItems.length === 0 || exporting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777] px-4 text-sm font-bold text-white shadow-md hover:bg-[#00385e] disabled:opacity-40">{exporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{exporting ? "Atualizando..." : "Exportar XLSX"}</button>
                     </div>
                 </header>
 
-                <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
                     <SummaryCard label="Contratos ativos" value={String(summary.contracts)} detail={`${summary.received} aluguel(is) recebido(s)`} />
                     <SummaryCard label="Valor bruto" value={currency(summary.grossTotal)} detail="Aluguéis da competência" />
                     <SummaryCard label="Taxas administrativas" value={`− ${currency(summary.adminFeeTotal)}`} detail="Receita da imobiliária" negative />
+                    <SummaryCard label="Acréscimos" value={`+ ${currency(summary.additionTotal)}`} detail="Créditos do proprietário" />
                     <SummaryCard label="Manutenções e outros" value={`− ${currency(summary.deductionTotal)}`} detail="Descontos do proprietário" negative />
                     <SummaryCard label="Total a repassar" value={currency(summary.netTotal)} detail="Líquido consolidado" highlighted />
                 </section>

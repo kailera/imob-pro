@@ -4,6 +4,7 @@ export interface RepasseCalculationInput {
   adminFeePercent: number;
   deductionValues: number[];
   otherDeductionValues: number[];
+  additionValues?: number[];
 }
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -44,8 +45,11 @@ export function calculateRepasse(input: RepasseCalculationInput) {
   const otherDeductions = money(
     input.otherDeductionValues.reduce((total, value) => total + Math.max(0, Number(value) || 0), 0),
   );
+  const additionTotal = money(
+    (input.additionValues ?? []).reduce((total, value) => total + Math.max(0, Number(value) || 0), 0),
+  );
   const deductionTotal = money(maintenanceAndExpenses + otherDeductions);
-  const netValue = money(Math.max(0, grossValue - adminFeeValue - deductionTotal));
+  const netValue = money(Math.max(0, grossValue + additionTotal - adminFeeValue - deductionTotal));
 
-  return { grossValue, adminFeePercent, adminFeeValue, deductionTotal, netValue };
+  return { grossValue, adminFeePercent, adminFeeValue, additionTotal, deductionTotal, netValue };
 }

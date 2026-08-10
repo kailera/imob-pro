@@ -144,6 +144,16 @@ export async function createPendingRepasseForRent(
         return [{ id: typeof record.id === "string" ? record.id : `outro-${index}`, description, value }];
       })
     : [];
+  const otherAdditions = Array.isArray(repasseDraft.otherAdditions)
+    ? repasseDraft.otherAdditions.flatMap((item, index) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const record = item as Record<string, unknown>;
+        const description = typeof record.description === "string" ? record.description.trim() : "";
+        const value = Number(record.value);
+        if (!description || !Number.isFinite(value) || value < 0) return [];
+        return [{ id: typeof record.id === "string" ? record.id : `acrescimo-${index}`, description, value }];
+      })
+    : [];
   const selectedDeductionIds = [
     ...maintenanceExpenses.map(item => item.id),
     ...scheduledMaintenance.map(item => item.id),
@@ -157,6 +167,7 @@ export async function createPendingRepasseForRent(
       ...scheduledMaintenance.map(item => Number(item.valor)),
     ],
     otherDeductionValues: otherDeductions.map(item => item.value),
+    additionValues: otherAdditions.map(item => item.value),
   });
   const ownerName = contrato?.imovelLocacao?.locadors?.[0]?.nome
     ?? lease?.parties[0]?.person.name
@@ -186,6 +197,8 @@ export async function createPendingRepasseForRent(
         deductedMaintenanceIds: selectedDeductionIds,
         deductedMaintenanceValue: calculation.deductionTotal - otherDeductions.reduce((sum, item) => sum + item.value, 0),
         otherDeductions,
+        otherAdditions,
+        additionTotal: calculation.additionTotal,
         competence,
       },
     },

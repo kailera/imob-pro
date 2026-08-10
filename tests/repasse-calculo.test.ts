@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateRepasse, resolveRepasseGrossValue } from "../lib/financeiro/repasse-calculo";
 import { groupRepassesByOwner } from "../lib/financeiro/repasse-grouping";
+import { createRepasseXlsx } from "../lib/financeiro/repasse-xlsx";
 import type { RepasseItem } from "../lib/financeiro/repasse-types";
 
 function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> = {}): RepasseItem {
@@ -27,6 +28,8 @@ function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> 
     adminFeeValue: 100,
     deductions: [],
     otherDeductions: [],
+    otherAdditions: [],
+    additionTotal: 0,
     deductionTotal: 0,
     netValue: 900,
     transferDueDate: null,
@@ -39,7 +42,7 @@ function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> 
 test("agrupa os imóveis do mesmo proprietário e consolida os totais", () => {
   const groups = groupRepassesByOwner([
     repasseItem("00003", "owner-1"),
-    repasseItem("00006", "owner-1", { grossValue: 1_100, adminFeeValue: 110, deductionTotal: 50, netValue: 940, receivedAt: "2026-08-10" }),
+    repasseItem("00006", "owner-1", { grossValue: 1_100, adminFeeValue: 110, additionTotal: 25, deductionTotal: 50, netValue: 965, receivedAt: "2026-08-10" }),
     repasseItem("00008", "owner-2"),
   ]);
 
@@ -47,8 +50,9 @@ test("agrupa os imóveis do mesmo proprietário e consolida os totais", () => {
   assert.equal(groups[0].items.length, 2);
   assert.equal(groups[0].grossTotal, 2_100);
   assert.equal(groups[0].adminFeeTotal, 210);
+  assert.equal(groups[0].additionTotal, 25);
   assert.equal(groups[0].deductionTotal, 50);
-  assert.equal(groups[0].netTotal, 1_840);
+  assert.equal(groups[0].netTotal, 1_865);
   assert.equal(groups[0].receivedCount, 1);
 });
 
@@ -83,9 +87,24 @@ test("calcula repasse com taxa administrativa, manutenção e outros descontos",
     grossValue: 5_500,
     adminFeePercent: 10,
     adminFeeValue: 550,
+    additionTotal: 0,
     deductionTotal: 109,
     netValue: 4_841,
   });
+});
+
+test("soma acréscimos ao valor líquido do proprietário", () => {
+  const result = calculateRepasse({
+    grossValue: 1_000,
+    rentValue: 1_000,
+    adminFeePercent: 10,
+    deductionValues: [50],
+    otherDeductionValues: [],
+    additionValues: [25, 10],
+  });
+
+  assert.equal(result.additionTotal, 35);
+  assert.equal(result.netValue, 885);
 });
 
 test("aplica taxa apenas sobre o aluguel contratual quando o bruto contém encargos", () => {
@@ -112,4 +131,23 @@ test("nunca gera valor líquido negativo", () => {
   });
 
   assert.equal(result.netValue, 0);
+});
+
+test("gera planilha XLSX válida com os repasses da competência", () => {
+  const file = createRepasseXlsx([repasseItem("00003", "owner-1")], {
+    name: "Scatolin Imóveis",
+    legalName: null,
+    cnpj: null,
+    creci: null,
+    phone: null,
+    email: null,
+    logoUrl: null,
+    address: "",
+  }, "2026-08");
+
+  assert.deepEqual(Array.from(file.slice(0, 4)), [0x50, 0x4b, 0x03, 0x04]);
+  const content = new TextDecoder().decode(file);
+  assert.match(content, /xl\/worksheets\/sheet1\.xml/);
+  assert.match(content, /Humberto Franzotti/);
+  assert.match(content, /TOTAL DA COMPETÊNCIA/);
 });

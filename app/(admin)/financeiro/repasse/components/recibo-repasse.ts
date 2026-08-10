@@ -36,6 +36,9 @@ export function printRepasseReceipt(item: RepasseItem, company: RepasseCompany) 
       <tr><td>${escapeHtml(deduction.description)}</td><td class="negative">− ${currency(deduction.value)}</td></tr>
     `),
   ].join("");
+  const additionRows = item.otherAdditions.map((addition) => `
+      <tr><td>${escapeHtml(addition.description)}</td><td class="positive">+ ${currency(addition.value)}</td></tr>
+    `).join("");
   const bankDetails = [
     item.owner.bankName,
     item.owner.bankAgency ? `Ag. ${item.owner.bankAgency}` : null,
@@ -66,6 +69,7 @@ export function printRepasseReceipt(item: RepasseItem, company: RepasseCompany) 
     th:last-child, td:last-child { text-align: right; width: 170px; }
     td { padding: 11px 13px; border-bottom: 1px solid #e5e7eb; }
     .negative { color: #b42318; }
+    .positive { color: #177245; }
     .net { margin-top: 18px; background: #eaf4f1; border-left: 5px solid #708d81; border-radius: 8px; padding: 17px 18px; display: flex; justify-content: space-between; align-items: center; }
     .net span { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #52665e; }
     .net strong { color: #174c3c; font-size: 24px; }
@@ -91,6 +95,7 @@ export function printRepasseReceipt(item: RepasseItem, company: RepasseCompany) 
       </section>
       <table><thead><tr><th>Descrição</th><th>Valor</th></tr></thead><tbody>
         <tr><td>Aluguel / valor bruto recebido</td><td>${currency(item.grossValue)}</td></tr>
+        ${additionRows}
         <tr><td>Taxa de administração (${item.adminFeePercent.toLocaleString("pt-BR")}% sobre ${currency(item.rentValue)})</td><td class="negative">− ${currency(item.adminFeeValue)}</td></tr>
         ${deductionRows || `<tr><td>Manutenções e outros descontos</td><td>${currency(0)}</td></tr>`}
       </tbody></table>

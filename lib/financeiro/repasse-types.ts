@@ -25,6 +25,21 @@ export interface RepasseOtherDeduction {
   value: number;
 }
 
+export interface RepasseOtherAddition {
+  id: string;
+  description: string;
+  value: number;
+}
+
+export interface RepasseNewMaintenance {
+  id: string;
+  description: string;
+  maintenanceDate: string;
+  value: number;
+  status: "EM_ANDAMENTO" | "FINALIZADA";
+  deductFromOwner: boolean;
+}
+
 export interface RepasseItem {
   key: string;
   leaseId: string;
@@ -47,6 +62,8 @@ export interface RepasseItem {
   adminFeeValue: number;
   deductions: RepasseDeduction[];
   otherDeductions: RepasseOtherDeduction[];
+  otherAdditions: RepasseOtherAddition[];
+  additionTotal: number;
   deductionTotal: number;
   netValue: number;
   transferDueDate: string | null;
@@ -70,6 +87,7 @@ export interface RepasseSummary {
   received: number;
   grossTotal: number;
   adminFeeTotal: number;
+  additionTotal: number;
   deductionTotal: number;
   netTotal: number;
 }
@@ -83,11 +101,14 @@ export interface RepasseListResponse {
 
 export interface RepasseUpdateInput {
   leaseId: string;
+  legacyContractId: string | null;
   rentTransactionId: string;
   repasseId: string | null;
   competence: string;
   adminFeePercent: number;
   selectedDeductionIds: string[];
   otherDeductions: RepasseOtherDeduction[];
+  otherAdditions: RepasseOtherAddition[];
+  newMaintenances: RepasseNewMaintenance[];
   transferDueDate: string | null;
 }
