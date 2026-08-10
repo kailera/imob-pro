@@ -578,6 +578,7 @@ export async function atualizarRepasseAjustadoAction(
 
     revalidatePath("/pagamentos");
     revalidatePath("/financeiro");
+    revalidatePath("/financeiro/repasse");
 
     return { success: true };
   } catch (error: any) {
@@ -599,6 +600,7 @@ export async function liquidarRepasseAction(repasseId: string) {
 
     revalidatePath("/pagamentos");
     revalidatePath("/financeiro");
+    revalidatePath("/financeiro/repasse");
 
     return { success: true };
   } catch (error: any) {
@@ -648,6 +650,7 @@ export async function criarRepassePendente(rentTransactionId: string) {
     
     revalidatePath("/pagamentos");
     revalidatePath("/financeiro");
+    revalidatePath("/financeiro/repasse");
   } catch (error) {
     console.error("[criarRepassePendente] Erro ao criar repasse automático:", error);
     throw error;

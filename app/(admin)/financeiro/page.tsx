@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Search,
   UserCheck,
+  WalletCards,
   X,
 } from "lucide-react";
 
@@ -270,6 +271,10 @@ export default function FinanceiroPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Link href="/financeiro/repasse" className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2 text-sm font-medium text-[#280003] shadow-sm transition-colors hover:bg-gray-50">
+              <WalletCards className="h-4 w-4 text-[#004777]" />
+              Repasses
+            </Link>
             <Link href="/comissoes" className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2 text-sm font-medium text-[#280003] shadow-sm transition-colors hover:bg-gray-50">
               <UserCheck className="h-4 w-4 text-[#004777]" />
               Gerenciar Comissões
