@@ -125,7 +125,7 @@ export default function RepassePage() {
                     <SummaryCard label="Valor bruto" value={currency(summary.grossTotal)} detail="Aluguéis da competência" />
                     <SummaryCard label="Taxas administrativas" value={`− ${currency(summary.adminFeeTotal)}`} detail="Receita da imobiliária" negative />
                     <SummaryCard label="Acréscimos" value={`+ ${currency(summary.additionTotal)}`} detail="Créditos do proprietário" />
-                    <SummaryCard label="Manutenções e outros" value={`− ${currency(summary.deductionTotal)}`} detail="Descontos do proprietário" negative />
+                    <SummaryCard label="Descontos" value={`− ${currency(summary.deductionTotal)}`} detail="Bonificações, manutenções e outros" negative />
                     <SummaryCard label="Total a repassar" value={currency(summary.netTotal)} detail="Líquido consolidado" highlighted />
                 </section>
 

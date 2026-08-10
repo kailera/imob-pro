@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
+import { requireUserContext } from "@/lib/auth";
 
 async function getOrCreateDefaultImobId() {
   const imob = await prisma.imob.findFirst();
@@ -254,6 +255,7 @@ export async function getInterPdfUrlAction(pdfKey: string): Promise<string> {
 
 export async function getLocatariosListAction() {
   try {
+    const context = await requireUserContext();
     const locatarios = await prisma.locatario.findMany({
       select: {
         id: true,
@@ -288,7 +290,88 @@ export async function getLocatariosListAction() {
         nome: "asc"
       }
     });
-    return { success: true, locatarios };
+
+    const documents = Array.from(new Set(locatarios
+      .map(locatario => locatario.cpfCnpj?.replace(/\D/g, ""))
+      .filter((document): document is string => document.length === 11 || document.length === 14)));
+    const people = documents.length > 0
+      ? await prisma.person.findMany({
+          where: {
+            imobId: context.tenantId,
+            type: "LOCATARIO",
+          },
+          select: {
+            cpfCnpj: true,
+            email: true,
+            addresses: {
+              take: 1,
+              select: {
+                cep: true,
+                logradouro: true,
+                numero: true,
+                complemento: true,
+                bairro: true,
+                municipio: true,
+                estado: true,
+              },
+            },
+          },
+        })
+      : [];
+    const peopleByDocument = new Map(people.map(person => [
+      person.cpfCnpj.replace(/\D/g, ""),
+      person,
+    ]));
+
+    const enrichedLocatarios = locatarios.map(locatario => {
+      const person = peopleByDocument.get(locatario.cpfCnpj.replace(/\D/g, ""));
+      const personAddress = person?.addresses[0];
+      let legacyAddress: Record<string, unknown> = {};
+      if (locatario.endereco) {
+        if (typeof locatario.endereco === "string") {
+          try {
+            const parsed = JSON.parse(locatario.endereco);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              legacyAddress = parsed as Record<string, unknown>;
+            }
+          } catch {
+            legacyAddress = { logradouro: locatario.endereco };
+          }
+        } else if (typeof locatario.endereco === "object" && !Array.isArray(locatario.endereco)) {
+          legacyAddress = locatario.endereco as Record<string, unknown>;
+        }
+      }
+
+      const fallbackAddress = personAddress ? {
+        cep: personAddress.cep,
+        logradouro: personAddress.logradouro,
+        numero: personAddress.numero,
+        complemento: personAddress.complemento ?? "",
+        bairro: personAddress.bairro,
+        municipio: personAddress.municipio,
+        estado: personAddress.estado,
+      } : {};
+      const cleanLegacyAddress = Object.fromEntries(
+        Object.entries(legacyAddress)
+          .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== ""),
+      );
+      const mergedAddress = Object.fromEntries(
+        Object.entries({ ...fallbackAddress, ...cleanLegacyAddress })
+          .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== ""),
+      );
+
+      return {
+        ...locatario,
+        cpfCnpj: locatario.cpfCnpj || person?.cpfCnpj || "",
+        email: locatario.email || person?.email || "",
+        endereco: Object.keys(mergedAddress).length > 0 ? mergedAddress : null,
+        enderecoOrigem: Object.keys(cleanLegacyAddress).length > 0
+          ? "CADASTRO_LEGADO"
+          : personAddress ? "CADASTRO_PESSOA" : null,
+      };
+    });
+
+    return { success: true, locatarios: enrichedLocatarios };
   } catch (error: any) {
     console.error("Erro ao obter lista de locatários:", error);
     return { success: false, error: error.message || "Erro ao obter lista de locatários." };
@@ -305,26 +388,81 @@ export async function criarAcordoManualAction(input: {
   enderecoJson?: any;
 }) {
   try {
+    const context = await requireUserContext();
     const { locatarioId, contratoId, descricao, valor, vencimentoStr, cpfCnpj, enderecoJson } = input;
+
+    if (contratoId) {
+      const authorizedContract = await prisma.contratoImovelLocacao.findFirst({
+        where: { id: contratoId, imobId: context.tenantId },
+        select: { id: true },
+      });
+      if (!authorizedContract) {
+        return { success: false, error: "Contrato não encontrado ou sem permissão de acesso." };
+      }
+    }
 
     if (!descricao || descricao.trim() === "") {
       return { success: false, error: "A descrição é obrigatória." };
     }
-    if (!valor || valor <= 0) {
-      return { success: false, error: "O valor deve ser maior que zero." };
+    if (!Number.isFinite(valor) || valor < 2.5 || valor > 99_999_999.99) {
+      return { success: false, error: "O valor do boleto deve estar entre R$ 2,50 e R$ 99.999.999,99." };
     }
     if (!vencimentoStr) {
       return { success: false, error: "A data de vencimento é obrigatória." };
+    }
+
+    const hojeBrasil = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimentoStr) || vencimentoStr < hojeBrasil) {
+      return { success: false, error: "O vencimento deve ser hoje ou uma data futura." };
+    }
+    if (vencimentoStr === hojeBrasil) {
+      const partesHora = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(new Date());
+      const hora = Number(partesHora.find(part => part.type === "hour")?.value ?? 0);
+      const minuto = Number(partesHora.find(part => part.type === "minute")?.value ?? 0);
+      if (hora > 19 || (hora === 19 && minuto > 59)) {
+        return { success: false, error: "Após 19h59, o Inter exige vencimento a partir do dia seguinte." };
+      }
+    }
+
+    const cpfCnpjLimpo = (cpfCnpj ?? "").replace(/\D/g, "");
+    if (cpfCnpjLimpo.length !== 11 && cpfCnpjLimpo.length !== 14) {
+      return { success: false, error: "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos." };
+    }
+    const endereco = enderecoJson && typeof enderecoJson === "object" ? enderecoJson : {};
+    const cepLimpo = String(endereco.cep ?? "").replace(/\D/g, "");
+    const ufNormalizada = String(endereco.uf ?? endereco.estado ?? "").trim().toUpperCase();
+    if (!String(endereco.logradouro ?? "").trim()
+      || !String(endereco.numero ?? "").trim()
+      || !String(endereco.bairro ?? "").trim()
+      || !String(endereco.cidade ?? endereco.municipio ?? "").trim()
+      || !/^[A-Z]{2}$/.test(ufNormalizada)
+      || cepLimpo.length !== 8) {
+      return { success: false, error: "Complete logradouro, número, bairro, cidade, UF e CEP do pagador." };
     }
 
     // 1. Atualizar CPF/CNPJ e Endereço do Locatário se fornecidos
     if (cpfCnpj || enderecoJson) {
       const updateData: any = {};
       if (cpfCnpj) {
-        updateData.cpfCnpj = cpfCnpj;
+        updateData.cpfCnpj = cpfCnpjLimpo;
       }
       if (enderecoJson) {
-        updateData.endereco = typeof enderecoJson === "string" ? enderecoJson : JSON.stringify(enderecoJson);
+        updateData.endereco = JSON.stringify({
+          ...endereco,
+          cidade: String(endereco.cidade ?? endereco.municipio ?? "").trim(),
+          uf: ufNormalizada,
+          cep: cepLimpo,
+        });
       }
       await prisma.locatario.update({
         where: { id: locatarioId },
@@ -341,6 +479,12 @@ export async function criarAcordoManualAction(input: {
         categoria: "ALUGUEL",
         status: "PENDENTE",
         dataVencimento: new Date(vencimentoStr),
+        metadata: {
+          origin: "MANUAL_AGREEMENT",
+          agreementDescription: descricao.trim(),
+          locatarioId,
+          imobId: context.tenantId,
+        },
         contratoId: contratoId || null
       }
     });
@@ -370,9 +514,14 @@ export async function criarAcordoManualAction(input: {
     revalidatePath("/cobrancas");
     revalidatePath("/financeiro");
     revalidatePath("/juridico");
+    if (contratoId) {
+      revalidatePath(`/locacao/view-locacao/${contratoId}`);
+      revalidatePath(`/locacao/contratos/${contratoId}/editar`);
+    }
 
     return {
       success: true,
+      processing: interRes.processing ?? false,
       transacaoId: tx.id,
       nossoNumero: interRes.nossoNumero,
       pixCopiaECola: interRes.pixCopiaECola,
@@ -387,11 +536,24 @@ export async function criarAcordoManualAction(input: {
 
 export async function getAgreementTransactionsAction() {
   try {
+    const context = await requireUserContext();
     const transactions = await prisma.transacaoFinanceira.findMany({
       where: {
-        interNossoNumero: {
-          not: null
-        }
+        AND: [
+          {
+            OR: [
+              { metadata: { path: ["origin"], equals: "MANUAL_AGREEMENT" } },
+              { descricao: { startsWith: "Acordo de" }, interCodigoSolicitacao: { not: null } },
+            ],
+          },
+          {
+            OR: [
+              { contrato: { imobId: context.tenantId } },
+              { lease: { tenantId: context.tenantId } },
+              { metadata: { path: ["imobId"], equals: context.tenantId } },
+            ],
+          },
+        ],
       },
       orderBy: {
         createdAt: "desc"

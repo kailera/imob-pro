@@ -105,7 +105,7 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
                 <ValueBlock label="Bruto consolidado" value={currency(group.grossTotal)} />
                 <ValueBlock label="Acréscimos" value={`+ ${currency(group.additionTotal)}`} />
                 <ValueBlock label="Taxas adm." value={`− ${currency(group.adminFeeTotal)}`} tone="negative" />
-                <ValueBlock label="Outros descontos" value={`− ${currency(group.deductionTotal)}`} tone="negative" />
+                <ValueBlock label="Descontos" value={`− ${currency(group.deductionTotal)}`} tone="negative" />
                 <ValueBlock label="Total a repassar" value={currency(group.netTotal)} tone="total" />
               </section>
 
@@ -150,7 +150,7 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
                       <ValueBlock label="Aluguel bruto" value={currency(item.grossValue)} />
                       <ValueBlock label="Acréscimos" value={`+ ${currency(item.additionTotal)}`} />
                       <ValueBlock label={`Taxa adm. · ${item.adminFeePercent.toLocaleString("pt-BR")}%`} value={`− ${currency(item.adminFeeValue)}`} tone="negative" />
-                      <ValueBlock label="Outros descontos" value={`− ${currency(item.deductionTotal)}`} tone="negative" />
+                      <ValueBlock label="Descontos" value={`− ${currency(item.deductionTotal)}`} tone="negative" />
                       <ValueBlock label="A repassar" value={currency(item.netValue)} tone="total" />
                     </section>
 

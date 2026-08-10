@@ -24,6 +24,7 @@ import {
   X
 } from 'lucide-react';
 import { getLocatariosListAction, criarAcordoManualAction, getAgreementTransactionsAction, getInterPdfUrlAction } from '@/app/actions/interActions';
+import { AgreementActions } from '@/components/locacao/AgreementActions';
 
 
 interface Contrato {
@@ -247,16 +248,43 @@ export default function JuridicoPage() {
       setAgreementError("Selecione um inquilino.");
       return;
     }
-    if (agreementValue <= 0) {
-      setAgreementError("O valor do acordo deve ser maior que zero.");
+    if (agreementValue < 2.5 || agreementValue > 99_999_999.99) {
+      setAgreementError("O valor do boleto deve estar entre R$ 2,50 e R$ 99.999.999,99.");
       return;
     }
     if (!agreementDate) {
       setAgreementError("Defina uma data de vencimento.");
       return;
     }
+    const todayBrazil = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    if (agreementDate < todayBrazil) {
+      setAgreementError("O vencimento deve ser hoje ou uma data futura.");
+      return;
+    }
+    const brazilTime = new Date().toLocaleTimeString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    if (agreementDate === todayBrazil && brazilTime > '19:59') {
+      setAgreementError("Após 19h59, o Inter exige vencimento a partir do dia seguinte.");
+      return;
+    }
     if (!agreementDesc.trim()) {
       setAgreementError("Defina uma descrição para o acordo.");
+      return;
+    }
+    const cpfCnpjDigits = customCpfCnpj.replace(/\D/g, '');
+    if (cpfCnpjDigits.length !== 11 && cpfCnpjDigits.length !== 14) {
+      setAgreementError("Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.");
+      return;
+    }
+    if (!customAddress.logradouro.trim() || !customAddress.numero.trim()
+      || !customAddress.bairro.trim() || !customAddress.cidade.trim()
+      || !/^[A-Za-z]{2}$/.test(customAddress.uf.trim())
+      || customAddress.cep.replace(/\D/g, '').length !== 8) {
+      setAgreementError("Complete logradouro, número, bairro, cidade, UF e CEP do pagador.");
       return;
     }
 
@@ -280,7 +308,9 @@ export default function JuridicoPage() {
 
       if (res.success) {
         setGeneratedAgreementBoleto(res);
-        setToastMessage("Boleto de acordo gerado com sucesso!");
+        setToastMessage(res.processing
+          ? "Solicitação enviada ao Inter e ainda em processamento."
+          : "Boleto de acordo gerado com sucesso!");
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         loadAgreements();
@@ -1818,6 +1848,9 @@ CONTRATADA`
                                   </button>
                                 )}
                               </div>
+                              <div className="mt-2 flex justify-end text-left">
+                                <AgreementActions transaction={tx} onChanged={loadAgreements} />
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1843,12 +1876,13 @@ CONTRATADA`
             <div className="bg-[#004777] text-white p-5 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">Criar Acordo Manual (Banco Inter)</h3>
-                <p className="text-xs opacity-80 mt-1">Selecione o inquilino, consulte as informações do contrato, preencha os dados e gere o boleto com Pix real.</p>
+                <p className="text-xs opacity-80 mt-1">Emita uma cobrança V3 com boleto e Pix. O QR Code Pix depende de uma chave ativa na conta Inter.</p>
               </div>
               <button 
                 type="button"
                 onClick={() => setShowManualAgreementModal(false)}
-                className="text-white hover:text-gray-200 transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                aria-label="Fechar modal de acordo"
+                className="inline-flex h-11 w-11 items-center justify-center text-white hover:text-gray-200 transition-colors rounded-lg hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1948,6 +1982,18 @@ CONTRATADA`
                           <h4 className="font-bold text-gray-500 uppercase tracking-wider text-[10px] border-b border-gray-200 pb-1.5">
                             Dados de Faturamento & Endereço do Pagador
                           </h4>
+                          {(() => {
+                            const selectedLoc = locatarios.find(l => l.id === selectedLocatarioId);
+                            return selectedLoc?.enderecoOrigem ? (
+                              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-semibold text-emerald-700">
+                                Dados preenchidos automaticamente a partir do cadastro do inquilino.
+                              </p>
+                            ) : (
+                              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-700">
+                                Endereço não encontrado no cadastro. Complete os campos antes de emitir.
+                              </p>
+                            );
+                          })()}
                           <div className="grid grid-cols-2 gap-3 text-xs">
                             <div className="flex flex-col gap-1 col-span-2">
                               <label className="font-bold text-gray-400 uppercase text-[9px]">CPF ou CNPJ</label>
@@ -2010,6 +2056,28 @@ CONTRATADA`
                                 className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
                               />
                             </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">UF</label>
+                              <input
+                                type="text"
+                                required
+                                minLength={2}
+                                maxLength={2}
+                                value={customAddress.uf}
+                                onChange={(e) => setCustomAddress({ ...customAddress, uf: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase() })}
+                                placeholder="SP"
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold uppercase"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="font-bold text-gray-400 uppercase text-[9px]">Complemento (opcional)</label>
+                              <input
+                                type="text"
+                                value={customAddress.complemento}
+                                onChange={(e) => setCustomAddress({ ...customAddress, complemento: e.target.value })}
+                                className="px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none bg-white font-semibold"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2026,7 +2094,8 @@ CONTRATADA`
                           type="number"
                           step="0.01"
                           required
-                          min="1"
+                          min="2.50"
+                          max="99999999.99"
                           value={agreementValue || ''}
                           onChange={(e) => setAgreementValue(Number(e.target.value))}
                           placeholder="0,00"
@@ -2041,6 +2110,7 @@ CONTRATADA`
                       <input
                         type="date"
                         required
+                        min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}
                         value={agreementDate}
                         onChange={(e) => setAgreementDate(e.target.value)}
                         className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20 bg-white"
@@ -2054,7 +2124,7 @@ CONTRATADA`
                         rows={3}
                         value={agreementDesc}
                         onChange={(e) => setAgreementDesc(e.target.value)}
-                        placeholder="Escreva a descrição do acordo. Ela será impressa diretamente no campo de instruções/mensagem do boleto PDF (suporta múltiplas linhas)."
+                        placeholder="Descreva os débitos, condições e referência do acordo. O texto será salvo no histórico e resumido nas linhas do boleto."
                         className="w-full px-3.5 py-2.5 border border-[#280003]/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20 resize-none"
                       />
                     </div>
@@ -2065,12 +2135,14 @@ CONTRATADA`
                       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-200">
                         <h4 className="font-bold text-emerald-800 text-xs uppercase flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          BolePix Emitido com Sucesso!
+                          {generatedAgreementBoleto.processing
+                            ? 'Solicitação em processamento no Inter'
+                            : 'BolePix emitido com sucesso!'}
                         </h4>
                         <div className="text-xs space-y-2 text-emerald-900 leading-relaxed font-semibold">
                           <div className="flex justify-between border-b border-emerald-100 pb-1.5">
                             <span className="text-gray-500">Nosso Número (Inter):</span>
-                            <span>{generatedAgreementBoleto.nossoNumero}</span>
+                            <span>{generatedAgreementBoleto.nossoNumero || 'Aguardando o Inter'}</span>
                           </div>
                           
                           {generatedAgreementBoleto.pixCopiaECola && (

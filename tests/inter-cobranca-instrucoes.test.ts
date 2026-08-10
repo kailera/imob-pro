@@ -79,3 +79,18 @@ test("resume condomínio e gás na mensagem impressa do boleto", () => {
     "COMPOSICAO: ALUG RS 1.000,00; COND RS 40,00; GAS RS 35,00; TOTAL RS 1.075,00",
   ]);
 });
+
+test("imprime a descrição do acordo manual nas linhas da cobrança", () => {
+  const mensagem = criarMensagemCobrancaInter({
+    metadata: {
+      origin: "MANUAL_AGREEMENT",
+      agreementDescription: "Parcelamento dos aluguéis de maio e junho",
+    },
+    valorNominal: 2_500,
+    dataVencimento: "2026-08-30",
+  });
+
+  const linhas = Object.values(mensagem).join("\n");
+  assert.match(linhas, /ACORDO: Parcelamento dos alugueis de maio e junho/);
+  assert.match(linhas, /TOTAL NOMINAL: RS 2.500,00/);
+});

@@ -239,6 +239,15 @@ export function criarResumoComposicaoBoletoInter(input: {
       ? input.metadata
       : {}
   ) as Record<string, unknown>;
+  if (metadata.origin === "MANUAL_AGREEMENT") {
+    const descricao = typeof metadata.agreementDescription === "string"
+      ? metadata.agreementDescription.trim()
+      : "Acordo de débitos";
+    return [
+      `ACORDO: ${descricao}`,
+      `TOTAL NOMINAL: RS ${valorMonetarioCompacto(input.valorNominal)}`,
+    ];
+  }
   const componentKeys = [
     "rentValue",
     "iptuValue",
@@ -359,6 +368,29 @@ export function criarEstadoParaNovaEmissaoInter() {
     interMensagem: {},
     status: "PENDENTE" as const,
   };
+}
+
+export function criarMetadataNovaEmissaoInter(metadata: unknown) {
+  const current = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : {};
+  const previousSequence = Number(current.interEmissionSequence ?? 0);
+  return {
+    ...current,
+    interEmissionSequence: Number.isFinite(previousSequence)
+      ? Math.max(0, Math.trunc(previousSequence)) + 1
+      : 1,
+  };
+}
+
+export function criarSeuNumeroInter(transactionId: string, metadata: unknown) {
+  const cleanId = transactionId.replace(/[^a-zA-Z0-9]/g, "");
+  const current = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : {};
+  const sequence = Math.max(0, Math.trunc(Number(current.interEmissionSequence ?? 0)) || 0);
+  if (sequence === 0) return cleanId.substring(0, 15);
+  return `${cleanId.substring(0, 11)}${String(sequence).padStart(4, "0").slice(-4)}`;
 }
 
 export function resolverBonificacaoLease(input: {

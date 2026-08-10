@@ -174,11 +174,11 @@ export default function EditarRepasse({ item, onClose, onSaved }: EditarRepasseP
           </section>
 
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-black text-[#280003]">Manutenções e despesas</h3><p className="mt-0.5 text-xs text-gray-400">Marque valores existentes ou registre uma nova manutenção.</p></div><button type="button" onClick={addMaintenance} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777]/10 px-3 text-xs font-bold text-[#004777] hover:bg-[#004777]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"><Wrench className="h-4 w-4" />Nova manutenção</button></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-black text-[#280003]">Descontos do repasse</h3><p className="mt-0.5 text-xs text-gray-400">Inclua ou retire bonificações, manutenções e despesas do cálculo.</p></div><button type="button" onClick={addMaintenance} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777]/10 px-3 text-xs font-bold text-[#004777] hover:bg-[#004777]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"><Wrench className="h-4 w-4" />Nova manutenção</button></div>
             <div className="mt-4 space-y-2">
-              {item.deductions.length === 0 ? <p className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400">Nenhuma manutenção ou despesa elegível nesta competência.</p> : item.deductions.map((deduction) => (
+              {item.deductions.length === 0 ? <p className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400">Nenhum desconto elegível nesta competência.</p> : item.deductions.map((deduction) => (
                 <label key={deduction.id} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-gray-100 p-3 transition hover:bg-gray-50">
-                  <div className="flex items-center gap-3"><input type="checkbox" checked={selectedIds.includes(deduction.id)} onChange={() => toggleDeduction(deduction.id)} className="h-4 w-4 accent-[#004777]" /><div><span className="block text-sm font-semibold text-gray-800">{deduction.description}</span><span className="text-[10px] font-bold uppercase text-gray-400">{deduction.type === "MANUTENCAO" ? "Manutenção programada" : "Despesa paga"}</span></div></div>
+                  <div className="flex items-center gap-3"><input type="checkbox" checked={selectedIds.includes(deduction.id)} onChange={() => toggleDeduction(deduction.id)} className="h-5 w-5 accent-[#004777]" /><div><span className="block text-sm font-semibold text-gray-800">{deduction.description}</span><span className="text-[10px] font-bold uppercase text-gray-400">{deductionTypeLabel(deduction.type)}</span></div></div>
                   <strong className="whitespace-nowrap text-sm text-red-600">− {currency(deduction.value)}</strong>
                 </label>
               ))}
@@ -242,4 +242,10 @@ export default function EditarRepasse({ item, onClose, onSaved }: EditarRepasseP
 
 function ValueCard({ label, value }: { label: string; value: string }) {
   return <div className="rounded-2xl border border-gray-200 p-3"><span className="block text-[10px] font-bold uppercase text-gray-400">{label}</span><strong className="mt-1 block text-lg text-[#280003]">{value}</strong></div>;
+}
+
+function deductionTypeLabel(type: RepasseItem["deductions"][number]["type"]) {
+  if (type === "BONIFICACAO") return "Bonificação contratual";
+  if (type === "MANUTENCAO") return "Manutenção programada";
+  return "Despesa paga";
 }

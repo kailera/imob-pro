@@ -10,6 +10,7 @@ import { ContratoTermsForm } from "./components/ContratoTermsForm"
 import { ContratoClausesDocumentsForm } from "./components/ContratoClausesDocumentsForm"
 import { EtapasCadastroNav, type EtapaStatus } from "./components/EtapasCadastroNav"
 import { LeaseTermsPeriodsForm } from "./components/LeaseTermsPeriodsForm"
+import { CobrancasAcordosHistory } from "@/components/locacao/CobrancasAcordosHistory"
 
 type EditContratoPageProps = {
     params: Promise<{
@@ -156,6 +157,8 @@ export default async function EditContratoPage({
                             documents={contrato.documents}
                         />
                     </section>
+
+                    <CobrancasAcordosHistory transactions={contrato.transacoes} />
                 </div>
 
                 {/* Sidebar de Etapas do Cadastro */}

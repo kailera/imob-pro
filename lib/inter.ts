@@ -14,6 +14,8 @@ import {
   criarEstadoParaNovaEmissaoInter,
   criarMensagemCobrancaInter,
   criarMoraInterV3,
+  criarMetadataNovaEmissaoInter,
+  criarSeuNumeroInter,
   extrairRecebimentoCobrancaInter,
   extrairSituacaoCobrancaInter,
   formatarMensagemInter,
@@ -217,6 +219,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
   let token = "";
   let httpsAgent: any = null;
   let baseUrl = "";
+  let seuNumeroGerado = transacaoId.replace(/-/g, "").substring(0, 15);
   try {
     // 1. Busca a transação e os detalhes do contrato/inquilino associado
     const transacao = await prisma.transacaoFinanceira.findUnique({
@@ -260,6 +263,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     if (!transacao) {
       return { success: false, error: "Transação não encontrada." };
     }
+    seuNumeroGerado = criarSeuNumeroInter(transacao.id, transacao.metadata);
     if (cobrancaEstaRegistradaNoInter(transacao)) {
       return {
         success: false,
@@ -362,12 +366,14 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     baseUrl = getInterBaseUrl(creds.sandbox);
 
     // 3. Estrutura o pagador (Inquilino)
-    let enderecoObj: any = { logradouro: "", bairro: "", municipio: "", estado: "", cep: "" };
+    let enderecoObj: any = { logradouro: "", numero: "", complemento: "", bairro: "", municipio: "", estado: "", cep: "" };
     if (locatario.endereco) {
       try {
         const parsed = JSON.parse(locatario.endereco as string);
         enderecoObj = {
           logradouro: parsed.logradouro || "",
+          numero: parsed.numero || "",
+          complemento: parsed.complemento || "",
           bairro: parsed.bairro || "",
           municipio: parsed.municipio || parsed.cidade || "",
           estado: parsed.estado || parsed.uf || "",
@@ -393,6 +399,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
         enderecoObj = {
           logradouro: rawAddress || enderecoObj.logradouro || "Rua não informada",
+          numero: enderecoObj.numero || String(imovel.numero || ""),
+          complemento: enderecoObj.complemento || imovel.complemento || "",
           bairro: imovel.bairro && imovel.bairro !== "Importado via CSV" ? imovel.bairro : (enderecoObj.bairro || "Centro"),
           municipio: imovel.cidade && imovel.cidade !== "Indefinida" ? imovel.cidade : (enderecoObj.municipio || "Ilha Solteira"),
           estado: imovel.uf || (enderecoObj.estado || "SP"),
@@ -429,7 +437,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       : transacao.descricao;
 
     const payload: any = {
-      seuNumero: transacao.id.replace(/-/g, "").substring(0, 15),
+      seuNumero: seuNumeroGerado,
       valorNominal: transacao.valor,
       dataVencimento: dataVencimentoStr,
       numDiasAgenda: 30, // Fica recebível por 30 dias após vencimento
@@ -438,11 +446,14 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         tipoPessoa: cleanCpfCnpj.length > 11 ? "JURIDICA" : "FISICA",
         nome: locatario.nome,
         endereco: enderecoObj.logradouro,
+        numero: enderecoObj.numero || undefined,
+        complemento: enderecoObj.complemento || undefined,
         bairro: enderecoObj.bairro,
         cidade: enderecoObj.municipio,
         uf: enderecoObj.estado,
         cep: enderecoObj.cep,
       },
+      formasRecebimento: ["BOLETO", "PIX"],
     };
 
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
@@ -759,7 +770,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
               data: {
                 interNossoNumero: nossoNumero,
                 interCodigoSolicitacao: codigoSolicitacao,
-                interSeuNumero: transacaoId.replace(/-/g, "").substring(0, 15),
+                interSeuNumero: seuNumeroGerado,
                 interPixCode: pixCopiaECola,
                 interBarcode: codigoBarras,
                 interPdfKey: pdfKey || null,
@@ -1158,7 +1169,10 @@ export async function reemitirBolePixAction(transacaoId: string): Promise<{
 
   await prisma.transacaoFinanceira.update({
     where: { id: transacaoId },
-    data: criarEstadoParaNovaEmissaoInter(),
+    data: {
+      ...criarEstadoParaNovaEmissaoInter(),
+      metadata: criarMetadataNovaEmissaoInter(transacao.metadata),
+    },
   });
 
   return gerarBolePixAction(transacaoId);

@@ -1,4 +1,4 @@
-import { Fiador, Locador, Locatario, TransacaoFinanceira } from "@/generated/prisma"
+import { Fiador, Locador, Locatario } from "@/generated/prisma"
 import { getCompleteContratoLocacao } from "../../actions/actions"
 import { getContratoForEdit } from "../../actions/getContratoForEdit"
 import Link from "next/link"
@@ -20,10 +20,10 @@ import {
     TrendingUp,
     Clock,
     UserCheck,
-    CheckCircle,
     Download
 } from "lucide-react"
 import { TelefoneContato, EnderecoDetalhado, DocumentoUpload } from "@/lib/interfaces"
+import { CobrancasAcordosHistory } from "@/components/locacao/CobrancasAcordosHistory"
 
 // Safe JSON parsing helpers
 const parseTelefones = (field: any): TelefoneContato[] => {
@@ -283,6 +283,7 @@ function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
                         <p className="mt-4 text-xs text-gray-500">Controle locatício ainda não preenchido.</p>
                     )}
                 </section>
+                <CobrancasAcordosHistory transactions={contrato.transacoes} />
             </div>
         </main>
     )
@@ -810,53 +811,11 @@ export default async function ViewLocacao({
                             )}
                         </div>
 
-                        {/* Histórico de Cobranças */}
-                        <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-xs space-y-4">
-                            <h2 className="font-bold text-sm text-[#280003] uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
-                                <DollarSign className="w-4 h-4 text-emerald-600" />
-                                Cobranças (Financeiro)
-                            </h2>
-                            {transacaoFinanceiras.length > 0 ? (
-                                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-                                    {transacaoFinanceiras.map((tx: TransacaoFinanceira) => {
-                                        const isPaid = tx.status === "LIQUIDADO"
-                                        return (
-                                            <div key={tx.id} className="p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-2">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <span className="font-bold text-xs text-gray-800 leading-tight block truncate max-w-[120px]" title={tx.descricao}>
-                                                        {tx.descricao}
-                                                    </span>
-                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-                                                        }`}>
-                                                        {isPaid ? "Liquidado" : "Pendente"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-[10px] text-gray-550 font-bold">
-                                                    <span>{formatCurrency(tx.valor)}</span>
-                                                    <span className="flex items-center gap-1 font-semibold text-gray-400">
-                                                        <Clock className="w-3.5 h-3.5" />
-                                                        {formatDate(tx.dataVencimento)}
-                                                    </span>
-                                                </div>
-                                                {tx.dataPagamento && (
-                                                    <div className="text-[9px] text-emerald-600 font-semibold flex items-center gap-1 pt-1.5 border-t border-dashed border-gray-200">
-                                                        <CheckCircle className="w-3 h-3" /> Pagamento em: {formatDate(tx.dataPagamento)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-gray-400 italic text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                    Nenhuma cobrança gerada para este contrato.
-                                </p>
-                            )}
-                        </div>
-
                     </div>
 
                 </div>
+
+                <CobrancasAcordosHistory transactions={transacaoFinanceiras} />
 
             </div>
         </div>

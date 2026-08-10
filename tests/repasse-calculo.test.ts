@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { calculateRepasse, resolveRepasseGrossValue } from "../lib/financeiro/repasse-calculo";
 import { groupRepassesByOwner } from "../lib/financeiro/repasse-grouping";
 import { createRepasseXlsx } from "../lib/financeiro/repasse-xlsx";
+import { resolveRepasseBonus, restoreGrossBeforeBonus } from "../lib/financeiro/repasse-bonificacao";
 import type { RepasseItem } from "../lib/financeiro/repasse-types";
 
 function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> = {}): RepasseItem {
@@ -150,4 +151,37 @@ test("gera planilha XLSX válida com os repasses da competência", () => {
   assert.match(content, /xl\/worksheets\/sheet1\.xml/);
   assert.match(content, /Humberto Franzotti/);
   assert.match(content, /TOTAL DA COMPETÊNCIA/);
+});
+
+test("resolve a bonificação salva no boleto e recompõe o bruto recebido sem duplicar o desconto", () => {
+  const bonus = resolveRepasseBonus({
+    transactionId: "rent-1",
+    rentValue: 1_000,
+    metadata: {},
+    chargeItems: [{ type: "DISCOUNT", description: "Desconto de pontualidade", amount: 100 }],
+  });
+
+  assert.deepEqual(bonus, {
+    id: "bonificacao:rent-1",
+    type: "BONIFICACAO",
+    description: "Desconto de pontualidade",
+    value: 100,
+  });
+  assert.equal(restoreGrossBeforeBonus({
+    grossValue: 900,
+    transactionValue: 1_000,
+    bonusValue: 100,
+    isReceived: true,
+  }), 1_000);
+});
+
+test("calcula bonificação percentual pelas condições da cobrança quando não há item persistido", () => {
+  const bonus = resolveRepasseBonus({
+    transactionId: "rent-2",
+    rentValue: 1_200,
+    metadata: { billingConditions: { discountValue: 10, discountType: "PERCENT" } },
+    chargeItems: [],
+  });
+
+  assert.equal(bonus?.value, 120);
 });

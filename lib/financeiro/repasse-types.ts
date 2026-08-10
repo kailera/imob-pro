@@ -13,7 +13,7 @@ export interface RepasseOwner {
 
 export interface RepasseDeduction {
   id: string;
-  type: "MANUTENCAO" | "DESPESA";
+  type: "BONIFICACAO" | "MANUTENCAO" | "DESPESA";
   description: string;
   value: number;
   selected: boolean;

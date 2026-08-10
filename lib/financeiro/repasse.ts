@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma";
 import { calculateRepasse } from "@/lib/financeiro/repasse-calculo";
+import { resolveRepasseBonus } from "@/lib/financeiro/repasse-bonificacao";
 
 type DbClient = Prisma.TransactionClient;
 
@@ -27,6 +28,7 @@ export async function createPendingRepasseForRent(
           },
         },
       },
+      itensCobranca: { orderBy: { order: "asc" } },
     },
   });
 
@@ -86,6 +88,12 @@ export async function createPendingRepasseForRent(
 
   const metadataRentValue = Number(rentMeta.rentValue);
   const rentValue = Number.isFinite(metadataRentValue) ? metadataRentValue : rentTx.valor;
+  const bonusDiscount = resolveRepasseBonus({
+    transactionId: rentTx.id,
+    rentValue,
+    metadata: rentTx.metadata,
+    chargeItems: rentTx.itensCobranca,
+  });
   const metadataCompetence = typeof rentMeta.competence === "string" ? rentMeta.competence : "";
   const competence = /^\d{4}-\d{2}$/.test(metadataCompetence)
     ? metadataCompetence
@@ -101,6 +109,9 @@ export async function createPendingRepasseForRent(
   const savedSelection = hasSavedSelection
     ? draftDeductionIds.filter((item: unknown): item is string => typeof item === "string")
     : [];
+  const bonusSelected = Boolean(
+    bonusDiscount && (!hasSavedSelection || savedSelection.includes(bonusDiscount.id)),
+  );
   const [maintenanceExpenses, scheduledMaintenance] = await Promise.all([
     db.transacaoFinanceira.findMany({
       where: hasSavedSelection
@@ -157,6 +168,7 @@ export async function createPendingRepasseForRent(
   const selectedDeductionIds = [
     ...maintenanceExpenses.map(item => item.id),
     ...scheduledMaintenance.map(item => item.id),
+    ...(bonusSelected && bonusDiscount ? [bonusDiscount.id] : []),
   ];
   const calculation = calculateRepasse({
     grossValue: rentTx.valor,
@@ -165,6 +177,7 @@ export async function createPendingRepasseForRent(
     deductionValues: [
       ...maintenanceExpenses.map(item => item.valor),
       ...scheduledMaintenance.map(item => Number(item.valor)),
+      ...(bonusSelected && bonusDiscount ? [bonusDiscount.value] : []),
     ],
     otherDeductionValues: otherDeductions.map(item => item.value),
     additionValues: otherAdditions.map(item => item.value),

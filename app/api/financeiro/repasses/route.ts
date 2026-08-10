@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateRepasse, resolveRepasseGrossValue } from "@/lib/financeiro/repasse-calculo";
+import { resolveRepasseBonus, restoreGrossBeforeBonus } from "@/lib/financeiro/repasse-bonificacao";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import type {
   RepasseDeduction,
@@ -171,6 +172,7 @@ export async function GET(request: NextRequest) {
           }],
         },
         orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+        include: { itensCobranca: { orderBy: { order: "asc" } } },
       }),
       prisma.transacaoFinanceira.findMany({
         where: {
@@ -248,12 +250,24 @@ export async function GET(request: NextRequest) {
               ?? 0,
       );
       const isRentReceived = rentTransaction?.status === "LIQUIDADO";
-      const grossValue = resolveRepasseGrossValue({
+      const receivedGrossValue = resolveRepasseGrossValue({
         rentValue,
         transactionValue: rentTransaction?.valor,
         receivedValue: rentTransaction?.interValorRecebido == null
           ? null
           : Number(rentTransaction.interValorRecebido),
+        isReceived: isRentReceived,
+      });
+      const bonusDiscount = rentTransaction ? resolveRepasseBonus({
+        transactionId: rentTransaction.id,
+        rentValue,
+        metadata: rentTransaction.metadata,
+        chargeItems: rentTransaction.itensCobranca,
+      }) : null;
+      const grossValue = restoreGrossBeforeBonus({
+        grossValue: receivedGrossValue,
+        transactionValue: rentTransaction?.valor ?? rentValue,
+        bonusValue: bonusDiscount?.value ?? 0,
         isReceived: isRentReceived,
       });
 
@@ -309,6 +323,7 @@ export async function GET(request: NextRequest) {
       const adminFeePercent = asFiniteNumber(editMetadata.adminFeePercent, defaultAdminFee);
 
       const availableDeductions: Omit<RepasseDeduction, "selected">[] = [
+        ...(bonusDiscount ? [bonusDiscount] : []),
         ...maintenanceDiscounts
           .filter((discount) => discount.manutencao.imovelId === lease.property?.id)
           .map((discount) => ({
@@ -482,6 +497,7 @@ export async function PATCH(request: NextRequest) {
           { contrato: { is: { imobId: user.imobId, imovelId: propertyId } } },
         ],
       },
+      include: { itensCobranca: { orderBy: { order: "asc" } } },
     });
     if (!rentTransaction) return NextResponse.json({ error: "Cobrança de aluguel não encontrada." }, { status: 404 });
 
@@ -507,14 +523,13 @@ export async function PATCH(request: NextRequest) {
         select: { id: true, valor: true },
       }),
     ]);
-    const validSelectedIds = [...expenses.map((item) => item.id), ...maintenanceDiscounts.map((item) => item.id)];
     const rentMetadata = asRecord(rentTransaction.metadata);
     const contractualRentValue = lease.termsPeriods[0]?.rentAmount
       ?? lease.terms?.rentValue
       ?? lease.property?.valorAluguel
       ?? rentTransaction.valor;
     const rentValue = asFiniteNumber(rentMetadata.rentValue, Number(contractualRentValue));
-    const grossValue = resolveRepasseGrossValue({
+    const receivedGrossValue = resolveRepasseGrossValue({
       rentValue,
       transactionValue: rentTransaction.valor,
       receivedValue: rentTransaction.interValorRecebido == null
@@ -522,6 +537,24 @@ export async function PATCH(request: NextRequest) {
         : Number(rentTransaction.interValorRecebido),
       isReceived: rentTransaction.status === "LIQUIDADO",
     });
+    const bonusDiscount = resolveRepasseBonus({
+      transactionId: rentTransaction.id,
+      rentValue,
+      metadata: rentTransaction.metadata,
+      chargeItems: rentTransaction.itensCobranca,
+    });
+    const bonusSelected = Boolean(bonusDiscount && selectedIds.includes(bonusDiscount.id));
+    const grossValue = restoreGrossBeforeBonus({
+      grossValue: receivedGrossValue,
+      transactionValue: rentTransaction.valor,
+      bonusValue: bonusDiscount?.value ?? 0,
+      isReceived: rentTransaction.status === "LIQUIDADO",
+    });
+    const validSelectedIds = [
+      ...expenses.map((item) => item.id),
+      ...maintenanceDiscounts.map((item) => item.id),
+      ...(bonusSelected && bonusDiscount ? [bonusDiscount.id] : []),
+    ];
     const calculation = calculateRepasse({
       grossValue,
       rentValue,
@@ -529,6 +562,7 @@ export async function PATCH(request: NextRequest) {
       deductionValues: [
         ...expenses.map((item) => item.valor),
         ...maintenanceDiscounts.map((item) => Number(item.valor)),
+        ...(bonusSelected && bonusDiscount ? [bonusDiscount.value] : []),
         ...newMaintenances.filter((item) => item.deductFromOwner).map((item) => item.value),
       ],
       otherDeductionValues: otherDeductions.map((item) => item.value),
