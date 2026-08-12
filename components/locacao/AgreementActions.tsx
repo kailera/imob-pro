@@ -17,6 +17,7 @@ type AgreementActionsProps = {
     dataVencimento: Date | string
     status: string
     interStatus?: string | null
+    metadata?: unknown
   }
   onChanged?: () => void | Promise<void>
 }
@@ -28,12 +29,17 @@ function isPaid(transaction: AgreementActionsProps["transaction"]) {
 }
 
 export function AgreementActions({ transaction, onChanged }: AgreementActionsProps) {
+  const metadata = transaction.metadata && typeof transaction.metadata === "object" && !Array.isArray(transaction.metadata)
+    ? transaction.metadata as Record<string, unknown>
+    : {}
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [busyAction, setBusyAction] = useState<"edit" | "reissue" | "delete" | null>(null)
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [description, setDescription] = useState(transaction.descricao)
   const [value, setValue] = useState(String(transaction.valor))
+  const [lateFeePercentage, setLateFeePercentage] = useState(Number(metadata.agreementLateFeePercentage ?? 10))
+  const [monthlyInterestPercentage, setMonthlyInterestPercentage] = useState(Number(metadata.agreementInterestMonthlyPercentage ?? 1))
   const [dueDate, setDueDate] = useState(new Date(transaction.dataVencimento).toISOString().slice(0, 10))
   const paid = isPaid(transaction)
 
@@ -50,6 +56,8 @@ export function AgreementActions({ transaction, onChanged }: AgreementActionsPro
       descricao: description,
       valor: Number(value),
       vencimento: dueDate,
+      multaAtrasoPercentual: lateFeePercentage,
+      jurosAtrasoPercentual: monthlyInterestPercentage,
     })
     setBusyAction(null)
     if (!result.success) {
@@ -189,6 +197,40 @@ export function AgreementActions({ transaction, onChanged }: AgreementActionsPro
                   />
                 </label>
               </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-xs font-bold text-gray-600">
+                  Multa após vencimento
+                  <div className="relative mt-1.5">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={lateFeePercentage}
+                      onChange={event => setLateFeePercentage(Number(event.target.value))}
+                      className="min-h-11 w-full rounded-xl border border-gray-300 pl-3 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400" aria-hidden="true">%</span>
+                  </div>
+                </label>
+                <label className="block text-xs font-bold text-gray-600">
+                  Juros ao mês
+                  <div className="relative mt-1.5">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={monthlyInterestPercentage}
+                      onChange={event => setMonthlyInterestPercentage(Number(event.target.value))}
+                      className="min-h-11 w-full rounded-xl border border-gray-300 pl-3 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#004777]"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400" aria-hidden="true">%</span>
+                  </div>
+                </label>
+              </div>
               {feedback?.type === "error" && (
                 <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">{feedback.text}</p>
               )}
@@ -203,6 +245,7 @@ export function AgreementActions({ transaction, onChanged }: AgreementActionsPro
           </form>
         </div>
       )}
+
     </div>
   )
 }

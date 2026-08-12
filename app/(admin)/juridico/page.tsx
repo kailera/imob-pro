@@ -102,6 +102,8 @@ export default function JuridicoPage() {
   const [showManualAgreementModal, setShowManualAgreementModal] = useState(false);
   const [selectedLocatarioId, setSelectedLocatarioId] = useState('');
   const [agreementValue, setAgreementValue] = useState<number>(0);
+  const [agreementLateFeePercentage, setAgreementLateFeePercentage] = useState(10);
+  const [agreementInterestMonthlyPercentage, setAgreementInterestMonthlyPercentage] = useState(1);
   const [agreementDate, setAgreementDate] = useState('');
   const [agreementDesc, setAgreementDesc] = useState('');
   const [customCpfCnpj, setCustomCpfCnpj] = useState('');
@@ -212,6 +214,8 @@ export default function JuridicoPage() {
     if (loc) {
       setCustomCpfCnpj(loc.cpfCnpj || '');
       setAgreementDesc(`Acordo de Débitos - ${loc.nome}`);
+      setAgreementLateFeePercentage(10);
+      setAgreementInterestMonthlyPercentage(1);
       
       // Parse address
       let addr = { logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' };
@@ -239,6 +243,8 @@ export default function JuridicoPage() {
       setCustomCpfCnpj('');
       setCustomAddress({ logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' });
       setAgreementDesc('');
+      setAgreementLateFeePercentage(10);
+      setAgreementInterestMonthlyPercentage(1);
     }
   };
 
@@ -302,6 +308,8 @@ export default function JuridicoPage() {
         descricao: agreementDesc,
         valor: agreementValue,
         vencimentoStr: agreementDate,
+        multaAtrasoPercentual: agreementLateFeePercentage,
+        jurosAtrasoPercentual: agreementInterestMonthlyPercentage,
         cpfCnpj: customCpfCnpj,
         enderecoJson: customAddress
       });
@@ -1646,6 +1654,8 @@ CONTRATADA`
                 onClick={() => {
                   setSelectedLocatarioId('');
                   setAgreementValue(0);
+                  setAgreementLateFeePercentage(10);
+                  setAgreementInterestMonthlyPercentage(1);
                   setAgreementDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
                   setAgreementDesc('');
                   setCustomCpfCnpj('');
@@ -2103,6 +2113,46 @@ CONTRATADA`
                         />
                       </div>
                       <span className="text-[10px] text-gray-400 italic">Digite o valor livre que deseja para este boleto do acordo.</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase" htmlFor="agreement-late-fee">Multa após vencimento</label>
+                        <div className="relative">
+                          <input
+                            id="agreement-late-fee"
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={agreementLateFeePercentage}
+                            onChange={(e) => setAgreementLateFeePercentage(Number(e.target.value))}
+                            className="w-full rounded-xl border border-[#280003]/10 bg-white py-2.5 pl-3.5 pr-10 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                          />
+                          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400" aria-hidden="true">%</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase" htmlFor="agreement-monthly-interest">Juros ao mês</label>
+                        <div className="relative">
+                          <input
+                            id="agreement-monthly-interest"
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={agreementInterestMonthlyPercentage}
+                            onChange={(e) => setAgreementInterestMonthlyPercentage(Number(e.target.value))}
+                            className="w-full rounded-xl border border-[#280003]/10 bg-white py-2.5 pl-3.5 pr-10 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#004777]/20"
+                          />
+                          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400" aria-hidden="true">%</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 italic sm:col-span-2">
+                        Após o vencimento, o Banco Inter aplicará essas condições e elas também serão descritas nas instruções do boleto.
+                      </p>
                     </div>
 
                     <div className="flex flex-col gap-1.5">

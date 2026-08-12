@@ -13,6 +13,8 @@ type AgreementInput = {
   descricao: string
   valor: number
   vencimento: string
+  multaAtrasoPercentual: number
+  jurosAtrasoPercentual: number
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -58,6 +60,12 @@ function validateAgreementInput(input: AgreementInput) {
   if (!descricao) throw new Error("Informe a descrição do acordo.")
   if (!Number.isFinite(input.valor) || input.valor < 2.5 || input.valor > 99_999_999.99) {
     throw new Error("O valor deve estar entre R$ 2,50 e R$ 99.999.999,99.")
+  }
+  if (!Number.isFinite(input.multaAtrasoPercentual) || input.multaAtrasoPercentual < 0 || input.multaAtrasoPercentual > 100) {
+    throw new Error("A multa deve ser um percentual entre 0 e 100.")
+  }
+  if (!Number.isFinite(input.jurosAtrasoPercentual) || input.jurosAtrasoPercentual < 0 || input.jurosAtrasoPercentual > 100) {
+    throw new Error("Os juros mensais devem ser um percentual entre 0 e 100.")
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.vencimento)) {
     throw new Error("Informe uma data de vencimento válida.")
@@ -146,6 +154,8 @@ export async function updateAgreementAction(transactionId: string, input: Agreem
       ...asRecord(transaction.metadata),
       origin: "MANUAL_AGREEMENT",
       agreementDescription: validated.descricao,
+      agreementLateFeePercentage: input.multaAtrasoPercentual,
+      agreementInterestMonthlyPercentage: input.jurosAtrasoPercentual,
       updatedAt: new Date().toISOString(),
     } satisfies Prisma.InputJsonObject
     if (hadInterRegistration) {

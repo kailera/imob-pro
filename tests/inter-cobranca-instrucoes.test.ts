@@ -5,6 +5,7 @@ import {
   criarInstrucoesBoletoInter,
   criarMensagemCobrancaInter,
   criarResumoComposicaoBoletoInter,
+  resolverNumDiasAgendaInter,
 } from "../lib/inter-cobranca";
 
 test("cria instrucoes compreensiveis de bonificacao e multa para o boleto", () => {
@@ -85,12 +86,23 @@ test("imprime a descrição do acordo manual nas linhas da cobrança", () => {
     metadata: {
       origin: "MANUAL_AGREEMENT",
       agreementDescription: "Parcelamento dos aluguéis de maio e junho",
+      agreementLateFeePercentage: 10,
+      agreementInterestMonthlyPercentage: 1,
     },
     valorNominal: 2_500,
     dataVencimento: "2026-08-30",
+    multaPercentual: 10,
+    jurosMensal: 1,
   });
 
   const linhas = Object.values(mensagem).join("\n");
   assert.match(linhas, /ACORDO: Parcelamento dos alugueis de maio e junho/);
   assert.match(linhas, /TOTAL NOMINAL: RS 2.500,00/);
+  assert.match(linhas, /Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes/);
+});
+
+test("remove a agenda adicional dos boletos de acordo", () => {
+  assert.equal(resolverNumDiasAgendaInter({ origin: "MANUAL_AGREEMENT" }), 0);
+  assert.equal(resolverNumDiasAgendaInter({ competence: "2026-08" }), 30);
+  assert.equal(resolverNumDiasAgendaInter(null), 30);
 });

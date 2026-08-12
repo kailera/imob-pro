@@ -20,6 +20,7 @@ import {
   extrairSituacaoCobrancaInter,
   formatarMensagemInter,
   resolverBonificacaoLease,
+  resolverNumDiasAgendaInter,
   respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
@@ -440,7 +441,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       seuNumero: seuNumeroGerado,
       valorNominal: transacao.valor,
       dataVencimento: dataVencimentoStr,
-      numDiasAgenda: 30, // Fica recebível por 30 dias após vencimento
+      numDiasAgenda: resolverNumDiasAgendaInter(transacao.metadata),
       pagador: {
         cpfCnpj: cleanCpfCnpj,
         tipoPessoa: cleanCpfCnpj.length > 11 ? "JURIDICA" : "FISICA",
@@ -458,8 +459,21 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
 
     // Configura multa, juros e bonificação (desconto pontualidade) do contrato
     const condicoesSalvas = lerCondicoesBoletoMetadata(transacao.metadata);
+    const transactionMetadata = transacao.metadata && typeof transacao.metadata === "object" && !Array.isArray(transacao.metadata)
+      ? transacao.metadata as Record<string, unknown>
+      : {};
+    const manualAgreement = transactionMetadata.origin === "MANUAL_AGREEMENT";
     const imovelLocacao = transacao.contrato?.imovelLocacao;
-    if (imovelLocacao) {
+    if (manualAgreement) {
+      const lateFee = Number(transactionMetadata.agreementLateFeePercentage ?? 10);
+      const monthlyInterest = Number(transactionMetadata.agreementInterestMonthlyPercentage ?? 1);
+      if (lateFee > 0) {
+        payload.multa = { codigo: "PERCENTUAL", taxa: lateFee };
+      }
+      if (monthlyInterest > 0) {
+        payload.mora = criarMoraInterV3(monthlyInterest);
+      }
+    } else if (imovelLocacao) {
       const periodoCobranca = resolverPeriodoDaCobranca(
         imovelLocacao.periodos,
         transacao.metadata,

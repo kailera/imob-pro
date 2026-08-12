@@ -384,12 +384,24 @@ export async function criarAcordoManualAction(input: {
   descricao: string;
   valor: number;
   vencimentoStr: string;
+  multaAtrasoPercentual?: number;
+  jurosAtrasoPercentual?: number;
   cpfCnpj?: string;
   enderecoJson?: any;
 }) {
   try {
     const context = await requireUserContext();
-    const { locatarioId, contratoId, descricao, valor, vencimentoStr, cpfCnpj, enderecoJson } = input;
+    const {
+      locatarioId,
+      contratoId,
+      descricao,
+      valor,
+      vencimentoStr,
+      multaAtrasoPercentual = 10,
+      jurosAtrasoPercentual = 1,
+      cpfCnpj,
+      enderecoJson,
+    } = input;
 
     if (contratoId) {
       const authorizedContract = await prisma.contratoImovelLocacao.findFirst({
@@ -406,6 +418,12 @@ export async function criarAcordoManualAction(input: {
     }
     if (!Number.isFinite(valor) || valor < 2.5 || valor > 99_999_999.99) {
       return { success: false, error: "O valor do boleto deve estar entre R$ 2,50 e R$ 99.999.999,99." };
+    }
+    if (!Number.isFinite(multaAtrasoPercentual) || multaAtrasoPercentual < 0 || multaAtrasoPercentual > 100) {
+      return { success: false, error: "A multa deve ser um percentual entre 0 e 100." };
+    }
+    if (!Number.isFinite(jurosAtrasoPercentual) || jurosAtrasoPercentual < 0 || jurosAtrasoPercentual > 100) {
+      return { success: false, error: "Os juros mensais devem ser um percentual entre 0 e 100." };
     }
     if (!vencimentoStr) {
       return { success: false, error: "A data de vencimento é obrigatória." };
@@ -482,6 +500,8 @@ export async function criarAcordoManualAction(input: {
         metadata: {
           origin: "MANUAL_AGREEMENT",
           agreementDescription: descricao.trim(),
+          agreementLateFeePercentage: multaAtrasoPercentual,
+          agreementInterestMonthlyPercentage: jurosAtrasoPercentual,
           locatarioId,
           imobId: context.tenantId,
         },
