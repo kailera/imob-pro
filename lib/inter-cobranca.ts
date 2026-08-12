@@ -116,13 +116,14 @@ export function criarMoraInterV3(taxaMensal: number | null | undefined) {
 
 /**
  * O Inter imprime "Data limite para pagamento" quando há dias de agenda.
- * Acordos devem vencer na data informada, sem período adicional no PDF.
+ * Acordos sem encargos vencem na data informada. O Inter exige agenda positiva
+ * quando multa ou juros são enviados; nesse caso, mantém a agenda padrão.
  */
-export function resolverNumDiasAgendaInter(metadata: unknown) {
+export function resolverNumDiasAgendaInter(metadata: unknown, hasLateCharges = false) {
   const record = metadata && typeof metadata === "object" && !Array.isArray(metadata)
     ? metadata as Record<string, unknown>
     : {};
-  return record.origin === "MANUAL_AGREEMENT" ? 0 : 30;
+  return record.origin === "MANUAL_AGREEMENT" && !hasLateCharges ? 0 : 30;
 }
 
 /** Converte a bonificação contratual para o payload da API Cobrança V3 do Inter. */

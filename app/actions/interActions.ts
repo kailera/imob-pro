@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { requireUserContext } from "@/lib/auth";
+import { isValidCpfCnpj } from "@/lib/document-validation";
 
 async function getOrCreateDefaultImobId() {
   const imob = await prisma.imob.findFirst();
@@ -455,6 +456,9 @@ export async function criarAcordoManualAction(input: {
     const cpfCnpjLimpo = (cpfCnpj ?? "").replace(/\D/g, "");
     if (cpfCnpjLimpo.length !== 11 && cpfCnpjLimpo.length !== 14) {
       return { success: false, error: "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos." };
+    }
+    if (!isValidCpfCnpj(cpfCnpjLimpo)) {
+      return { success: false, error: "O CPF/CNPJ informado é inválido. Verifique os dígitos do documento." };
     }
     const endereco = enderecoJson && typeof enderecoJson === "object" ? enderecoJson : {};
     const cepLimpo = String(endereco.cep ?? "").replace(/\D/g, "");

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getLocatariosListAction, criarAcordoManualAction, getAgreementTransactionsAction, getInterPdfUrlAction } from '@/app/actions/interActions';
 import { AgreementActions } from '@/components/locacao/AgreementActions';
+import { isValidCpfCnpj } from '@/lib/document-validation';
 
 
 interface Contrato {
@@ -284,6 +285,10 @@ export default function JuridicoPage() {
     const cpfCnpjDigits = customCpfCnpj.replace(/\D/g, '');
     if (cpfCnpjDigits.length !== 11 && cpfCnpjDigits.length !== 14) {
       setAgreementError("Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.");
+      return;
+    }
+    if (!isValidCpfCnpj(cpfCnpjDigits)) {
+      setAgreementError("O CPF/CNPJ informado é inválido. Verifique os dígitos do documento.");
       return;
     }
     if (!customAddress.logradouro.trim() || !customAddress.numero.trim()

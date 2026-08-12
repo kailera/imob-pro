@@ -30,6 +30,7 @@ import {
   type BoletoChargeItemType,
 } from "@/lib/financeiro/boleto-composicao";
 import { interTokenCache } from "@/lib/inter-token-cache";
+import { isValidCpfCnpj } from "@/lib/document-validation";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
@@ -359,6 +360,9 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
       return { success: false, error: `CPF/CNPJ do inquilino ${locatario.nome} é inválido (deve conter 11 ou 14 dígitos).` };
     }
+    if (!isValidCpfCnpj(cleanCpfCnpj)) {
+      return { success: false, error: `CPF/CNPJ do inquilino ${locatario.nome} é inválido. Verifique os dígitos do documento antes de emitir o boleto.` };
+    }
 
     // 2. Resolve credenciais do Inter
     const creds = await getInterCredentials(finalImobId);
@@ -582,6 +586,11 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         if (desconto) payload.desconto = desconto;
       }
     }
+
+    payload.numDiasAgenda = resolverNumDiasAgendaInter(
+      transacao.metadata,
+      Boolean(payload.multa || payload.mora),
+    );
 
     const itensCobranca = transacao.itensCobranca.length > 0
       ? transacao.itensCobranca.map(item => ({

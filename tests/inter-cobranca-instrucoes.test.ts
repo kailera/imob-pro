@@ -103,6 +103,7 @@ test("imprime a descrição do acordo manual nas linhas da cobrança", () => {
 
 test("remove a agenda adicional dos boletos de acordo", () => {
   assert.equal(resolverNumDiasAgendaInter({ origin: "MANUAL_AGREEMENT" }), 0);
+  assert.equal(resolverNumDiasAgendaInter({ origin: "MANUAL_AGREEMENT" }, true), 30);
   assert.equal(resolverNumDiasAgendaInter({ competence: "2026-08" }), 30);
   assert.equal(resolverNumDiasAgendaInter(null), 30);
 });
