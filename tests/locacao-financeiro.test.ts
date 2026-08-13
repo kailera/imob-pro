@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  calcularInicioCompetencia,
   calcularCompetenciaPorVencimento,
   calcularDescontoPontualidade,
   calcularDataLimiteDesconto,
@@ -44,6 +45,17 @@ test("calcula a competência pelo início do ciclo encerrado antes do vencimento
   );
 });
 
+test("usa o início real da competência como referência do reajuste", () => {
+  assert.equal(
+    calcularInicioCompetencia("2026-08").toISOString().slice(0, 10),
+    "2026-08-01",
+  );
+  assert.equal(
+    calcularInicioCompetencia("2026-08", "Dia 20").toISOString().slice(0, 10),
+    "2026-08-21",
+  );
+});
+
 test("corrige a competência exibida na descrição do boleto", () => {
   assert.equal(
     substituirCompetenciaNaDescricao(
@@ -83,6 +95,55 @@ test("resolve o período do primeiro ciclo parcial pelo vencimento", () => {
       "2026-08-24",
     )?.id,
     "inicial",
+  );
+});
+
+test("não antecipa reajuste ocorrido no meio da competência mensal", () => {
+  const periodos = [
+    {
+      id: "base",
+      effectiveFrom: new Date("2025-08-12T00:00:00.000Z"),
+      effectiveTo: new Date("2026-08-12T00:00:00.000Z"),
+    },
+    {
+      id: "reajuste",
+      effectiveFrom: new Date("2026-08-12T00:00:00.000Z"),
+      effectiveTo: null,
+    },
+  ];
+
+  assert.equal(
+    resolverPeriodoEfetivoDaCobranca(periodos, "2026-08", "2026-08-20")?.id,
+    "base",
+  );
+  assert.equal(
+    resolverPeriodoEfetivoDaCobranca(periodos, "2026-09", "2026-09-20")?.id,
+    "reajuste",
+  );
+});
+
+test("respeita o início do ciclo não-calendário ao aplicar reajuste", () => {
+  const periodos = [
+    {
+      id: "base",
+      effectiveFrom: new Date("2025-08-21T00:00:00.000Z"),
+      effectiveTo: new Date("2026-08-21T00:00:00.000Z"),
+    },
+    {
+      id: "reajuste",
+      effectiveFrom: new Date("2026-08-21T00:00:00.000Z"),
+      effectiveTo: null,
+    },
+  ];
+
+  assert.equal(
+    resolverPeriodoEfetivoDaCobranca(
+      periodos,
+      "2026-08",
+      "2026-09-26",
+      "Dia 20",
+    )?.id,
+    "reajuste",
   );
 });
 
@@ -136,6 +197,21 @@ test("usa a competência para cobranças antigas sem identificação do período
     { id: "reajuste", dataInicio: "2026-01-20", dataFim: "2027-01-19" },
   ];
   assert.equal(resolverPeriodoDaCobranca(periodos, { competence: "2026-01" }, "2026-01-27")?.id, "base");
+});
+
+test("mantém o valor anterior na competência em que o reajuste começa no meio do mês", () => {
+  const periodos = [
+    { id: "base", dataInicio: "2025-08-12", dataFim: "2026-08-11" },
+    { id: "reajuste", dataInicio: "2026-08-12", dataFim: "2027-08-11" },
+  ];
+  assert.equal(
+    resolverPeriodoDaCobranca(periodos, { competence: "2026-08" }, "2026-08-20")?.id,
+    "base",
+  );
+  assert.equal(
+    resolverPeriodoDaCobranca(periodos, { competence: "2026-09" }, "2026-09-20")?.id,
+    "reajuste",
+  );
 });
 
 test("recalcula a cobrança com aluguel e encargos do período reajustado", () => {

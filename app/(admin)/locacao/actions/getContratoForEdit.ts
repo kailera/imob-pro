@@ -3,6 +3,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { requireUserContext } from '@/lib/auth'
 import { parseLeaseAttachments } from '@/lib/locacao/anexos'
+import { parseLeaseGuaranteeDetails } from '@/lib/locacao/garantia'
 
 export async function getContratoForEdit(
   contratoId: string,
@@ -169,6 +170,10 @@ export async function getContratoForEdit(
           : null,
       },
     })),
+    guarantee: lease.guarantee ? {
+      type: lease.guarantee.type,
+      details: parseLeaseGuaranteeDetails(lease.guarantee.details),
+    } : null,
     terms: lease.terms
       ? {
           contractMonths: lease.terms.contractMonths ?? 30,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, ClipboardCheck, Building, Key, Users, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench } from "lucide-react";
+import { Home, ClipboardCheck, Building, Key, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -10,7 +10,12 @@ import { usePWA } from "@/components/shared/PWAProvider";
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: Home },
   { name: "Vistorias", href: "/vistorias", icon: ClipboardCheck },
-  { name: "Locação", href: "/locacao", icon: Key },
+  {
+    name: "Locação",
+    href: "/locacao",
+    icon: Key,
+    children: [{ name: "Residenciais", href: "/residenciais", icon: Building }],
+  },
   { name: "Manutenções", href: "/manutencoes", icon: Wrench },
   { name: "CRM", href: "/crm", icon: LayoutDashboard },
   { name: "Jurídico", href: "/juridico", icon: Scale },
@@ -36,7 +41,44 @@ export function Navbar() {
           {/* Desktop Nav Items - shown on xl screens to fit 10 items without overflow */}
           <div className="hidden xl:flex items-center space-x-1 2xl:space-x-4 h-full min-w-0">
             {navItems.map((item) => {
-              const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              const isActive = item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(item.href) || item.children?.some(child => pathname.startsWith(child.href));
+              if (item.children) {
+                return (
+                  <div key={item.name} className="group relative flex h-20 items-center">
+                    <Link
+                      href={item.href}
+                      className={`flex h-20 items-center gap-1.5 whitespace-nowrap border-b-2 px-1.5 text-xs font-medium transition-all duration-200 2xl:px-2.5 2xl:text-sm ${isActive
+                        ? "border-[#004777] text-[#004777]"
+                        : "border-transparent text-[#280003]/70 hover:border-[#EEEEF3] hover:text-[#004777]"
+                        }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span>{item.name}</span>
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:rotate-180 group-focus-within:rotate-180" />
+                    </Link>
+                    <div className="invisible absolute left-0 top-full z-[60] min-w-56 translate-y-1 rounded-b-2xl border border-zinc-100 bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                      {item.children.map(child => {
+                        const childActive = pathname.startsWith(child.href);
+                        return (
+                          <Link
+                            key={child.name}
+                            href={child.href}
+                            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${childActive
+                              ? "bg-[#004777]/10 text-[#004777]"
+                              : "text-[#280003]/70 hover:bg-[#EEEEF3] hover:text-[#004777]"
+                              }`}
+                          >
+                            <child.icon className="h-4 w-4 shrink-0" />
+                            <span>{child.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <Link
                   key={item.name}
@@ -114,20 +156,44 @@ export function Navbar() {
           />
           <div className="fixed top-20 left-0 right-0 bg-[#FFFFFF] shadow-lg border-t border-[#EEEEF3] p-4 sm:p-6 space-y-2 z-50 xl:hidden flex flex-col max-h-[calc(100vh-5rem)] overflow-y-auto">
             {navItems.map((item) => {
-              const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              const isActive = item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(item.href) || item.children?.some(child => pathname.startsWith(child.href));
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-all ${isActive
-                    ? "bg-[#004777]/10 text-[#004777] border-l-4 border-[#004777]"
-                    : "text-[#280003]/70 hover:bg-[#EEEEF3] hover:text-[#004777] border-l-4 border-transparent"
-                    }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
-                </Link>
+                <div key={item.name}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-all ${isActive
+                      ? "bg-[#004777]/10 text-[#004777] border-l-4 border-[#004777]"
+                      : "text-[#280003]/70 hover:bg-[#EEEEF3] hover:text-[#004777] border-l-4 border-transparent"
+                      }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </Link>
+                  {item.children && (
+                    <div className="ml-6 mt-1 space-y-1 border-l border-[#004777]/15 pl-3">
+                      {item.children.map(child => {
+                        const childActive = pathname.startsWith(child.href);
+                        return (
+                          <Link
+                            key={child.name}
+                            href={child.href}
+                            onClick={() => setIsOpen(false)}
+                            className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${childActive
+                              ? "bg-[#004777]/10 text-[#004777]"
+                              : "text-[#280003]/65 hover:bg-[#EEEEF3] hover:text-[#004777]"
+                              }`}
+                          >
+                            <child.icon className="h-4 w-4" />
+                            <span>{child.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
 

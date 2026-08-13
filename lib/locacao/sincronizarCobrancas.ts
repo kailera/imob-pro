@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma";
+import { calcularInicioCompetencia } from "./financeiro";
 
 type DbClient = Prisma.TransactionClient;
 
@@ -61,14 +62,24 @@ export async function sincronizarCobrancasPendentesDoPeriodo(
 ) {
   if (input.contratoIds.length === 0) return { atualizadas: 0 };
 
+  const inicioBusca = new Date(Date.UTC(
+    input.periodo.dataInicio.getUTCFullYear(),
+    input.periodo.dataInicio.getUTCMonth(),
+    1,
+  ));
+  const fimBusca = new Date(Date.UTC(
+    input.periodo.dataFim.getUTCFullYear(),
+    input.periodo.dataFim.getUTCMonth() + 1,
+    0,
+  ));
   const cobrancas = await db.transacaoFinanceira.findMany({
     where: {
       contratoId: { in: input.contratoIds },
       categoria: "ALUGUEL",
       tipo: "RECEITA",
       dataVencimento: {
-        gte: input.periodo.dataInicio,
-        lte: input.periodo.dataFim,
+        gte: inicioBusca,
+        lte: fimBusca,
       },
     },
   });
@@ -85,6 +96,15 @@ export async function sincronizarCobrancasPendentesDoPeriodo(
     const competencia = typeof metadataAtual.competence === "string"
       ? metadataAtual.competence
       : cobranca.dataVencimento.toISOString().slice(0, 7);
+    const referenciaCompetencia = /^\d{4}-\d{2}$/.test(competencia)
+      ? calcularInicioCompetencia(competencia)
+      : cobranca.dataVencimento;
+    if (
+      referenciaCompetencia < input.periodo.dataInicio
+      || referenciaCompetencia > input.periodo.dataFim
+    ) {
+      continue;
+    }
     const metadata = {
       ...metadataAtual,
       competence: competencia,

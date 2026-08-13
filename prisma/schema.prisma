@@ -41,6 +41,7 @@ model Imob {
   manutencoes            Manutencao[]
   persons                Person[]
   leases                 Lease[]
+  residenciais           Residencial[]
 
   @@map("imob")
 }
@@ -126,11 +127,100 @@ model Imovel {
   transacoes             TransacaoFinanceira[]
   manutencoes            Manutencao[]
   leases                 Lease[]
+  residencialId          String?
+  residencial            Residencial?            @relation(fields: [residencialId], references: [id], onDelete: SetNull)
+  manutencoesResidencial ResidencialManutencao[]
 
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
+  @@index([residencialId])
   @@map("imovel")
+}
+
+enum TipoResidencial {
+  RESIDENCIAL
+  CONDOMINIO
+}
+
+enum CategoriaDespesaResidencial {
+  INTERNET
+  GAS
+  LIMPEZA
+  SEGURANCA
+  JARDINAGEM
+  ENERGIA_COMUM
+  OUTROS
+}
+
+enum EscopoManutencaoResidencial {
+  GERAL
+  IMOVEL_ESPECIFICO
+}
+
+enum TipoRateioResidencial {
+  IGUALITARIO
+  VALOR_FIXO
+  PERCENTUAL
+  NAO_RATEAR
+}
+
+model Residencial {
+  id          String                  @id @default(cuid())
+  imobId      String
+  imob        Imob                    @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  nome        String
+  tipo        TipoResidencial         @default(RESIDENCIAL)
+  descricao   String?                 @db.Text
+  ativo       Boolean                 @default(true)
+  imoveis     Imovel[]
+  despesas    ResidencialDespesa[]
+  manutencoes ResidencialManutencao[]
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([imobId, nome])
+  @@index([imobId, ativo])
+  @@map("residencial")
+}
+
+model ResidencialDespesa {
+  id             String                      @id @default(cuid())
+  residencialId  String
+  residencial    Residencial                 @relation(fields: [residencialId], references: [id], onDelete: Cascade)
+  nome           String
+  categoria      CategoriaDespesaResidencial
+  valor          Decimal                     @db.Decimal(15, 2)
+  inicioVigencia DateTime
+  fimVigencia    DateTime?
+  ativo          Boolean                     @default(true)
+  observacao     String?                     @db.Text
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@index([residencialId, ativo, inicioVigencia, fimVigencia])
+  @@map("residencial_despesa")
+}
+
+model ResidencialManutencao {
+  id             String                      @id @default(cuid())
+  residencialId  String
+  residencial    Residencial                 @relation(fields: [residencialId], references: [id], onDelete: Cascade)
+  imovelId       String?
+  imovel         Imovel?                     @relation(fields: [imovelId], references: [id], onDelete: SetNull)
+  descricao      String                      @db.Text
+  dataManutencao DateTime
+  valor          Decimal                     @db.Decimal(15, 2)
+  status         StatusManutencao            @default(EM_ANDAMENTO)
+  escopo         EscopoManutencaoResidencial @default(GERAL)
+  tipoRateio     TipoRateioResidencial       @default(NAO_RATEAR)
+  rateio         Json?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@index([residencialId, dataManutencao])
+  @@index([imovelId])
+  @@map("residencial_manutencao")
 }
 
 //*************************************************************
@@ -881,7 +971,7 @@ model Vistoria {
   // ==========================================
   // METADADOS DO PROPRIETÁRIO
   // ==========================================
-  proprietario String?
+  proprietario     String?
   // Snapshot historico: alteracoes posteriores no cadastro do imovel nao mudam esta vistoria.
   enderecoSnapshot Json?
 
@@ -1278,15 +1368,15 @@ model TransacaoFinanceira {
 }
 
 model BoletoChargeItem {
-  id          String               @id @default(uuid())
+  id          String              @id @default(uuid())
   transacaoId String
-  transacao   TransacaoFinanceira  @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+  transacao   TransacaoFinanceira @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
   type        String
   description String
-  amount      Decimal              @db.Decimal(15, 2)
-  order       Int                  @default(0)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  amount      Decimal             @db.Decimal(15, 2)
+  order       Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   @@index([transacaoId, order])
   @@map("boleto_charge_item")

@@ -167,6 +167,32 @@ function extrairDiaFimPeriodo(fimPeriodo: string | null | undefined) {
   return dia >= 1 && dia <= 31 ? dia : null;
 }
 
+export function calcularInicioCompetencia(
+  competencia: string,
+  fimPeriodo?: string | null,
+) {
+  const correspondencia = competencia.match(/^(\d{4})-(\d{2})$/);
+  if (!correspondencia) {
+    throw new Error(`Competência inválida: ${competencia}.`);
+  }
+
+  const ano = Number(correspondencia[1]);
+  const mes = Number(correspondencia[2]);
+  if (mes < 1 || mes > 12) {
+    throw new Error(`Competência inválida: ${competencia}.`);
+  }
+
+  const primeiroDia = new Date(Date.UTC(ano, mes - 1, 1));
+  const diaFimPeriodo = extrairDiaFimPeriodo(fimPeriodo);
+  if (diaFimPeriodo === null) return primeiroDia;
+
+  const ultimoDiaDoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const diaInicioCiclo = diaFimPeriodo + 1;
+  return diaInicioCiclo <= ultimoDiaDoMes
+    ? new Date(Date.UTC(ano, mes - 1, diaInicioCiclo))
+    : primeiroDia;
+}
+
 export function calcularCompetenciaPorVencimento(
   dataVencimento: string | Date,
   fimPeriodo: string | null | undefined,
@@ -195,9 +221,9 @@ export function resolverPeriodoEfetivoDaCobranca<T extends {
   periodos: T[],
   competencia: string,
   dataVencimento: string | Date,
+  fimPeriodo?: string | null,
 ) {
-  const [ano, mes] = competencia.split("-").map(Number);
-  const referenciaCompetencia = new Date(Date.UTC(ano, mes - 1, 15));
+  const referenciaCompetencia = calcularInicioCompetencia(competencia, fimPeriodo);
   const periodoDaCompetencia = periodos.find(periodo =>
     referenciaCompetencia >= periodo.effectiveFrom
     && (!periodo.effectiveTo || referenciaCompetencia < periodo.effectiveTo),
@@ -205,9 +231,9 @@ export function resolverPeriodoEfetivoDaCobranca<T extends {
 
   if (periodoDaCompetencia) return periodoDaCompetencia;
 
-  // No primeiro ciclo parcial, a competência pode cair no mês anterior ao
-  // vencimento e o dia 15 pode ser anterior ao início do contrato. Nesse caso,
-  // o período vigente no vencimento é a referência contratual disponível.
+  // No primeiro ciclo parcial, o início calculado da competência pode ser
+  // anterior ao início do contrato. Nesse caso, o período vigente no vencimento
+  // é a referência contratual disponível.
   const vencimento = normalizarDataUTC(dataVencimento);
   return periodos.find(periodo =>
     vencimento >= periodo.effectiveFrom

@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import ContratoSearch from "./ContratoSearch";
 import DocumentosManutencao from "./DocumentosManutencao";
+import { EmitirReciboButton } from "./EmitirReciboButton";
 
 type ManutencoesFormModalProps = {
   open: boolean;
@@ -262,6 +263,7 @@ export function ManutencoesFormModal({
 
           <footer className="flex flex-col-reverse gap-3 border-t border-zinc-100 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
             <button type="button" onClick={onClose} disabled={isPending} className="min-h-11 rounded-xl border border-zinc-200 px-5 text-sm font-bold text-zinc-600 hover:bg-zinc-50 disabled:opacity-50">{hasAppliedDiscount ? "Fechar" : "Cancelar"}</button>
+            {manutencao && <EmitirReciboButton manutencao={manutencao} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#004777]/25 bg-white px-5 text-sm font-bold text-[#004777] transition hover:bg-[#004777]/5 disabled:opacity-50" />}
             {!hasAppliedDiscount && <button type="submit" disabled={isPending || totalDiscount > maintenanceValue} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#004777] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#00385a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777] focus-visible:ring-offset-2 disabled:opacity-50">{isPending && <Loader2 className="h-4 w-4 animate-spin" />}{isPending ? "Salvando..." : manutencao ? "Salvar alterações" : "Criar manutenção"}</button>}
           </footer>
         </form>

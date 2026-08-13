@@ -11,6 +11,7 @@ import { ContratoClausesDocumentsForm } from "./components/ContratoClausesDocume
 import { EtapasCadastroNav, type EtapaStatus } from "./components/EtapasCadastroNav"
 import { LeaseTermsPeriodsForm } from "./components/LeaseTermsPeriodsForm"
 import { CobrancasAcordosHistory } from "@/components/locacao/CobrancasAcordosHistory"
+import { ContratoGuaranteeForm } from "./components/ContratoGuaranteeForm"
 
 type EditContratoPageProps = {
     params: Promise<{
@@ -43,7 +44,7 @@ export default async function EditContratoPage({
         utilidades: contrato.utilities.length > 0,
         locatario: contrato.participantes.some(p => p.papel === 'TENANT'),
         locatariosSolidarios: contrato.participantes.some(p => p.papel === 'CO_TENANT'),
-        garantia: contrato.participantes.some(p => p.papel === 'GUARANTOR'),
+        garantia: Boolean(contrato.guarantee || contrato.participantes.some(p => p.papel === 'GUARANTOR')),
         locador: contrato.participantes.some(p => p.papel === 'LANDLORD'),
         controleLocaticio: Boolean(contrato.terms?.rentValue && contrato.terms.rentValue > 0),
         clausulas: contrato.clauses.length > 0,
@@ -132,6 +133,13 @@ export default async function EditContratoPage({
                     </section>
 
                     {/* 7. Controle Locatício & Condições */}
+                    <section id="garantia">
+                        <ContratoGuaranteeForm
+                            contratoId={contrato.id}
+                            guarantee={contrato.guarantee}
+                        />
+                    </section>
+
                     <section id="controle">
                         <ContratoTermsForm
                             contratoId={contrato.id}

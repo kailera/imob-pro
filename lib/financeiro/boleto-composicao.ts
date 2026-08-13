@@ -15,6 +15,7 @@ export type BoletoCompositionValues = {
   gasValue: number;
   otherValue?: number;
   otherDescription?: string;
+  residentialExpenses?: Array<{ id?: string; description: string; amount: number; category?: string }>;
 };
 
 export type BoletoCompositionInput = BoletoCompositionValues & BoletoBillingConditions & {
@@ -61,6 +62,7 @@ export function calcularTotalNominal(values: BoletoCompositionValues) {
     + values.electricityValue
     + values.gasValue
     + (values.otherValue ?? 0)
+    + (values.residentialExpenses ?? []).reduce((total, item) => total + item.amount, 0)
   ).toFixed(2));
 }
 
@@ -107,6 +109,7 @@ export function atualizarMetadataComposicao(
     gasValue: input.gasValue,
     otherValue: input.otherValue ?? 0,
     otherDescription: input.otherDescription?.trim() || null,
+    residentialExpenses: input.residentialExpenses ?? [],
     billingConditions: {
       discountValue: input.discountValue,
       discountType: input.discountType,
@@ -140,6 +143,16 @@ export function criarItensCobranca(
       order,
     }));
 
+  for (const expense of values.residentialExpenses ?? []) {
+    if (!Number.isFinite(expense.amount) || expense.amount <= 0) continue;
+    items.push({
+      type: expense.category === "GAS" ? "GAS" : "OTHER",
+      description: expense.description.trim() || "Despesa do residencial",
+      amount: Number(expense.amount.toFixed(2)),
+      order: items.length,
+    });
+  }
+
   if (conditions?.discountValue && conditions.discountValue > 0) {
     items.push({
       type: "DISCOUNT",
@@ -170,6 +183,7 @@ export function criarItensCobrancaDeMetadata(input: {
     "electricityValue",
     "gasValue",
     "otherValue",
+    "residentialExpenses",
   ];
   const hasComposition = componentKeys.some(key => Number.isFinite(Number(metadata[key])));
   const conditions = lerCondicoesBoletoMetadata(metadata) ?? undefined;
@@ -194,5 +208,19 @@ export function criarItensCobrancaDeMetadata(input: {
     otherDescription: typeof metadata.otherDescription === "string"
       ? metadata.otherDescription
       : undefined,
+    residentialExpenses: Array.isArray(metadata.residentialExpenses)
+      ? metadata.residentialExpenses.flatMap(item => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          const record = item as Record<string, unknown>;
+          const amount = numeroSeguro(record.amount);
+          if (amount <= 0) return [];
+          return [{
+            id: typeof record.id === "string" ? record.id : undefined,
+            description: typeof record.description === "string" ? record.description : "Despesa do residencial",
+            category: typeof record.category === "string" ? record.category : undefined,
+            amount,
+          }];
+        })
+      : [],
   }, conditions);
 }

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import {
+  calcularInicioCompetencia,
   calcularCompetenciaPorVencimento,
   calcularVencimentoMensal,
   criarDataVencimento,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/financeiro/cobranca-rascunho";
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 import { sincronizarPeriodoInicialLease } from "@/lib/locacao/sincronizarPeriodoInicialLease";
+import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
@@ -34,7 +36,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           },
         },
         locatarios: true,
-        imovel: true,
+        imovel: { include: { residencial: { include: { despesas: true } } } },
       },
     });
 
@@ -52,7 +54,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const locacao = contrato.imovelLocacao;
         
         // Encontrar período vigente se houver sub-períodos cadastrados
-        const targetDate = new Date(Date.UTC(ano, mes - 1, 15));
+        const targetDate = calcularInicioCompetencia(competence);
         const periodoAtivo = locacao.periodos.find((p) => {
           const start = new Date(p.dataInicio);
           const end = new Date(p.dataFim);
@@ -66,8 +68,6 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const valorIPTU = periodoAtivo ? (periodoAtivo.valorIPTU || 0) : 0;
         
         // Valor total da cobrança (Aluguel + encargos adicionais)
-        const valorTotal = valorAluguel + (hasCondominio ? valorCondominio : 0) + (hasIPTU ? valorIPTU : 0);
-
         const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
           where: {
             contratoId: contrato.id,
@@ -91,6 +91,16 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           throw new Error("Dia de vencimento não configurado. Edite o controle locatício antes de gerar a cobrança.");
         }
         const dataVencimento = criarDataVencimento(ano, mes, diaVencimento);
+        const despesasResidencial = resolverDespesasResidencial(
+          contrato.imovel.residencial?.despesas,
+          dataVencimento,
+          0,
+        );
+        const valorTotal = valorAluguel
+          + (hasCondominio ? valorCondominio : 0)
+          + (hasIPTU ? valorIPTU : 0)
+          + despesasResidencial.gasValue
+          + despesasResidencial.additionalTotal;
 
         const metadata = {
           competence,
@@ -99,7 +109,8 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           iptuValue: hasIPTU ? valorIPTU : 0,
           waterValue: 0,
           electricityValue: 0,
-          gasValue: 0,
+          gasValue: despesasResidencial.gasValue,
+          residentialExpenses: despesasResidencial.residentialExpenses,
           dueDay: diaVencimento,
           periodId: periodoAtivo?.id ?? null,
           billingConditions: {
@@ -133,6 +144,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           waterValue: metadata.waterValue,
           electricityValue: metadata.electricityValue,
           gasValue: metadata.gasValue,
+          residentialExpenses: metadata.residentialExpenses,
         }, metadata.billingConditions);
 
         if (
@@ -229,7 +241,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         endDate: { gte: new Date(Date.UTC(ano, mes - 2, 1)) },
       },
       include: {
-        property: true,
+        property: { include: { residencial: { include: { despesas: true } } } },
         iptu: true,
         condominium: true,
         utilities: true,
@@ -268,6 +280,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           lease.termsPeriods,
           leaseCompetence,
           dataVencimento,
+          lease.terms?.firstPeriodEndDay,
         );
         if (!periodoAtivo) {
           throw new Error(`A competência ${leaseCompetence} não está coberta por um período locatício.`);
@@ -300,9 +313,15 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const electricityValue = Number(
           lease.utilities.find(utility => utility.type === "ELECTRICITY")?.amount ?? 0,
         );
-        const gasValue = Number(
+        const leaseGasValue = Number(
           lease.utilities.find(utility => utility.type === "GAS")?.amount ?? 0,
         );
+        const despesasResidencial = resolverDespesasResidencial(
+          lease.property?.residencial?.despesas,
+          dataVencimento,
+          leaseGasValue,
+        );
+        const gasValue = despesasResidencial.gasValue;
         const totalAmount = Number((
           rentAmount
           + condominiumValue
@@ -310,6 +329,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           + waterValue
           + electricityValue
           + gasValue
+          + despesasResidencial.additionalTotal
         ).toFixed(2));
         const metadata = {
           competence: leaseCompetence,
@@ -321,6 +341,8 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           waterValue,
           electricityValue,
           gasValue,
+          residentialExpenses: despesasResidencial.residentialExpenses,
+          residentialGasOverridden: despesasResidencial.gasOverridden,
           iptuInstallment: iptu.numeroParcela,
           iptuInstallments: iptu.quantidadeParcelas,
           billingConditions: {
@@ -356,6 +378,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           waterValue: metadata.waterValue,
           electricityValue: metadata.electricityValue,
           gasValue: metadata.gasValue,
+          residentialExpenses: metadata.residentialExpenses,
         }, metadata.billingConditions);
 
         const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
     AlertCircle,
     CheckCircle2,
@@ -13,6 +14,7 @@ import {
     Trash2,
     WalletCards,
     Wrench,
+    Building2,
 } from "lucide-react";
 import { deleteManutencao } from "../actions";
 import type {
@@ -22,12 +24,14 @@ import type {
     StatusManutencaoValue,
 } from "../types";
 import { ManutencoesFormModal } from "./ManutencoesFormModal";
+import { EmitirReciboButton } from "./EmitirReciboButton";
 
 type ManutencoesClientProps = {
     initialManutencoes: ManutencaoView[];
     contratos: ContratoManutencaoOption[];
     prestadores: PrestadorManutencaoOption[];
     initialError: string | null;
+    residenciais: Array<{ id: string; nome: string; unidades: number; manutencoes: number }>;
 };
 
 function formatCurrency(value: number) {
@@ -47,6 +51,7 @@ export function ManutencoesClient({
     contratos,
     prestadores,
     initialError,
+    residenciais,
 }: ManutencoesClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -126,6 +131,13 @@ export function ManutencoesClient({
                 <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /><span>{error || initialError}</span></div>
             )}
 
+            {residenciais.length > 0 && (
+                <section className="rounded-3xl border border-[#004777]/10 bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-sm font-extrabold text-[#280003]"><Building2 className="h-4 w-4 text-[#004777]" />Residenciais e condomínios</h2><p className="mt-1 text-xs text-zinc-500">Manutenções de áreas comuns ou de unidades, com regras de rateio próprias.</p></div><Link href="/residenciais" className="min-h-11 rounded-xl bg-[#004777]/10 px-4 py-3 text-xs font-bold text-[#004777]">Gerenciar</Link></div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{residenciais.map(item => <Link key={item.id} href="/residenciais" className="rounded-xl border border-zinc-100 bg-zinc-50 p-3 hover:border-[#004777]/30"><p className="text-sm font-bold text-[#280003]">{item.nome}</p><p className="mt-1 text-xs text-zinc-400">{item.unidades} unidade(s) · {item.manutencoes} manutenção(ões)</p></Link>)}</div>
+                </section>
+            )}
+
             <section aria-label="Resumo das manutenções" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="rounded-2xl border border-white/70 bg-white p-4 shadow-sm"><p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total</p><div className="mt-2 flex items-center justify-between"><strong className="text-2xl text-[#280003]">{summary.total}</strong><Wrench className="h-5 w-5 text-[#004777]" /></div></div>
                 <div className="rounded-2xl border border-white/70 bg-white p-4 shadow-sm"><p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Em andamento</p><div className="mt-2 flex items-center justify-between"><strong className="text-2xl text-amber-600">{summary.inProgress}</strong><AlertCircle className="h-5 w-5 text-amber-500" /></div></div>
@@ -148,7 +160,7 @@ export function ManutencoesClient({
                                 <article key={item.id} className="space-y-3 p-4">
                                     <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#280003]">{item.imovel.codigo} · {item.locatario}</p><p className="mt-0.5 text-xs text-zinc-500">{item.imovel.endereco}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${item.status === "FINALIZADA" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status === "FINALIZADA" ? "Finalizada" : "Em andamento"}</span></div>
                                     <p className="line-clamp-2 text-xs text-zinc-600">{item.descricao}</p>
-                                    <div className="flex items-center justify-between text-xs"><div><span className="text-zinc-400">{formatDate(item.dataManutencao)}</span><strong className="ml-3 text-[#280003]">{formatCurrency(item.valor)}</strong></div><button type="button" onClick={() => openEdit(item)} className="min-h-11 rounded-lg px-3 font-bold text-[#004777]">Ver / editar</button></div>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs"><div><span className="text-zinc-400">{formatDate(item.dataManutencao)}</span><strong className="ml-3 text-[#280003]">{formatCurrency(item.valor)}</strong></div><div className="flex items-center gap-1"><EmitirReciboButton manutencao={item} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-bold text-[#004777] hover:bg-[#004777]/5 disabled:opacity-50" /><button type="button" onClick={() => openEdit(item)} className="min-h-11 rounded-lg px-3 font-bold text-[#004777]">Ver / editar</button></div></div>
                                 </article>
                             ))}
                         </div>
@@ -165,7 +177,7 @@ export function ManutencoesClient({
                                             <td className="px-5 py-4"><p className="text-xs font-semibold text-[#280003]">{item.prestador?.nome || "Não informado"}</p><p className="text-[10px] text-zinc-400">{item.prestador?.area || ""}</p></td>
                                             <td className="whitespace-nowrap px-5 py-4 font-bold text-[#280003]">{formatCurrency(item.valor)}</td>
                                             <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${item.status === "FINALIZADA" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status === "FINALIZADA" ? "Finalizada" : "Em andamento"}</span>{item.repassarProprietario && <p className="mt-1 text-[10px] font-semibold text-[#004777]">Com desconto</p>}</td>
-                                            <td className="relative px-5 py-4 text-right"><button type="button" onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)} aria-label="Abrir ações" className="min-h-11 min-w-11 rounded-xl text-zinc-500 hover:bg-zinc-100"><MoreHorizontal className="mx-auto h-5 w-5" /></button>{openMenuId === item.id && <div className="absolute right-5 top-13 z-20 w-40 rounded-xl border border-zinc-200 bg-white p-1 text-left shadow-xl"><button type="button" onClick={() => openEdit(item)} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#280003] hover:bg-zinc-50"><Pencil className="h-4 w-4 text-[#004777]" />Editar</button><button type="button" disabled={isPending} onClick={() => handleDelete(item)} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"><Trash2 className="h-4 w-4" />Excluir</button></div>}</td>
+                                            <td className="relative px-5 py-4 text-right"><button type="button" onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)} aria-label="Abrir ações" className="min-h-11 min-w-11 rounded-xl text-zinc-500 hover:bg-zinc-100"><MoreHorizontal className="mx-auto h-5 w-5" /></button>{openMenuId === item.id && <div className="absolute right-5 top-13 z-20 w-44 rounded-xl border border-zinc-200 bg-white p-1 text-left shadow-xl"><EmitirReciboButton manutencao={item} onBeforeEmit={() => setOpenMenuId(null)} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#004777] hover:bg-[#004777]/5 disabled:opacity-50" /><button type="button" onClick={() => openEdit(item)} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#280003] hover:bg-zinc-50"><Pencil className="h-4 w-4 text-[#004777]" />Editar</button><button type="button" disabled={isPending} onClick={() => handleDelete(item)} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"><Trash2 className="h-4 w-4" />Excluir</button></div>}</td>
                                         </tr>
                                     ))}
                                 </tbody>

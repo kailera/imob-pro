@@ -1,4 +1,5 @@
 import { normalizarDataUTC } from "./periodos";
+import { calcularInicioCompetencia } from "./financeiro";
 
 export interface PeriodoCobranca {
   id: string;
@@ -22,8 +23,7 @@ export function resolverPeriodoDaCobranca<T extends PeriodoCobranca>(
 
   let dataReferencia = normalizarDataUTC(dataVencimento);
   if (typeof meta.competence === "string" && /^\d{4}-\d{2}$/.test(meta.competence)) {
-    const [ano, mes] = meta.competence.split("-").map(Number);
-    dataReferencia = new Date(Date.UTC(ano, mes - 1, 15));
+    dataReferencia = calcularInicioCompetencia(meta.competence);
   }
 
   return periodos.find((periodo) => {
