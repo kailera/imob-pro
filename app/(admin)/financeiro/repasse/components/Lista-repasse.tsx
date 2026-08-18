@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Building2, CalendarClock, ChevronDown, FileText, Pencil, UserRound, WalletCards } from "lucide-react";
 import type { RepasseCompany, RepasseItem, RepasseStatus } from "@/lib/financeiro/repasse-types";
 import { groupRepassesByOwner } from "@/lib/financeiro/repasse-grouping";
@@ -118,11 +119,21 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
           </summary>
 
           <div className="space-y-3 border-t border-gray-100 bg-[#EEEEF3]/45 p-3 sm:p-4">
-            {group.items.map((item) => {
+            {group.items.map((item, index) => {
               const status = !item.receivedAt ? STATUS.AGUARDANDO_RECEBIMENTO : STATUS[item.status];
+              const previousResidential = index > 0 ? group.items[index - 1].residential?.id ?? null : null;
+              const currentResidential = item.residential?.id ?? null;
+              const showResidentialHeader = index === 0 || currentResidential !== previousResidential;
 
               return (
-                <article key={item.key} className="min-w-0 rounded-2xl border border-white bg-white p-4 shadow-sm">
+                <Fragment key={item.key}>
+                {showResidentialHeader && (
+                  <div className="flex items-center gap-2 px-1 pt-2 text-xs font-black uppercase tracking-wide text-[#004777]">
+                    <Building2 className="h-4 w-4" />
+                    {item.residential ? `Residencial · ${item.residential.name}` : "Imóveis sem residencial"}
+                  </div>
+                )}
+                <article className="min-w-0 rounded-2xl border border-white bg-white p-4 shadow-sm">
                   <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 xl:items-start">
                     <section className="min-w-0 xl:col-span-4">
                       <div className="flex min-w-0 items-start justify-between gap-3">
@@ -137,6 +148,7 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
                       </div>
                       <p className="mt-1.5 break-words text-xs leading-relaxed text-gray-500">{item.propertyAddress}</p>
                       <p className="mt-1 text-[11px] text-gray-400">Contrato {item.contractCode}</p>
+                      {item.residential && <p className="mt-1 inline-flex rounded-full bg-[#004777]/10 px-2 py-1 text-[10px] font-bold text-[#004777]">{item.residential.name}</p>}
                       {item.additionalOwners.length > 0 && <p className="mt-1 text-[10px] font-semibold text-[#004777]">+ {item.additionalOwners.length} coproprietário(s)</p>}
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
                         {item.receivedAt && <span>Recebido em {date(item.receivedAt)}</span>}
@@ -164,6 +176,7 @@ export default function ListaRepasse({ items, company, onEdit }: RepasseListProp
                     </section>
                   </div>
                 </article>
+                </Fragment>
               );
             })}
           </div>

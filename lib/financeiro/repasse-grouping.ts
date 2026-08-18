@@ -56,5 +56,11 @@ export function groupRepassesByOwner(items: RepasseItem[]): RepasseOwnerGroup[] 
     });
   }
 
-  return Array.from(groups.values());
+  return Array.from(groups.values()).map(group => ({
+    ...group,
+    items: [...group.items].sort((a, b) => {
+      const residential = (a.residential?.name ?? "~").localeCompare(b.residential?.name ?? "~", "pt-BR");
+      return residential || a.propertyCode.localeCompare(b.propertyCode, "pt-BR");
+    }),
+  }));
 }

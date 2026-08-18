@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateRepasse, resolveRepasseGrossValue } from "@/lib/financeiro/repasse-calculo";
 import { resolveRepasseBonus, restoreGrossBeforeBonus } from "@/lib/financeiro/repasse-bonificacao";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
+import { buildResidentialRepasseReports } from "@/lib/financeiro/repasse-residencial";
 import type {
   RepasseDeduction,
   RepasseItem,
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
       where: { tenantId: user.imobId, status: "ACTIVE" },
       orderBy: { code: "asc" },
       include: {
-        property: true,
+        property: { include: { residencial: { select: { id: true, nome: true } } } },
         terms: true,
         termsPeriods: { orderBy: { effectiveFrom: "desc" } },
         parties: {
@@ -140,6 +141,7 @@ export async function GET(request: NextRequest) {
     });
 
     const propertyIds = leases.flatMap((lease) => lease.propertyId ? [lease.propertyId] : []);
+    const residentialIds = [...new Set(leases.flatMap((lease) => lease.property?.residencialId ? [lease.property.residencialId] : []))];
     const leaseIds = leases.map((lease) => lease.id);
     const legacyContracts = await prisma.contratoImovelLocacao.findMany({
       where: { imobId: user.imobId, imovelId: { in: propertyIds } },
@@ -156,7 +158,7 @@ export async function GET(request: NextRequest) {
     });
     const legacyIds = legacyContracts.map((contract) => contract.id);
 
-    const [rentTransactions, repasseTransactions, expenseTransactions, maintenanceDiscounts, company] = await Promise.all([
+    const [rentTransactions, repasseTransactions, expenseTransactions, maintenanceDiscounts, residentialMaintenances, company] = await Promise.all([
       prisma.transacaoFinanceira.findMany({
         where: {
           categoria: "ALUGUEL",
@@ -201,6 +203,14 @@ export async function GET(request: NextRequest) {
           manutencao: { imobId: user.imobId, imovelId: { in: propertyIds }, repassarProprietario: true },
         },
         include: { manutencao: { select: { imovelId: true, descricao: true } } },
+      }),
+      prisma.residencialManutencao.findMany({
+        where: {
+          residencialId: { in: residentialIds },
+          dataManutencao: { gte: start, lte: end },
+        },
+        include: { imovel: { select: { id: true, codigo: true } } },
+        orderBy: { dataManutencao: "asc" },
       }),
       prisma.imob.findUnique({ where: { id: user.imobId } }),
     ]);
@@ -377,6 +387,85 @@ export async function GET(request: NextRequest) {
       const tenantNames = lease.parties
         .filter((party) => party.role === "TENANT" || party.role === "CO_TENANT")
         .map((party) => party.person.name);
+      const chargeItems = rentTransaction?.itensCobranca ?? [];
+      const chargeTotal = chargeItems
+        .filter((item) => !["RENT", "DISCOUNT"].includes(item.type))
+        .reduce((total, item) => total + Number(item.amount), 0);
+      const operationDate = (receivedAt ?? rentTransaction?.dataVencimento ?? null)?.toISOString() ?? null;
+      const operations = [
+        {
+          id: `rent:${rentTransaction?.id ?? lease.id}`,
+          type: "ALUGUEL" as const,
+          description: isRentReceived ? "Aluguel recebido" : "Aluguel previsto / não recebido",
+          date: operationDate,
+          value: rentValue,
+          direction: isRentReceived ? "CREDITO" as const : "INFORMATIVO" as const,
+          propertyId: lease.property.id,
+          propertyCode: lease.property.codigo,
+        },
+        ...chargeItems
+          .filter((item) => !["RENT", "DISCOUNT"].includes(item.type) && Number(item.amount) > 0)
+          .map((item) => ({
+            id: `charge:${item.id}`,
+            type: "CONTA" as const,
+            description: item.description,
+            date: operationDate,
+            value: Number(item.amount),
+            direction: isRentReceived ? "CREDITO" as const : "INFORMATIVO" as const,
+            propertyId: lease.property!.id,
+            propertyCode: lease.property!.codigo,
+          })),
+        ...(calculation.adminFeeValue > 0 ? [{
+          id: `admin:${lease.id}:${competence}`,
+          type: "TAXA_ADMINISTRACAO" as const,
+          description: `Taxa administrativa de ${calculation.adminFeePercent.toLocaleString("pt-BR")}%`,
+          date: operationDate,
+          value: calculation.adminFeeValue,
+          direction: "DEBITO" as const,
+          propertyId: lease.property.id,
+          propertyCode: lease.property.codigo,
+        }] : []),
+        ...deductions.filter((item) => item.selected).map((item) => ({
+          id: `deduction:${item.id}`,
+          type: item.type === "MANUTENCAO" ? "MANUTENCAO" as const : "DESCONTO" as const,
+          description: item.description,
+          date: operationDate,
+          value: item.value,
+          direction: "DEBITO" as const,
+          propertyId: lease.property!.id,
+          propertyCode: lease.property!.codigo,
+        })),
+        ...otherDeductions.map((item) => ({
+          id: `other-deduction:${item.id}`,
+          type: "DESCONTO" as const,
+          description: item.description,
+          date: operationDate,
+          value: item.value,
+          direction: "DEBITO" as const,
+          propertyId: lease.property!.id,
+          propertyCode: lease.property!.codigo,
+        })),
+        ...otherAdditions.map((item) => ({
+          id: `addition:${item.id}`,
+          type: "ACRESCIMO" as const,
+          description: item.description,
+          date: operationDate,
+          value: item.value,
+          direction: "CREDITO" as const,
+          propertyId: lease.property!.id,
+          propertyCode: lease.property!.codigo,
+        })),
+        ...(repasse ? [{
+          id: `repasse:${repasse.id}`,
+          type: "REPASSE" as const,
+          description: repasse.status === "LIQUIDADO" ? "Repasse pago ao proprietário" : "Repasse programado",
+          date: (repasse.dataPagamento ?? repasse.dataVencimento).toISOString(),
+          value: repasse.valor,
+          direction: "INFORMATIVO" as const,
+          propertyId: lease.property.id,
+          propertyCode: lease.property.codigo,
+        }] : []),
+      ];
 
       return [{
         key: `${lease.id}:${competence}`,
@@ -393,7 +482,11 @@ export async function GET(request: NextRequest) {
         propertyCode: lease.property.codigo,
         propertyTitle: lease.property.titulo || `Imóvel ${lease.property.codigo}`,
         propertyAddress: formatAddress(lease.property),
+        residential: lease.property.residencial
+          ? { id: lease.property.residencial.id, name: lease.property.residencial.nome }
+          : null,
         rentValue,
+        chargeTotal,
         grossValue: calculation.grossValue,
         receivedAt: receivedAt?.toISOString() ?? null,
         adminFeePercent: calculation.adminFeePercent,
@@ -407,6 +500,7 @@ export async function GET(request: NextRequest) {
         transferDueDate: (repasse?.dataVencimento ?? projectedDueDate)?.toISOString() ?? null,
         paidAt: repasse?.dataPagamento?.toISOString() ?? null,
         status,
+        operations,
       }];
     });
 
@@ -419,11 +513,22 @@ export async function GET(request: NextRequest) {
       deductionTotal: total.deductionTotal + item.deductionTotal,
       netTotal: total.netTotal + item.netValue,
     }), { contracts: 0, received: 0, grossTotal: 0, adminFeeTotal: 0, additionTotal: 0, deductionTotal: 0, netTotal: 0 });
+    const residentialReports = buildResidentialRepasseReports(items, residentialMaintenances.map((maintenance) => ({
+      id: maintenance.id,
+      residencialId: maintenance.residencialId,
+      propertyId: maintenance.imovelId,
+      propertyCode: maintenance.imovel?.codigo ?? null,
+      description: maintenance.descricao,
+      date: maintenance.dataManutencao.toISOString(),
+      value: Number(maintenance.valor),
+      allocationType: maintenance.tipoRateio,
+    })));
 
     return NextResponse.json({
       success: true,
       data: items,
       summary,
+      residentialReports,
       company: {
         name: company?.nomeFantasia || company?.razaoSocial || "Imobiliária",
         legalName: company?.razaoSocial ?? null,

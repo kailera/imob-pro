@@ -40,6 +40,26 @@ export interface RepasseNewMaintenance {
   deductFromOwner: boolean;
 }
 
+export type RepasseOperationType =
+  | "ALUGUEL"
+  | "CONTA"
+  | "TAXA_ADMINISTRACAO"
+  | "MANUTENCAO"
+  | "DESCONTO"
+  | "ACRESCIMO"
+  | "REPASSE";
+
+export interface RepasseOperation {
+  id: string;
+  type: RepasseOperationType;
+  description: string;
+  date: string | null;
+  value: number;
+  direction: "CREDITO" | "DEBITO" | "INFORMATIVO";
+  propertyId: string | null;
+  propertyCode: string | null;
+}
+
 export interface RepasseItem {
   key: string;
   leaseId: string;
@@ -55,7 +75,9 @@ export interface RepasseItem {
   propertyCode: string;
   propertyTitle: string;
   propertyAddress: string;
+  residential: { id: string; name: string } | null;
   rentValue: number;
+  chargeTotal: number;
   grossValue: number;
   receivedAt: string | null;
   adminFeePercent: number;
@@ -69,6 +91,25 @@ export interface RepasseItem {
   transferDueDate: string | null;
   paidAt: string | null;
   status: RepasseStatus;
+  operations: RepasseOperation[];
+}
+
+export interface RepasseResidentialReport {
+  id: string;
+  name: string;
+  ownerNames: string[];
+  propertyCount: number;
+  receivedCount: number;
+  rentTotal: number;
+  chargeTotal: number;
+  grossTotal: number;
+  adminFeeTotal: number;
+  additionTotal: number;
+  deductionTotal: number;
+  maintenanceTotal: number;
+  netRepasseTotal: number;
+  globalResult: number;
+  operations: RepasseOperation[];
 }
 
 export interface RepasseCompany {
@@ -97,6 +138,7 @@ export interface RepasseListResponse {
   data: RepasseItem[];
   company: RepasseCompany;
   summary: RepasseSummary;
+  residentialReports: RepasseResidentialReport[];
 }
 
 export interface RepasseUpdateInput {

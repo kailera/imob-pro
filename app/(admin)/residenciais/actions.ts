@@ -236,7 +236,7 @@ export async function toggleDespesaResidencial(id: string): Promise<ActionResult
 }
 
 export async function saveManutencaoResidencial(input: {
-  residencialId: string; imovelId?: string; descricao: string; dataManutencao: string; valor: number;
+  id?: string; residencialId: string; imovelId?: string; descricao: string; dataManutencao: string; valor: number;
   status: "EM_ANDAMENTO" | "FINALIZADA"; tipoRateio: TipoRateio; rateio?: Record<string, number>;
 }): Promise<ActionResult<{ id: string }>> {
   try {
@@ -246,6 +246,13 @@ export async function saveManutencaoResidencial(input: {
     if (!RATEIOS.has(input.tipoRateio)) return { success: false, error: "Regra de rateio inválida." };
     const residencial = await prisma.residencial.findFirst({ where: { id: input.residencialId, imobId }, include: { imoveis: { select: { id: true } } } });
     if (!residencial) return { success: false, error: "Residencial não encontrado." };
+    if (input.id) {
+      const manutencao = await prisma.residencialManutencao.findFirst({
+        where: { id: input.id, residencialId: input.residencialId, residencial: { imobId } },
+        select: { id: true },
+      });
+      if (!manutencao) return { success: false, error: "Manutenção não encontrada neste residencial." };
+    }
     if (input.imovelId && !residencial.imoveis.some(item => item.id === input.imovelId)) return { success: false, error: "O imóvel selecionado não pertence a este residencial." };
     const rateio = input.tipoRateio === "NAO_RATEAR" ? null : (input.rateio ?? null);
     if (["VALOR_FIXO", "PERCENTUAL"].includes(input.tipoRateio) && (!rateio || Object.keys(rateio).length === 0)) {
@@ -265,12 +272,15 @@ export async function saveManutencaoResidencial(input: {
         return { success: false, error: "A soma do rateio por unidade deve ser igual ao valor da manutenção." };
       }
     }
-    const saved = await prisma.residencialManutencao.create({ data: {
+    const data: Prisma.ResidencialManutencaoUncheckedCreateInput = {
       residencialId: input.residencialId, imovelId: input.imovelId || null,
       descricao: input.descricao.trim(), dataManutencao: new Date(`${input.dataManutencao}T12:00:00Z`), valor: input.valor,
       status: input.status, escopo: input.imovelId ? "IMOVEL_ESPECIFICO" : "GERAL", tipoRateio: input.tipoRateio,
       rateio: rateio as Prisma.InputJsonValue | undefined,
-    }, select: { id: true } });
+    };
+    const saved = input.id
+      ? await prisma.residencialManutencao.update({ where: { id: input.id }, data, select: { id: true } })
+      : await prisma.residencialManutencao.create({ data, select: { id: true } });
     revalidatePath("/residenciais");
     revalidatePath("/manutencoes");
     return { success: true, data: saved };

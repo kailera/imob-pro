@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CalendarDays, Download, Filter, LoaderCircle, RefreshCcw, Search, WalletCards } from "lucide-react";
 import ListaRepasse from "./components/Lista-repasse";
 import EditarRepasse from "./components/editar-repasse";
-import type { RepasseCompany, RepasseItem, RepasseListResponse, RepasseStatus, RepasseSummary } from "@/lib/financeiro/repasse-types";
+import { RelatorioResidencial } from "./components/Relatorio-residencial";
+import type { RepasseCompany, RepasseItem, RepasseListResponse, RepasseResidentialReport, RepasseStatus, RepasseSummary } from "@/lib/financeiro/repasse-types";
 import { downloadRepasseXlsx } from "@/lib/financeiro/repasse-xlsx";
 
 const currentCompetence = () => {
@@ -26,6 +27,7 @@ export default function RepassePage() {
     const [items, setItems] = useState<RepasseItem[]>([]);
     const [summary, setSummary] = useState<RepasseSummary>(emptySummary);
     const [company, setCompany] = useState<RepasseCompany>(emptyCompany);
+    const [residentialReports, setResidentialReports] = useState<RepasseResidentialReport[]>([]);
     const [status, setStatus] = useState<"" | RepasseStatus>("");
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
@@ -54,9 +56,11 @@ export default function RepassePage() {
             setItems(result.data);
             setSummary(result.summary);
             setCompany(result.company);
+            setResidentialReports(result.residentialReports);
         } catch (loadError) {
             setItems([]);
             setSummary(emptySummary);
+            setResidentialReports([]);
             setError(loadError instanceof Error ? loadError.message : "Não foi possível carregar os repasses.");
         } finally {
             setLoading(false);
@@ -80,12 +84,16 @@ export default function RepassePage() {
                 item.propertyTitle,
                 item.propertyAddress,
                 item.contractCode,
+                item.residential?.name ?? "",
                 ...item.tenantNames,
             ].some((value) => value.toLocaleLowerCase("pt-BR").includes(term));
         });
     }, [search, status]);
 
     const filteredItems = useMemo(() => filterItems(items), [filterItems, items]);
+    const visibleResidentialIds = useMemo(() => new Set(filteredItems.flatMap((item) => item.residential ? [item.residential.id] : [])), [filteredItems]);
+    const visibleResidentialReports = useMemo(() => residentialReports.filter((report) => visibleResidentialIds.has(report.id)), [residentialReports, visibleResidentialIds]);
+    const standaloneItems = useMemo(() => filteredItems.filter((item) => !item.residential), [filteredItems]);
 
     const exportXlsx = async () => {
         setExporting(true);
@@ -97,6 +105,7 @@ export default function RepassePage() {
             setItems(result.data);
             setSummary(result.summary);
             setCompany(result.company);
+            setResidentialReports(result.residentialReports);
             downloadRepasseXlsx(filterItems(result.data), result.company, competence);
         } catch (exportError) {
             setError(exportError instanceof Error ? exportError.message : "Não foi possível exportar a planilha.");
@@ -138,7 +147,7 @@ export default function RepassePage() {
                     </div>
                 </section>
 
-                {loading ? <div className="flex min-h-64 items-center justify-center gap-2 rounded-3xl bg-white font-semibold text-gray-500"><LoaderCircle className="h-5 w-5 animate-spin text-[#004777]" />Buscando contratos e calculando repasses...</div> : error ? <div className="rounded-3xl border border-red-100 bg-red-50 p-10 text-center"><p className="font-bold text-red-700">{error}</p><button type="button" onClick={() => void load()} className="mt-3 text-sm font-bold text-[#004777] hover:underline">Tentar novamente</button></div> : <ListaRepasse items={filteredItems} company={company} onEdit={setEditing} />}
+                {loading ? <div className="flex min-h-64 items-center justify-center gap-2 rounded-3xl bg-white font-semibold text-gray-500"><LoaderCircle className="h-5 w-5 animate-spin text-[#004777]" />Buscando contratos e calculando repasses...</div> : error ? <div className="rounded-3xl border border-red-100 bg-red-50 p-10 text-center"><p className="font-bold text-red-700">{error}</p><button type="button" onClick={() => void load()} className="mt-3 text-sm font-bold text-[#004777] hover:underline">Tentar novamente</button></div> : filteredItems.length === 0 ? <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm font-semibold text-gray-500">Nenhum repasse encontrado para os filtros selecionados.</div> : <><RelatorioResidencial reports={visibleResidentialReports} items={items} company={company} onEdit={setEditing}/>{standaloneItems.length > 0 && <section className="space-y-3"><div><h2 className="text-lg font-black text-[#280003]">Repasses fora de residenciais</h2><p className="mt-1 text-xs text-zinc-500">Imóveis individuais agrupados por proprietário.</p></div><ListaRepasse items={standaloneItems} company={company} onEdit={setEditing}/></section>}</>}
             </div>
 
             {editing && <EditarRepasse item={editing} onClose={() => setEditing(null)} onSaved={load} />}

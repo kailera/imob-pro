@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Building2, Check, CircleDollarSign, Home, Loader2, Plus, Wrench, X } from "lucide-react";
+import { AlertTriangle, Building2, Check, CircleDollarSign, Home, Loader2, Pencil, Plus, Wrench, X } from "lucide-react";
 import { saveDespesaResidencial, saveManutencaoResidencial, saveResidencial, toggleDespesaResidencial } from "../actions";
-import type { CategoriaDespesa, ResidenciaisPageData, ResidencialView, TipoRateio } from "../types";
+import type { CategoriaDespesa, ManutencaoResidencialView, ResidenciaisPageData, ResidencialView, TipoRateio } from "../types";
 import { ImovelDetalhadoSelector } from "./ImovelDetalhadoSelector";
 
 type Props = { initialData: ResidenciaisPageData; initialError: string | null };
@@ -25,13 +25,14 @@ export function ResidenciaisClient({ initialData, initialError }: Props) {
   const [selectedId, setSelectedId] = useState(initialData.residenciais[0]?.id ?? "");
   const [modal, setModal] = useState<Modal>(null);
   const [editing, setEditing] = useState<ResidencialView | null>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState<ManutencaoResidencialView | null>(null);
   const [error, setError] = useState<string | null>(initialError);
   const selected = initialData.residenciais.find(item => item.id === selectedId) ?? initialData.residenciais[0] ?? null;
   const disponiveis = useMemo(() => [...initialData.imoveisDisponiveis, ...(editing?.imoveis ?? [])], [initialData.imoveisDisponiveis, editing]);
 
   function finish(result: { success: boolean; error?: string; warning?: string }) {
     if (!result.success) { setError(result.error || "Não foi possível concluir a operação."); return; }
-    setError(result.warning ?? null); setModal(null); setEditing(null); router.refresh();
+    setError(result.warning ?? null); setModal(null); setEditing(null); setEditingMaintenance(null); router.refresh();
   }
 
   return (
@@ -63,8 +64,8 @@ export function ResidenciaisClient({ initialData, initialError }: Props) {
             </section>
 
             <section className="rounded-3xl border border-zinc-100 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-zinc-100 p-5"><div><h3 className="flex items-center gap-2 font-extrabold text-[#280003]"><Wrench className="h-5 w-5 text-[#004777]"/>Serviços e manutenções</h3><p className="mt-1 text-xs text-zinc-500">Registros gerais ou de uma unidade, com modelo de rateio.</p></div><button onClick={() => setModal("manutencao")} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777]/10 px-3 text-xs font-bold text-[#004777]"><Plus className="h-4 w-4"/>Manutenção</button></div>
-              <div className="divide-y divide-zinc-100">{selected.manutencoes.length === 0 ? <p className="p-6 text-center text-sm text-zinc-400">Nenhuma manutenção cadastrada.</p> : selected.manutencoes.map(item => <div key={item.id} className="grid gap-2 p-4 sm:grid-cols-[100px_1fr_auto]"><p className="text-xs font-semibold text-zinc-500">{dataBr(item.dataManutencao)}</p><div><p className="text-sm font-bold text-[#280003]">{item.descricao}</p><p className="mt-1 text-xs text-zinc-400">{item.imovel ? `Unidade ${item.imovel.codigo}` : "Área geral"} · Rateio: {item.tipoRateio.toLowerCase().replaceAll("_", " ")}</p></div><div className="text-right"><strong className="text-sm text-[#004777]">{dinheiro(item.valor)}</strong><p className={`text-[10px] font-bold ${item.status === "FINALIZADA" ? "text-emerald-600" : "text-amber-600"}`}>{item.status === "FINALIZADA" ? "Finalizada" : "Em andamento"}</p></div></div>)}</div>
+              <div className="flex items-center justify-between border-b border-zinc-100 p-5"><div><h3 className="flex items-center gap-2 font-extrabold text-[#280003]"><Wrench className="h-5 w-5 text-[#004777]"/>Serviços e manutenções</h3><p className="mt-1 text-xs text-zinc-500">Registros gerais ou de uma unidade, com modelo de rateio.</p></div><button onClick={() => { setEditingMaintenance(null); setModal("manutencao"); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#004777]/10 px-3 text-xs font-bold text-[#004777]"><Plus className="h-4 w-4"/>Manutenção</button></div>
+              <div className="divide-y divide-zinc-100">{selected.manutencoes.length === 0 ? <p className="p-6 text-center text-sm text-zinc-400">Nenhuma manutenção cadastrada.</p> : selected.manutencoes.map(item => <div key={item.id} className="grid gap-2 p-4 sm:grid-cols-[100px_1fr_auto]"><p className="text-xs font-semibold text-zinc-500">{dataBr(item.dataManutencao)}</p><div><p className="text-sm font-bold text-[#280003]">{item.descricao}</p><p className="mt-1 text-xs text-zinc-400">{item.imovel ? `Unidade ${item.imovel.codigo}` : "Área geral"} · Rateio: {item.tipoRateio.toLowerCase().replaceAll("_", " ")}</p></div><div className="flex items-center justify-end gap-3"><div className="text-right"><strong className="text-sm text-[#004777]">{dinheiro(item.valor)}</strong><p className={`text-[10px] font-bold ${item.status === "FINALIZADA" ? "text-emerald-600" : "text-amber-600"}`}>{item.status === "FINALIZADA" ? "Finalizada" : "Em andamento"}</p></div><button type="button" aria-label={`Editar manutenção ${item.descricao}`} onClick={() => { setEditingMaintenance(item); setModal("manutencao"); }} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-zinc-200 text-[#004777] hover:bg-zinc-50"><Pencil className="h-4 w-4"/></button></div></div>)}</div>
             </section>
           </main>}
         </div>
@@ -72,7 +73,7 @@ export function ResidenciaisClient({ initialData, initialError }: Props) {
 
       {modal === "residencial" && <ResidencialModal editing={editing} imoveis={disponiveis} pending={pending} onClose={() => setModal(null)} onSave={input => startTransition(async () => finish(await saveResidencial(input)))} />}
       {modal === "despesa" && selected && <DespesaModal pending={pending} onClose={() => setModal(null)} onSave={input => startTransition(async () => { let result = await saveDespesaResidencial({ ...input, residencialId: selected.id }); if (!result.success && result.gasConflictCount && window.confirm(`${result.error}\n\nDeseja confirmar a sobrescrita?`)) result = await saveDespesaResidencial({ ...input, residencialId: selected.id, confirmarSobrescritaGas: true }); finish(result); })}/>} 
-      {modal === "manutencao" && selected && <ManutencaoModal residencial={selected} pending={pending} onClose={() => setModal(null)} onSave={input => startTransition(async () => finish(await saveManutencaoResidencial({ ...input, residencialId: selected.id })))} />}
+      {modal === "manutencao" && selected && <ManutencaoModal residencial={selected} editing={editingMaintenance} pending={pending} onClose={() => { setModal(null); setEditingMaintenance(null); }} onSave={input => startTransition(async () => finish(await saveManutencaoResidencial({ ...input, id: editingMaintenance?.id, residencialId: selected.id })))} />}
     </div>
   );
 }
@@ -120,18 +121,18 @@ function DespesaModal({ pending, onClose, onSave }: { pending: boolean; onClose:
   return <ModalShell title="Nova despesa compartilhada" onClose={onClose}><form onSubmit={e => { e.preventDefault(); onSave({ nome, categoria, valor: Number(valor), inicioVigencia: inicio, fimVigencia: fim || undefined, observacao }); }} className="space-y-5 p-5"><div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">Água e IPTU não aparecem aqui porque continuam individualizados por locação. O valor cadastrado será cobrado de cada unidade ocupada.</div><div className="grid gap-4 sm:grid-cols-2"><div><label className={labelClass}>Nome *</label><input required value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex.: Internet coletiva" className={inputClass}/></div><div><label className={labelClass}>Categoria</label><select value={categoria} onChange={e => setCategoria(e.target.value as CategoriaDespesa)} className={inputClass}>{Object.entries(categoriaLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><div><label className={labelClass}>Valor por unidade *</label><input required type="number" min="0.01" step="0.01" value={valor} onChange={e => setValor(e.target.value)} className={inputClass}/></div><div><label className={labelClass}>Início da vigência *</label><input required type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={inputClass}/></div><div><label className={labelClass}>Fim da vigência</label><input type="date" min={inicio} value={fim} onChange={e => setFim(e.target.value)} className={inputClass}/></div></div>{categoria === "GAS" && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"><AlertTriangle className="h-4 w-4 shrink-0"/>Se já houver gás na locação, o valor do residencial terá prioridade. Você receberá uma confirmação antes de salvar.</div>}<div><label className={labelClass}>Observação</label><textarea rows={3} value={observacao} onChange={e => setObservacao(e.target.value)} className={inputClass}/></div><Footer pending={pending} onClose={onClose}/></form></ModalShell>;
 }
 
-function ManutencaoModal({ residencial, pending, onClose, onSave }: { residencial: ResidencialView; pending: boolean; onClose: () => void; onSave: (input: { imovelId?: string; descricao: string; dataManutencao: string; valor: number; status: "EM_ANDAMENTO" | "FINALIZADA"; tipoRateio: TipoRateio; rateio?: Record<string, number> }) => void }) {
-  const [escopo, setEscopo] = useState<"GERAL" | "IMOVEL">("GERAL");
-  const [imovelId, setImovelId] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [data, setData] = useState(hoje);
-  const [valor, setValor] = useState("");
-  const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADA">("EM_ANDAMENTO");
-  const [tipoRateio, setTipoRateio] = useState<TipoRateio>("NAO_RATEAR");
-  const [rateio, setRateio] = useState<Record<string, string>>({});
+function ManutencaoModal({ residencial, editing, pending, onClose, onSave }: { residencial: ResidencialView; editing: ManutencaoResidencialView | null; pending: boolean; onClose: () => void; onSave: (input: { imovelId?: string; descricao: string; dataManutencao: string; valor: number; status: "EM_ANDAMENTO" | "FINALIZADA"; tipoRateio: TipoRateio; rateio?: Record<string, number> }) => void }) {
+  const [escopo, setEscopo] = useState<"GERAL" | "IMOVEL">(editing?.escopo === "IMOVEL_ESPECIFICO" ? "IMOVEL" : "GERAL");
+  const [imovelId, setImovelId] = useState(editing?.imovel?.id ?? "");
+  const [descricao, setDescricao] = useState(editing?.descricao ?? "");
+  const [data, setData] = useState(editing?.dataManutencao ?? hoje);
+  const [valor, setValor] = useState(editing ? String(editing.valor) : "");
+  const [status, setStatus] = useState<"EM_ANDAMENTO" | "FINALIZADA">(editing?.status ?? "EM_ANDAMENTO");
+  const [tipoRateio, setTipoRateio] = useState<TipoRateio>(editing?.tipoRateio ?? "NAO_RATEAR");
+  const [rateio, setRateio] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(editing?.rateio ?? {}).map(([id, value]) => [id, String(value)])));
 
   return (
-    <ModalShell title="Nova manutenção do residencial" onClose={onClose}>
+    <ModalShell title={editing ? "Editar manutenção do residencial" : "Nova manutenção do residencial"} onClose={onClose}>
       <form onSubmit={event => {
         event.preventDefault();
         onSave({

@@ -4,6 +4,7 @@ import { calculateRepasse, resolveRepasseGrossValue } from "../lib/financeiro/re
 import { groupRepassesByOwner } from "../lib/financeiro/repasse-grouping";
 import { createRepasseXlsx } from "../lib/financeiro/repasse-xlsx";
 import { resolveRepasseBonus, restoreGrossBeforeBonus } from "../lib/financeiro/repasse-bonificacao";
+import { buildResidentialRepasseReports } from "../lib/financeiro/repasse-residencial";
 import type { RepasseItem } from "../lib/financeiro/repasse-types";
 
 function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> = {}): RepasseItem {
@@ -22,7 +23,9 @@ function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> 
     propertyCode: `IMB-${key}`,
     propertyTitle: `Imóvel ${key}`,
     propertyAddress: "Ilha Solteira/SP",
+    residential: null,
     rentValue: 1_000,
+    chargeTotal: 0,
     grossValue: 1_000,
     receivedAt: null,
     adminFeePercent: 10,
@@ -36,6 +39,7 @@ function repasseItem(key: string, ownerId: string, values: Partial<RepasseItem> 
     transferDueDate: null,
     paidAt: null,
     status: "AGUARDANDO_RECEBIMENTO",
+    operations: [],
     ...values,
   };
 }
@@ -55,6 +59,36 @@ test("agrupa os imóveis do mesmo proprietário e consolida os totais", () => {
   assert.equal(groups[0].deductionTotal, 50);
   assert.equal(groups[0].netTotal, 1_865);
   assert.equal(groups[0].receivedCount, 1);
+});
+
+test("consolida imóveis e operações por residencial sem perder os repasses individuais", () => {
+  const items = [
+    repasseItem("00003", "owner-1", {
+      residential: { id: "res-1", name: "Agatha" },
+      chargeTotal: 80,
+      operations: [{ id: "rent-1", type: "ALUGUEL", description: "Aluguel recebido", date: "2026-08-10", value: 1_000, direction: "CREDITO", propertyId: "property-00003", propertyCode: "IMB-00003" }],
+    }),
+    repasseItem("00006", "owner-1", {
+      residential: { id: "res-1", name: "Agatha" },
+      rentValue: 1_100,
+      grossValue: 1_100,
+      netValue: 990,
+      adminFeeValue: 110,
+    }),
+  ];
+  const reports = buildResidentialRepasseReports(items, [{
+    id: "maintenance-1", residencialId: "res-1", propertyId: null, propertyCode: null,
+    description: "Limpeza da área comum", date: "2026-08-15", value: 200, allocationType: "NAO_RATEAR",
+  }]);
+
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].propertyCount, 2);
+  assert.equal(reports[0].rentTotal, 2_100);
+  assert.equal(reports[0].chargeTotal, 80);
+  assert.equal(reports[0].netRepasseTotal, 1_890);
+  assert.equal(reports[0].maintenanceTotal, 200);
+  assert.equal(reports[0].globalResult, 1_690);
+  assert.equal(reports[0].operations.length, 2);
 });
 
 test("usa o aluguel contratual na projeção enquanto o boleto não foi recebido", () => {
