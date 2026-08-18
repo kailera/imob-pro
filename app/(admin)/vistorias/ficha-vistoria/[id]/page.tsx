@@ -21,6 +21,8 @@ import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatt
 import { ChangeImovelModal } from "@/components/vistorias/ficha-vistoria/ChangeImovelModal";
 import { ChangeInquilinoModal } from "@/components/vistorias/ficha-vistoria/ChangeInquilinoModal";
 import { isAuthenticationError } from "@/lib/auth-errors";
+import { formatInspectionDate } from "@/lib/vistorias/dates";
+import { normalizeInspectionMedia } from "@/lib/vistorias/videoMedia";
 
 interface InfoGeralItem {
   id: number;
@@ -185,8 +187,13 @@ export default function FichaVistoriaPage() {
 
       try {
         localCached = await db.vistorias.get(vistoriaId);
-        if (localCached?.hasLocalDraft || localCached?.pendingSync) {
+        const pendingLocalActions = await db.syncQueue.where("vistoriaId").equals(vistoriaId).count();
+        if (localCached && pendingLocalActions > 0) {
           dbData = localCached;
+        } else if (localCached && pendingLocalActions === 0 && (localCached.hasLocalDraft || localCached.pendingSync)) {
+          // Flags antigas podiam permanecer após a fila terminar. Neste caso,
+          // a cópia do servidor contém as URLs definitivas das mídias.
+          await db.vistorias.update(vistoriaId, { hasLocalDraft: false, pendingSync: false });
         }
       } catch (e) {
         console.error("Erro ao ler rascunho local:", e);
@@ -253,7 +260,7 @@ export default function FichaVistoriaPage() {
           CONTESTADA: "Contestada",
           CANCELADA: "Cancelada",
         };
-        const inspectionDate = new Date(dbData.data);
+        const inspectionDateLabel = formatInspectionDate(dbData.data);
         setPdfVistoria({
           id: dbData.id,
           codigo: dbData.codigo || dbData.id,
@@ -261,8 +268,8 @@ export default function FichaVistoriaPage() {
           status: (dbData.status || "NAO_INICIADA").toLowerCase(),
           statusLabel: statusLabels[dbData.status] || dbData.status || "NÃ£o iniciada",
           solicitadaPor: dbData.operador ? `${dbData.operador.firstName} ${dbData.operador.lastName}` : "Sistema",
-          dataSolicitacao: Number.isNaN(inspectionDate.getTime()) ? "" : inspectionDate.toLocaleDateString("pt-BR"),
-          dataVistoria: Number.isNaN(inspectionDate.getTime()) ? undefined : inspectionDate.toLocaleDateString("pt-BR"),
+          dataSolicitacao: inspectionDateLabel,
+          dataVistoria: inspectionDateLabel || undefined,
           vistoriador: dbData.vistoriador
             ? `${dbData.vistoriador.firstName} ${dbData.vistoriador.lastName}${dbData.vistoriador.creci ? ` (CRECI: ${dbData.vistoriador.creci})` : ""}`
             : "Vistoriador ResponsÃ¡vel",
@@ -291,7 +298,7 @@ export default function FichaVistoriaPage() {
           text: c.texto || c.text,
           status: c.status as 'Aprovado' | 'Atenção',
           timestamp: new Date(c.createdAt || c.timestamp),
-          media: c.midias || c.media || []
+          media: normalizeInspectionMedia(c.midias || c.media)
         }));
         setComments(mappedComments);
 

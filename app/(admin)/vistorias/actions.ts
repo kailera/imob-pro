@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { normalizeVistoriaAddress, snapshotVistoriaAddress } from "@/lib/vistorias/formatters";
+import { parseInspectionDate } from "@/lib/vistorias/dates";
 import { enqueueMediaVideos } from "@/lib/videoProcessor";
 
 // Auxiliar para gerar código sequencial de vistoria (ex: VIS-2026-001)
@@ -203,7 +204,7 @@ export async function createVistoria(input: {
             const vistoria = await tx.vistoria.create({
                 data: {
                     codigo,
-                    data: new Date(input.data),
+                    data: parseInspectionDate(input.data),
                     tipo: input.tipo,
                     status: VistoriaStatus.NAO_INICIADA,
                     observacoes: "",

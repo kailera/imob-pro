@@ -10,7 +10,44 @@ import {
   PHOTOS_PER_ROW,
 } from "../lib/vistorias/pdfLayout";
 import { matchesRoomReference, normalizeRoomName } from "../lib/vistorias/roomMatching";
-import { getOptimizedVideoUrl, getPendingVideoFileKey, replacePendingVideoUrl } from "../lib/vistorias/videoMedia";
+import { getOptimizedVideoUrl, getPendingVideoFileKey, normalizeInspectionMedia, replacePendingVideoUrl, replaceSyncedOfflineComment } from "../lib/vistorias/videoMedia";
+import { formatInspectionDate, getSaoPauloDateInputValue, parseInspectionDate } from "../lib/vistorias/dates";
+
+test("mantém a data civil da vistoria sem recuar um dia no Brasil", () => {
+  assert.equal(formatInspectionDate("2026-08-18"), "18/08/2026");
+  assert.equal(formatInspectionDate("2026-08-18T00:00:00.000Z"), "18/08/2026");
+  assert.equal(parseInspectionDate("2026-08-18").toISOString(), "2026-08-18T12:00:00.000Z");
+  assert.equal(getSaoPauloDateInputValue(new Date("2026-08-19T01:30:00.000Z")), "2026-08-18");
+});
+
+test("normaliza mídias antigas e reconhece vídeo pelo tipo ou extensão", () => {
+  assert.deepEqual(normalizeInspectionMedia([
+    { url: "https://storage/comments/foto.jpg", tipo: "IMAGEM" },
+    { url: "https://storage/comments/video.mov", tipo: "IMAGEM" },
+    { url: "https://storage/comments/outro", tipo: "VIDEO" },
+  ]).map((item) => item.type), ["image", "video", "video"]);
+});
+
+test("troca URLs blob pela mídia definitiva após sincronizar comentário offline", () => {
+  const comments = replaceSyncedOfflineComment([{
+    id: "temp-123",
+    roomId: "garagem",
+    texto: "Foto",
+    midias: [{ url: "blob:https://app/temporaria", type: "image", offlineId: "offline-1" }],
+    media: [{ url: "blob:https://app/legada", type: "image" }],
+  }], {
+    tempCommentId: "temp-123",
+    roomId: "garagem",
+    text: "Foto",
+    serverCommentId: "comment-456",
+    createdAt: "2026-08-18T18:00:00.000Z",
+    media: [{ url: "https://storage/comments/foto.jpg", type: "image" }],
+  }) as Array<Record<string, unknown>>;
+
+  assert.equal(comments[0].id, "comment-456");
+  assert.deepEqual(comments[0].midias, [{ url: "https://storage/comments/foto.jpg", type: "image" }]);
+  assert.equal("media" in comments[0], false);
+});
 
 test("a URL temporária de vídeo aponta para o MP4 otimizado", () => {
   const temporaryUrl = "https://storage.exemplo/bucket/comments/temp/abc-123.mov";

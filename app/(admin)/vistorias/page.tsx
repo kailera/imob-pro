@@ -25,6 +25,7 @@ import { getVistorias, getVistoriadores, createVistoria, getImoveisForVistoria }
 import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
+import { formatInspectionDate, getSaoPauloDateInputValue, parseInspectionDate } from "@/lib/vistorias/dates";
 
 function mapDbVistoriaToUi(v: any): Vistoria {
   const statusLabels: Record<string, string> = {
@@ -52,8 +53,8 @@ function mapDbVistoriaToUi(v: any): Vistoria {
     status,
     statusLabel: statusLabels[v.status] || "Não iniciada",
     solicitadaPor: v.operador ? `${v.operador.firstName} ${v.operador.lastName}` : "Sistema",
-    dataSolicitacao: new Date(v.data).toLocaleDateString("pt-BR"),
-    dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
+    dataSolicitacao: formatInspectionDate(v.data),
+    dataVistoria: formatInspectionDate(v.data),
     vistoriador: v.vistoriador ? `${v.vistoriador.firstName} ${v.vistoriador.lastName}${v.vistoriador.creci ? ` (CRECI: ${v.vistoriador.creci})` : ''}` : "Não designado",
     imovelCodigo: v.imovel ? v.imovel.codigo : "",
     endereco: formatImovelAddress(getVistoriaAddress(v)),
@@ -135,8 +136,8 @@ export default function VistoriasPage() {
           status: v.status.toLowerCase() as any,
           statusLabel: v.status === "NAO_INICIADA" ? "Não iniciada" : v.status === "EM_ANDAMENTO" ? "Em andamento" : v.status === "CONCLUIDA" ? "Concluída" : v.status,
           solicitadaPor: "Sistema (Offline)",
-          dataSolicitacao: new Date(v.data).toLocaleDateString("pt-BR"),
-          dataVistoria: new Date(v.data).toLocaleDateString("pt-BR"),
+          dataSolicitacao: formatInspectionDate(v.data),
+          dataVistoria: formatInspectionDate(v.data),
           vistoriador: "Vistoriador Responsável",
           imovelCodigo: v.codigo,
           endereco: v.endereco,
@@ -227,8 +228,7 @@ export default function VistoriasPage() {
     }
     
     // Set default date to today
-    const today = new Date().toISOString().split("T")[0];
-    setNewData(today);
+    setNewData(getSaoPauloDateInputValue());
   };
 
   const handleCreateVistoria = async (e: React.FormEvent) => {
@@ -245,7 +245,7 @@ export default function VistoriasPage() {
       operadorId: "", // Resolvido dinamicamente na Server Action via Clerk auth()
       vistoriadorId: selectedVistoriadorId,
       tipo: newTipo,
-      data: new Date(newData),
+      data: newData,
       tipoImovelVistoriado: newTipoImovel,
       proprietario: newProprietario || "Não informado",
       ambientesPadrao: ["Fachada", "Sala de Estar", "Cozinha", "Banheiro", "Quarto principal"],
@@ -274,7 +274,7 @@ export default function VistoriasPage() {
         codigo: tempCodigo,
         tipo: newTipo,
         status: "NAO_INICIADA",
-        data: new Date(newData).toISOString(),
+        data: parseInspectionDate(newData).toISOString(),
         proprietario: newProprietario || "Não informado",
         endereco: selectedIm ? formatImovelAddress(selectedIm) : "Endereço Local",
         observacoes: "",

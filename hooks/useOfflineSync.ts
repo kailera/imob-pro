@@ -6,6 +6,7 @@ import { db, SyncAction } from "@/lib/db";
 import { createVistoria, updateVistoria, addVistoriaComment, updateVistoriaComment, deleteVistoriaComment } from "@/app/(admin)/vistorias/actions";
 import { uploadMediaToRustFS } from "@/app/actions/uploadMedia";
 import { isAuthenticationError } from "@/lib/auth-errors";
+import { replaceSyncedOfflineComment } from "@/lib/vistorias/videoMedia";
 
 export function useOfflineSync() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -183,21 +184,25 @@ export function useOfflineSync() {
         // Atualiza a lista local de comentários na vistoria cacheada
         const localData = await db.vistorias.get(action.vistoriaId);
         if (localData) {
-          const updatedComments = localData.comentariosVistoria.map((c) => {
-            // Se for o comentário temporário adicionado offline
-            if (c.text === payload.text && c.roomId === payload.roomId && c.id.startsWith("temp-")) {
-              return {
-                ...c,
-                id: res.data.id,
-                media: uploadedMedia,
-                timestamp: new Date(res.data.createdAt)
-              };
-            }
-            return c;
+          const updatedComments = replaceSyncedOfflineComment(localData.comentariosVistoria, {
+            tempCommentId,
+            roomId: payload.roomId,
+            text: payload.text,
+            serverCommentId: res.data.id,
+            createdAt: res.data.createdAt,
+            media: uploadedMedia,
           });
           await db.vistorias.update(action.vistoriaId, { comentariosVistoria: updatedComments });
         }
         await db.syncQueue.delete(action.id!);
+
+        const remainingActions = await db.syncQueue.where("vistoriaId").equals(action.vistoriaId).count();
+        if (remainingActions === 0) {
+          await db.vistorias.update(action.vistoriaId, {
+            pendingSync: false,
+            hasLocalDraft: false,
+          });
+        }
       } else {
         throw new Error(res.error || "Falha ao enviar comentário para o servidor.");
       }

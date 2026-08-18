@@ -22,6 +22,7 @@ import {
 import { getVistoriaByToken, submitContestacao } from "@/app/(admin)/vistorias/actions";
 import { getPresignedUploadUrl } from "@/app/actions/uploadMedia";
 import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
+import { formatInspectionDate } from "@/lib/vistorias/dates";
 
 interface MidiaItem {
   url: string;
@@ -214,7 +215,7 @@ export default function TenantDashboardPage() {
         <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-500">
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-2 rounded-xl border border-[#EEEEF3]">
             <Calendar className="w-4 h-4 text-[#004777]" />
-            <span>Data: {new Date(vistoria.data).toLocaleDateString("pt-BR")}</span>
+            <span>Data: {formatInspectionDate(vistoria.data)}</span>
           </div>
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-2 rounded-xl border border-[#EEEEF3]">
             <User className="w-4 h-4 text-[#004777]" />
