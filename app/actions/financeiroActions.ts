@@ -21,24 +21,48 @@ import {
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 import { sincronizarPeriodoInicialLease } from "@/lib/locacao/sincronizarPeriodoInicialLease";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
+import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
     const competence = `${ano}-${String(mes).padStart(2, '0')}`;
 
     // 1. Buscar contratos de locação ativos
-    const contratos = await prisma.contratoImovelLocacao.findMany({
-      include: {
-        imovelLocacao: {
-          include: {
-            locadors: true,
-            periodos: { orderBy: { dataInicio: "asc" } },
+    const [contratosLegados, leasesCanonicos] = await Promise.all([
+      prisma.contratoImovelLocacao.findMany({
+        include: {
+          imovelLocacao: {
+            include: {
+              locadors: true,
+              periodos: { orderBy: { dataInicio: "asc" } },
+            },
+          },
+          locatarios: true,
+          imovel: { include: { residencial: { include: { despesas: true } } } },
+        },
+      }),
+      prisma.lease.findMany({
+        where: { status: { in: ["ACTIVE", "SUSPENDED"] } },
+        select: {
+          id: true,
+          code: true,
+          legacyCode: true,
+          propertyId: true,
+          status: true,
+          termsPeriods: { select: { reviewStatus: true } },
+          parties: {
+            where: { role: "TENANT" },
+            select: { role: true, person: { select: { cpfCnpj: true } } },
           },
         },
-        locatarios: true,
-        imovel: { include: { residencial: { include: { despesas: true } } } },
-      },
-    });
+      }),
+    ]);
+    // Contratos migrados são cobrados exclusivamente pelo modelo canônico.
+    // Isso também impede que o registro legado volte a cobrar após inativação.
+    const contratos = removeLegacyDuplicatesWithCompleteLease(
+      contratosLegados,
+      leasesCanonicos,
+    );
 
     let geradosCount = 0;
     let atualizadosCount = 0;

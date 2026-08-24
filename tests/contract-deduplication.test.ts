@@ -48,6 +48,19 @@ test("remove da listagem somente o legado coberto por contrato completo", () => 
   );
 });
 
+test("mantém o legado oculto quando o contrato canônico foi inativado", () => {
+  const suspendedLease = {
+    ...completeLease,
+    status: "SUSPENDED",
+    termsPeriods: [{ reviewStatus: "PENDING" }],
+  };
+
+  assert.deepEqual(
+    removeLegacyDuplicatesWithCompleteLease([legacy], [suspendedLease]),
+    [],
+  );
+});
+
 test("não deduplica contratos de imóvel ou inquilino diferentes", () => {
   assert.deepEqual(
     removeLegacyDuplicatesWithCompleteLease(

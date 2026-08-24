@@ -19,7 +19,10 @@ import {
 import { calcularMesesContrato, converterMesesParaPercentual, formatarDataLocalISO } from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { requireUserContext } from "@/lib/auth";
-import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
+import {
+    findCompleteLeaseForLegacyContract,
+    removeLegacyDuplicatesWithCompleteLease,
+} from "@/lib/locacao/contract-deduplication";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -205,7 +208,8 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
 
     try {
         const { tenantId } = await requireUserContext();
-        const locacoes = await prisma.imovelLocacao.findMany({
+        const [locacoes, inactiveLeases] = await Promise.all([
+          prisma.imovelLocacao.findMany({
             where: {
                 contratoImovelLocacaos: { some: { imobId: tenantId } },
                 OR: [
@@ -217,13 +221,29 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
             include: {
                 imovel: { select: { descricao: true, codigo: true } },
                 contratoImovelLocacaos: {
-                    select: { id: true, locatarios: { select: { nome: true }, take: 1 } },
+                    select: {
+                        id: true,
+                        locatarios: { select: { nome: true, cpfCnpj: true }, take: 1 },
+                    },
                     take: 1,
                 },
                 locadors: { select: { nome: true }, take: 1 },
                 periodos: { orderBy: { dataInicio: "asc" } },
             },
-        });
+          }),
+          prisma.lease.findMany({
+            where: { tenantId, status: "SUSPENDED" },
+            select: {
+              id: true,
+              propertyId: true,
+              status: true,
+              parties: {
+                where: { role: "TENANT" },
+                select: { role: true, person: { select: { cpfCnpj: true } } },
+              },
+            },
+          }),
+        ]);
 
         const agora = normalizarDataUTC(new Date());
         const eventos: AgendaLocacaoEvento[] = [];
@@ -231,6 +251,11 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
         for (const locacao of locacoes) {
             const contrato = locacao.contratoImovelLocacaos[0];
             if (!contrato) continue;
+            if (findCompleteLeaseForLegacyContract({
+                id: contrato.id,
+                imovelId: locacao.imovelId,
+                locatarios: contrato.locatarios,
+            }, inactiveLeases)) continue;
             const periodosConfirmados = locacao.periodos.filter(
                 (periodo) => periodo.origemPeriodo !== "SICADI_PROVISORIO",
             );
@@ -1054,7 +1079,7 @@ export const getCompleteContratoLocacao = async (id: string) => {
     return contrato;
 };
 
-export const getContratosLocacao = async () => {
+export const getContratosLocacao = async (options?: { onlyInactive?: boolean }) => {
     try {
         const context = await requireUserContext();
         const [contratos, leases] = await Promise.all([
@@ -1107,7 +1132,10 @@ export const getContratosLocacao = async () => {
           }),
         ]);
 
-        const leasesNormalizados = leases.map(lease => ({
+        const leasesVisiveis = leases.filter(lease => options?.onlyInactive
+          ? lease.status === "SUSPENDED"
+          : lease.status !== "SUSPENDED");
+        const leasesNormalizados = leasesVisiveis.map(lease => ({
           id: lease.id,
           code: lease.code,
           legacyCode: lease.legacyCode,
@@ -1125,13 +1153,15 @@ export const getContratosLocacao = async () => {
             reviewStatus: period.reviewStatus,
           })),
         }));
-        const contratosLegados = removeLegacyDuplicatesWithCompleteLease(
-          contratos,
-          leases,
-        ).map(contrato => ({
-          ...contrato,
-          recordType: "LEGACY" as const,
-        }));
+        const contratosLegados = options?.onlyInactive
+          ? []
+          : removeLegacyDuplicatesWithCompleteLease(
+              contratos,
+              leases,
+            ).map(contrato => ({
+              ...contrato,
+              recordType: "LEGACY" as const,
+            }));
 
         return { success: true, data: [...leasesNormalizados, ...contratosLegados] };
     } catch (error: any) {

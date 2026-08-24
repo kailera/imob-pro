@@ -7,20 +7,42 @@ import { adicionarDiasUTC } from '@/lib/locacao/periodos';
 
 export interface Contrato {
     id?: string;
-    code?: string;
-    legacyCode?: string;
+    code?: string | null;
+    legacyCode?: string | null;
     recordType?: 'LEASE' | 'LEGACY';
     locatarios?: Array<{ nome?: string | null }>;
-    imovel?: PropertyAddress & { imovelLocacaos?: Array<{ dataFim?: string | Date | null }> };
-    imovelLocacao?: { dataFim?: string | Date | null } | null;
+    imovel?: (PropertyAddress & { imovelLocacaos?: LocacaoResumo[] }) | null;
+    imovelLocacao?: LocacaoResumo | null;
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
+    termsPeriods?: PeriodoResumo[];
     vencimento?: string;
+    proximoReajuste?: string | Date | null;
+    historicoPeriodosStatus?: string | null;
     status?: string;
     valorOriginal?: number;
     parcelasAtrasadas?: number;
 }
 
+type PeriodoResumo = {
+    dataInicio?: string | Date;
+    dataFim?: string | Date;
+    effectiveFrom?: string | Date;
+    effectiveTo?: string | Date | null;
+    reviewStatus?: string | null;
+}
+
+type LocacaoResumo = {
+    dataFim?: string | Date | null;
+    proximoReajuste?: string | Date | null;
+    historicoPeriodosStatus?: string | null;
+    periodos?: PeriodoResumo[];
+}
+
 interface ContratosTabContentProps {
     contratos: Contrato[];
+    title?: string;
+    searchPlaceholder?: string;
 }
 
 type PropertyAddress = {
@@ -49,12 +71,17 @@ function formatPropertyAddress(property: PropertyAddress) {
     return `${street}${number}${complement}${neighborhood}${city}${zipCode}`;
 }
 
-export default function ContratosTabContent({ contratos }: ContratosTabContentProps) {
+export default function ContratosTabContent({
+    contratos,
+    title = 'Contratos de Locação',
+    searchPlaceholder = 'Buscar por contrato, inquilino, imóvel ou status...',
+}: ContratosTabContentProps) {
 
     const getSearchText = (item: Contrato) => {
         const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
         const status = item.recordType === 'LEASE'
             ? item.status === 'ACTIVE' ? 'Ativo'
+                : item.status === 'SUSPENDED' ? 'Inativo'
                 : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
                     : 'Pendente'
             : locacao?.dataFim && new Date(locacao.dataFim) < new Date() ? 'Encerrado' : 'Ativo';
@@ -79,11 +106,11 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
     };
 
     // Definição das colunas adaptadas para o modelo Prisma Real
-    const columns: Column<any>[] = [
+    const columns: Column<Contrato>[] = [
         { 
             header: 'Contrato', 
             accessorKey: 'id',
-            cell: (item: any) => (
+            cell: (item: Contrato) => (
                 <Link
                     href={item.recordType === 'LEASE'
                         ? `/locacao/contratos/${item.id}/editar`
@@ -97,7 +124,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         { 
             header: 'Inquilino', 
             accessorKey: 'locatarios',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 const locatario = item.locatarios?.[0];
                 return locatario ? locatario.nome : 'Não informado';
             }
@@ -105,7 +132,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         { 
             header: 'Imóvel', 
             accessorKey: 'imovel',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 if (!item.imovel) return 'Não informado';
                 const desc = formatPropertyAddress(item.imovel);
                 return (
@@ -118,7 +145,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         { 
             header: 'Vencimento', 
             accessorKey: 'vencimento',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 // Tenta buscar da relação imovelLocacao direta (se inclusa) ou do imovel.imovelLocacaos
                 if (item.recordType === 'LEASE') {
                     if (!item.endDate) return 'Não informado';
@@ -132,7 +159,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         {
             header: 'Próximo reajuste',
             accessorKey: 'proximoReajuste',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 if (item.recordType === 'LEASE') {
                     const ultimo = item.termsPeriods?.at(-1);
                     if (!ultimo?.effectiveTo || (item.endDate && new Date(ultimo.effectiveTo) > new Date(item.endDate))) return '—';
@@ -141,23 +168,23 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 if (!locacao) return 'Não informado';
                 const periodos = [...(locacao.periodos || [])].sort(
-                    (a: any, b: any) => new Date(a.dataInicio).getTime() - new Date(b.dataInicio).getTime()
+                    (a, b) => new Date(a.dataInicio ?? 0).getTime() - new Date(b.dataInicio ?? 0).getTime()
                 );
                 const ultimo = periodos[periodos.length - 1];
-                const data = ultimo ? adicionarDiasUTC(ultimo.dataFim, 1) : locacao.proximoReajuste;
-                if (!data || new Date(data) > new Date(locacao.dataFim)) return '—';
+                const data = ultimo?.dataFim ? adicionarDiasUTC(ultimo.dataFim, 1) : locacao.proximoReajuste;
+                if (!data || !locacao.dataFim || new Date(data) > new Date(locacao.dataFim)) return '—';
                 return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             }
         },
         {
             header: 'Histórico',
             accessorKey: 'historicoPeriodosStatus',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 const status = item.recordType === 'LEASE'
-                    ? item.termsPeriods?.length > 0 && item.termsPeriods.every((period: any) => period.reviewStatus === 'REVIEWED')
+                    ? item.termsPeriods && item.termsPeriods.length > 0 && item.termsPeriods.every(period => period.reviewStatus === 'REVIEWED')
                         ? 'COMPLETO'
-                        : item.termsPeriods?.length > 0 ? 'PARCIAL' : 'NAO_INICIADO'
+                        : item.termsPeriods?.length ? 'PARCIAL' : 'NAO_INICIADO'
                     : locacao?.historicoPeriodosStatus || 'NAO_INICIADO';
                 const config: Record<string, { label: string; classe: string }> = {
                     COMPLETO: { label: 'Completo', classe: 'bg-emerald-50 text-emerald-700' },
@@ -172,11 +199,12 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         {
             header: 'Status',
             accessorKey: 'status',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 // Determina um status com base no vencimento se não houver campo específico
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 let statusVal = item.recordType === 'LEASE'
                     ? item.status === 'ACTIVE' ? 'Ativo'
+                        : item.status === 'SUSPENDED' ? 'Inativo'
                         : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
                             : 'Pendente'
                     : 'Ativo';
@@ -184,6 +212,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
                 
                 let bgClass = 'bg-gray-100 text-gray-700';
                 if (statusVal === 'Ativo') bgClass = 'bg-[#708D81]/10 text-[#708D81]';
+                else if (statusVal === 'Inativo') bgClass = 'bg-gray-200 text-gray-600';
                 else if (statusVal === 'Pendente') bgClass = 'bg-[#F0D18A]/35 text-[#8B7535]';
                 else if (statusVal === 'Encerrado') bgClass = 'bg-gray-200 text-gray-500';
 
@@ -197,7 +226,7 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
         {
             header: 'Ações',
             accessorKey: 'id',
-            cell: (item: any) => {
+            cell: (item: Contrato) => {
                 return (
                     <div className="flex flex-wrap items-center justify-end gap-2 md:justify-start">
                         {item.recordType === 'LEASE' && (
@@ -225,11 +254,11 @@ export default function ContratosTabContent({ contratos }: ContratosTabContentPr
     return (
         <div className="animate-fade-in">
             <DataTable
-                title="Contratos de Locação"
+                title={title}
                 data={contratos}
                 columns={columns}
                 searchText={getSearchText}
-                searchPlaceholder="Buscar por contrato, inquilino, imóvel ou status..."
+                searchPlaceholder={searchPlaceholder}
                 responsiveCards
             />
         </div>

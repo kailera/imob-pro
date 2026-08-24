@@ -52,6 +52,11 @@ export default async function EditContratoPage({
         comissionamento: Boolean(contrato.terms?.adminFeePercentage),
         documentos: contrato.documents.length > 0,
     }
+    const statusVisual = contrato.status === 'ACTIVE'
+        ? { label: 'CONCLUÍDO / ATIVO', className: 'bg-emerald-100 text-emerald-800' }
+        : contrato.status === 'SUSPENDED'
+            ? { label: 'INATIVO', className: 'bg-gray-200 text-gray-700' }
+            : { label: 'EM RASCUNHO', className: 'bg-amber-100 text-amber-800' }
 
     return (
         <main className="max-w-7xl mx-auto px-4 py-6">
@@ -64,12 +69,8 @@ export default async function EditContratoPage({
                         Preencha as seções abaixo para estruturar os dados do imóvel, partes envolvidas e controle locatício.
                     </p>
                 </div>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    contrato.status === 'ACTIVE'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                }`}>
-                    {contrato.status === 'ACTIVE' ? 'CONCLUÍDO / ATIVO' : 'EM RASCUNHO'}
+                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusVisual.className}`}>
+                    {statusVisual.label}
                 </span>
             </header>
 

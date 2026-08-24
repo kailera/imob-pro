@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { finalizeContrato } from '../../../../actions/finalizeContrato.action'
+import { inactivateContrato } from '../../../../actions/inactivateContrato.action'
 
 export type EtapaStatus = {
     identificacao: boolean
@@ -44,6 +46,7 @@ const ETAPAS_CONFIG = [
 ]
 
 export function EtapasCadastroNav({ contratoId, status, etapas }: EtapasCadastroNavProps) {
+    const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [message, setMessage] = useState<string | null>(null)
 
@@ -56,7 +59,18 @@ export function EtapasCadastroNav({ contratoId, status, etapas }: EtapasCadastro
         }
     }
 
+    const handleInactivate = () => {
+        if (confirm('Inativar este contrato? Nenhuma nova cobrança será gerada, mas todos os dados e cobranças existentes serão preservados.')) {
+            startTransition(async () => {
+                const result = await inactivateContrato(contratoId)
+                setMessage(result.message)
+                if (result.success) router.push('/locacao/inativos')
+            })
+        }
+    }
+
     const isFinished = status === 'ACTIVE'
+    const isInactive = status === 'SUSPENDED'
 
     return (
         <aside className="sticky top-6 bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
@@ -88,16 +102,29 @@ export function EtapasCadastroNav({ contratoId, status, etapas }: EtapasCadastro
                 <button
                     type="button"
                     onClick={handleFinalize}
-                    disabled={isPending || isFinished}
+                    disabled={isPending || isFinished || isInactive}
                     className={`w-full py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                         isFinished
                             ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                            : isInactive
+                                ? 'bg-gray-100 text-gray-500 cursor-default'
                             : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm disabled:opacity-50'
                     }`}
                 >
                     <span>✓</span>
-                    <span>{isFinished ? 'Contrato Concluído' : isPending ? 'Concluindo...' : 'Concluir contrato'}</span>
+                    <span>{isFinished ? 'Contrato Concluído' : isInactive ? 'Contrato inativo' : isPending ? 'Concluindo...' : 'Concluir contrato'}</span>
                 </button>
+                {!isInactive && (
+                    <button
+                        type="button"
+                        onClick={handleInactivate}
+                        disabled={isPending}
+                        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <span aria-hidden="true">×</span>
+                        <span>{isPending ? 'Salvando...' : 'Inativar contrato'}</span>
+                    </button>
+                )}
                 {message && (
                     <p role="status" className={`mt-2 text-xs font-medium ${
                         isFinished ? 'text-emerald-700' : 'text-amber-700'

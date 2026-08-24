@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, ClipboardCheck, Building, Key, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench, ChevronDown } from "lucide-react";
+import { Home, ClipboardCheck, Building, Key, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench, ChevronDown, Archive } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -14,7 +14,10 @@ const navItems = [
     name: "Locação",
     href: "/locacao",
     icon: Key,
-    children: [{ name: "Residenciais", href: "/residenciais", icon: Building }],
+    children: [
+      { name: "Residenciais", href: "/residenciais", icon: Building },
+      { name: "Inativos", href: "/locacao/inativos", icon: Archive },
+    ],
   },
   { name: "Manutenções", href: "/manutencoes", icon: Wrench },
   { name: "CRM", href: "/crm", icon: LayoutDashboard },

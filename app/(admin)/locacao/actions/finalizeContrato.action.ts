@@ -10,10 +10,13 @@ export async function finalizeContrato(contratoId: string) {
 
     const scopedLease = await prisma.lease.findFirst({
         where: { id: contratoId, tenantId: context.tenantId },
-        select: { id: true },
+        select: { id: true, status: true },
     })
     if (!scopedLease) {
         return { success: false, message: 'Contrato não encontrado.' }
+    }
+    if (scopedLease.status === 'SUSPENDED') {
+        return { success: false, message: 'Contrato inativo não pode ser concluído ou reativado por esta ação.' }
     }
     await sincronizarPeriodoInicialLease(scopedLease.id)
 

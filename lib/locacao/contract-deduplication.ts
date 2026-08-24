@@ -28,17 +28,20 @@ function digits(value: unknown) {
 export function isCompleteCanonicalLease(
   lease: CanonicalLeaseForDeduplication,
 ) {
-  return (
-    lease.status === "ACTIVE" &&
-    Boolean(lease.propertyId) &&
-    Boolean(lease.termsPeriods?.length) &&
-    lease.termsPeriods!.every(
-      (period) => period.reviewStatus === "REVIEWED",
-    ) &&
-    lease.parties?.some(
-      (party) => party.role === "TENANT" && digits(party.person?.cpfCnpj),
-    )
+  const hasIdentity = Boolean(lease.propertyId) && lease.parties?.some(
+    (party) => party.role === "TENANT" && digits(party.person?.cpfCnpj),
   );
+  if (!hasIdentity) return false;
+
+  // Um contrato inativado deve continuar sendo a referência canônica mesmo
+  // sem histórico revisado, para o legado não reaparecer nem voltar a cobrar.
+  if (lease.status === "SUSPENDED") return true;
+
+  return lease.status === "ACTIVE"
+    && Boolean(lease.termsPeriods?.length)
+    && lease.termsPeriods!.every(
+      (period) => period.reviewStatus === "REVIEWED",
+    );
 }
 
 export function findCompleteLeaseForLegacyContract(
