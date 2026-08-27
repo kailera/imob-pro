@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Key, DollarSign, FileText, Plus } from 'lucide-react';
+import { CalendarClock, Key, DollarSign, FileText, Plus } from 'lucide-react';
 
 // O componente de Cobranças que você já isolou antes!
 import CobrancasTabContent from './CobrancasTabContent';
@@ -12,6 +12,7 @@ import ContratosTabContent from './ContratosTabContent';
 import ModelosTabContent, { ContractTemplate } from './ModelosTabContent';
 import AgendaVencimentosLocacao from './AgendaVencimentosLocacao';
 import type { AgendaLocacaoEvento, PainelIndiceReajuste } from '../actions/actions';
+import { countPendingContractUpdates } from '@/lib/locacao/contract-updates';
 interface LocacaoClientContainerProps {
     initialContratos: any[];
     initialCobrancas: any[];
@@ -35,7 +36,8 @@ export default function LocacaoClientContainer({
 }: LocacaoClientContainerProps) {
 
     // 1. Estados que controlam a interface geral da página
-    const [activeTab, setActiveTab] = useState<'contratos' | 'cobrancas' | 'modelos'>('contratos');
+    const [activeTab, setActiveTab] = useState<'contratos' | 'cobrancas' | 'atualizacoes' | 'modelos'>('contratos');
+    const [pendingUpdates, setPendingUpdates] = useState(() => countPendingContractUpdates(initialAgenda));
     const [contractFields, setContractFields] = useState<Record<string, string>>({});
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
@@ -101,11 +103,11 @@ export default function LocacaoClientContainer({
     return (
         <div className="space-y-6">
             {/* ── HEADER E ABAS DE NAVEGAÇÃO ── */}
-            <div className="flex border-b border-gray-200 justify-between items-center">
-                <div className="flex gap-6">
+            <div className="flex border-b border-gray-200 justify-between items-center gap-4">
+                <div className="flex min-w-0 gap-3 overflow-x-auto sm:gap-6">
                     <button
                         onClick={() => setActiveTab('contratos')}
-                        className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'contratos'
+                        className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-all ${activeTab === 'contratos'
                             ? 'border-[#004777] text-[#004777]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
@@ -115,7 +117,7 @@ export default function LocacaoClientContainer({
                     </button>
                     <button
                         onClick={() => setActiveTab('cobrancas')}
-                        className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'cobrancas'
+                        className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-all ${activeTab === 'cobrancas'
                             ? 'border-[#004777] text-[#004777]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
@@ -124,8 +126,28 @@ export default function LocacaoClientContainer({
                         Cobranças de Aluguéis
                     </button>
                     <button
+                        type="button"
+                        onClick={() => setActiveTab('atualizacoes')}
+                        className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-all ${activeTab === 'atualizacoes'
+                            ? 'border-[#004777] text-[#004777]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                        <span>Atualizações de contratos</span>
+                        <span
+                            className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums ${pendingUpdates > 0
+                                ? 'bg-red-600 text-white motion-safe:animate-pulse'
+                                : 'bg-gray-100 text-gray-500'
+                                }`}
+                            aria-label={`${pendingUpdates} contratos precisam de atualização`}
+                        >
+                            {pendingUpdates}
+                        </span>
+                    </button>
+                    <button
                         onClick={() => setActiveTab('modelos')}
-                        className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'modelos'
+                        className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-all ${activeTab === 'modelos'
                             ? 'border-[#004777] text-[#004777]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
@@ -149,12 +171,13 @@ export default function LocacaoClientContainer({
 
             {/* ── CONTEÚDO DAS ABAS ── */}
 
-            {activeTab === 'contratos' && (
+            {activeTab === 'atualizacoes' && (
                 <AgendaVencimentosLocacao
                     initialAno={agendaAno}
                     initialMes={agendaMes}
                     initialEventos={initialAgenda}
                     initialIndices={initialIndices}
+                    onPendingCountChange={setPendingUpdates}
                 />
             )}
             {activeTab === 'contratos' && (

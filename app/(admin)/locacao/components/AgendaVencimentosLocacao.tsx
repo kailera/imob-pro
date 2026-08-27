@@ -30,12 +30,17 @@ import {
 import { normalizarCodigoIndice } from "@/lib/indices/catalogo";
 import { CriarPeriodoAgendaForm } from "./CriarPeriodoAgendaForm";
 import { ReajusteAgendaForm } from "./ReajusteAgendaForm";
+import {
+  countPendingContractUpdates,
+  isPendingContractUpdate,
+} from "@/lib/locacao/contract-updates";
 
 interface AgendaVencimentosLocacaoProps {
   initialAno: number;
   initialMes: number;
   initialEventos: AgendaLocacaoEvento[];
   initialIndices: PainelIndiceReajuste[];
+  onPendingCountChange?: (count: number) => void;
 }
 
 const formatarMoeda = (valor: number | null) => valor == null
@@ -55,6 +60,7 @@ export default function AgendaVencimentosLocacao({
   initialMes,
   initialEventos,
   initialIndices,
+  onPendingCountChange,
 }: AgendaVencimentosLocacaoProps) {
   const [ano, setAno] = useState(initialAno);
   const [mes, setMes] = useState(initialMes);
@@ -66,7 +72,29 @@ export default function AgendaVencimentosLocacao({
   const [mostrarIndices, setMostrarIndices] = useState(false);
   const [detalheAbertoId, setDetalheAbertoId] = useState<string | null>(null);
   const [criandoPeriodoId, setCriandoPeriodoId] = useState<string | null>(null);
+  const [registroSelecionado, setRegistroSelecionado] = useState<"PENDENTES" | "HISTORICO">("PENDENTES");
   const [isPending, startTransition] = useTransition();
+
+  const atualizarEventos = (novosEventos: AgendaLocacaoEvento[]) => {
+    setEventos(novosEventos);
+    onPendingCountChange?.(countPendingContractUpdates(novosEventos));
+  };
+
+  const eventosPendentes = useMemo(
+    () => eventos.filter(isPendingContractUpdate),
+    [eventos],
+  );
+  const eventosTratados = useMemo(
+    () => eventos.filter((evento) => !isPendingContractUpdate(evento)),
+    [eventos],
+  );
+  const totalContratosPendentes = useMemo(
+    () => countPendingContractUpdates(eventosPendentes),
+    [eventosPendentes],
+  );
+  const eventosVisiveis = registroSelecionado === "PENDENTES"
+    ? eventosPendentes
+    : eventosTratados;
 
   const resumo = useMemo(() => ({
     reajustes: eventos.filter((evento) => evento.tipo === "REAJUSTE_PERIODO" && evento.situacao !== "TRATADO").length,
@@ -90,7 +118,7 @@ export default function AgendaVencimentosLocacao({
         getAgendaVencimentosLocacao(novoAno, novoMes),
         getPainelIndicesReajuste(novoAno, novoMes),
       ]);
-      if (resultado.success) setEventos(resultado.data);
+      if (resultado.success) atualizarEventos(resultado.data);
       else setErro(resultado.error || "Não foi possível carregar a agenda.");
       if (painel.success) setIndices(painel.data);
     });
@@ -127,7 +155,7 @@ export default function AgendaVencimentosLocacao({
       }
 
       const agendaAtualizada = await getAgendaVencimentosLocacao(ano, mes);
-      if (agendaAtualizada.success) setEventos(agendaAtualizada.data);
+      if (agendaAtualizada.success) atualizarEventos(agendaAtualizada.data);
       setSucesso(
         `Contrato reajustado para ${formatarMoeda(resultado.data.valorReajustado)} `
         + `(${formatarPercentual(resultado.data.percentualReajuste)} – ${resultado.data.indice}).`
@@ -226,8 +254,43 @@ export default function AgendaVencimentosLocacao({
       {erro && <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">{erro}</p>}
       {sucesso && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">{sucesso}</p>}
 
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3" role="tablist" aria-label="Registros de atualização dos contratos">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={registroSelecionado === "PENDENTES"}
+          onClick={() => setRegistroSelecionado("PENDENTES")}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-xs font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 ${registroSelecionado === "PENDENTES"
+            ? "bg-red-600 text-white"
+            : "bg-red-50 text-red-700 hover:bg-red-100"
+            }`}
+        >
+          <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+          Precisam de atualização
+          <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-black text-red-700">
+            {totalContratosPendentes}
+          </span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={registroSelecionado === "HISTORICO"}
+          onClick={() => setRegistroSelecionado("HISTORICO")}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-xs font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004777] ${registroSelecionado === "HISTORICO"
+            ? "bg-[#004777] text-white"
+            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+        >
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Histórico corrigido
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${registroSelecionado === "HISTORICO" ? "bg-white/90 text-[#004777]" : "bg-white text-gray-600"}`}>
+            {eventosTratados.length}
+          </span>
+        </button>
+      </div>
+
       <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100">
-        {eventos.map((evento) => {
+        {eventosVisiveis.map((evento) => {
           const situacao = configuracaoSituacao(evento.situacao);
           const codigoIndice = normalizarCodigoIndice(evento.indiceReajuste);
           const indicePainel = indices.find((indice) => indice.codigo === codigoIndice);
@@ -245,7 +308,10 @@ export default function AgendaVencimentosLocacao({
 
           return (
             <div key={evento.id}>
-              <article className="grid gap-3 p-4 hover:bg-gray-50 md:grid-cols-[100px_1.35fr_1.15fr_1fr_auto] md:items-center">
+              <article className={`grid gap-3 border-l-4 p-4 md:grid-cols-[100px_1.35fr_1.15fr_1fr_auto] md:items-center ${registroSelecionado === "PENDENTES"
+                ? "border-l-red-500 bg-red-50/20 hover:bg-red-50/50"
+                : "border-l-transparent bg-white hover:bg-gray-50"
+                }`}>
                 <div>
                   <p className="text-sm font-black text-[#280003]">{formatarData(evento.dataEvento)}</p>
                   <p className="text-[9px] font-bold uppercase text-gray-400">
@@ -422,11 +488,17 @@ export default function AgendaVencimentosLocacao({
             </div>
           );
         })}
-        {!isPending && eventos.length === 0 && (
+        {!isPending && eventosVisiveis.length === 0 && (
           <div className="px-4 py-10 text-center">
             <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-600" />
-            <p className="mt-2 text-sm font-black text-[#280003]">Nenhum vencimento neste mês</p>
-            <p className="mt-1 text-xs text-gray-500">Não há períodos para reajustar nem contratos encerrando na referência selecionada.</p>
+            <p className="mt-2 text-sm font-black text-[#280003]">
+              {registroSelecionado === "PENDENTES" ? "Nenhuma atualização pendente" : "Nenhum contrato corrigido neste mês"}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {registroSelecionado === "PENDENTES"
+                ? "Os contratos desta referência não precisam de ajustes."
+                : "Os contratos corrigidos passarão a aparecer neste histórico."}
+            </p>
           </div>
         )}
       </div>
