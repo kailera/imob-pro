@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { executeInterStatusSyncQueue } from "../lib/inter-status-sync";
+import { resolveInterTransactionTenantId } from "../lib/inter-tenant";
+
+const readSource = (relativePath: string) => readFileSync(
+  fileURLToPath(new URL(relativePath, import.meta.url)),
+  "utf8",
+);
 
 test("processa a fila sequencialmente e resume pagamentos, cancelamentos e falhas", async () => {
   const order: string[] = [];
@@ -45,4 +53,42 @@ test("isola exceções de um boleto e continua processando os demais", async () 
   assert.equal(report.failed, 1);
   assert.equal(report.synchronized, 1);
   assert.match(report.items[0].error ?? "", /Inter indisponível/);
+});
+
+test("resolve as credenciais do Inter pelo contrato atual, legado ou imóvel", () => {
+  assert.equal(resolveInterTransactionTenantId({
+    contrato: null,
+    lease: { tenantId: "imob-canonica" },
+  }), "imob-canonica");
+  assert.equal(resolveInterTransactionTenantId({
+    contrato: { imobId: "imob-legada" },
+    lease: { tenantId: "imob-canonica" },
+  }), "imob-legada");
+  assert.equal(resolveInterTransactionTenantId({
+    imovel: { imobId: "imob-do-imovel" },
+  }), "imob-do-imovel");
+  assert.equal(resolveInterTransactionTenantId({}), null);
+});
+
+test("cron aceita GET e POST autenticados e consulta o tenant da lease", () => {
+  const route = readSource("../app/api/inter/cobrancas/sync/route.ts");
+  const inter = readSource("../lib/inter.ts");
+
+  assert.match(route, /export async function GET/);
+  assert.match(route, /export async function POST/);
+  assert.match(route, /Authorization: Bearer <CRON_SECRET>/);
+  assert.match(inter, /lease: \{ select: \{ tenantId: true \} \}/);
+  assert.match(inter, /resolveInterTransactionTenantId\(transacao\)/);
+});
+
+test("tela oferece os dois lotes com intervalo seguro e seleção autenticada", () => {
+  const page = readSource("../app/(admin)/cobrancas/page.tsx");
+  const actions = readSource("../app/actions/interActions.ts");
+
+  assert.match(page, /Atualizar status dos boletos/);
+  assert.match(page, /Gerar boletos automaticamente/);
+  assert.match(page, /await sleep\(candidates\.intervalMs\)/);
+  assert.match(actions, /INTER_BATCH_DEFAULT_INTERVAL_MS = 6_500/);
+  assert.match(actions, /requireInterTransactionAccess\(transacaoId\)/);
+  assert.match(actions, /transactionTenantScope\(context\.tenantId\)/);
 });

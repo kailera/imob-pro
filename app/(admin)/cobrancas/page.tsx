@@ -8,9 +8,14 @@ import {
   FinancialPeriodMetrics,
   type FinancialPeriodMetricsData,
 } from '@/components/financeiro/FinancialPeriodMetrics';
-import { gerarBolePixWrapperAction } from '@/app/actions/interActions';
+import {
+  consultarBolePixWrapperAction,
+  gerarBolePixWrapperAction,
+  listInterBatchCandidatesAction,
+  type InterBatchOperation,
+} from '@/app/actions/interActions';
 import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
-import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar } from 'lucide-react';
+import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar, RefreshCw } from 'lucide-react';
 
 interface ApiTransaction {
   id: string;
@@ -79,6 +84,7 @@ export default function CobrancasPage() {
   const [batchSuccessCount, setBatchSuccessCount] = useState(0);
   const [batchErrors, setBatchErrors] = useState<{ sacado: string; error: string }[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchOperation, setBatchOperation] = useState<InterBatchOperation>('EMIT');
 
   // Estados de Geração de Cobranças Mensais
   const [showGenModal, setShowGenModal] = useState(false);
@@ -271,46 +277,54 @@ export default function CobrancasPage() {
     };
   }, []);
 
-  const pendingBatchList = cobrancas.filter(
-    c => !c.interNossoNumero && (c.situacao === 'Pendente' || c.situacao === 'Recepcionado')
-  );
-
-  const handleBatchGenerate = async () => {
-    if (pendingBatchList.length === 0) return;
-
+  const handleInterBatch = async (operation: InterBatchOperation) => {
+    setBatchOperation(operation);
     setIsBatchProcessing(true);
-    setBatchTotal(pendingBatchList.length);
+    setBatchTotal(0);
     setBatchCurrent(0);
     setBatchSuccessCount(0);
     setBatchErrors([]);
     setShowBatchModal(true);
 
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const candidates = await listInterBatchCandidatesAction(operation);
+    if (!candidates.success) {
+      setBatchErrors([{ sacado: 'Lote', error: candidates.error }]);
+      setIsBatchProcessing(false);
+      return;
+    }
 
-    for (let i = 0; i < pendingBatchList.length; i++) {
-      const transacao = pendingBatchList[i];
+    setBatchTotal(candidates.transactions.length);
+
+    for (let i = 0; i < candidates.transactions.length; i++) {
+      const transacao = candidates.transactions[i];
       setBatchCurrent(i + 1);
 
       try {
-        const res = await gerarBolePixWrapperAction(transacao.id);
+        const res = operation === 'SYNC'
+          ? await consultarBolePixWrapperAction(transacao.id)
+          : await gerarBolePixWrapperAction(transacao.id);
         if (res.success) {
           setBatchSuccessCount(prev => prev + 1);
         } else {
-          setBatchErrors(prev => [...prev, { sacado: transacao.sacadoNome, error: res.error || 'Erro na API.' }]);
+          setBatchErrors(prev => [...prev, { sacado: transacao.label, error: res.error || 'Erro na API.' }]);
         }
       } catch (err: unknown) {
-        setBatchErrors(prev => [...prev, { sacado: transacao.sacadoNome, error: errorMessage(err) }]);
+        setBatchErrors(prev => [...prev, { sacado: transacao.label, error: errorMessage(err) }]);
       }
 
-      // Intervalo de 500ms entre as requisições para respeitar o rate-limit
-      await sleep(500);
+      if (i < candidates.transactions.length - 1) {
+        await sleep(candidates.intervalMs);
+      }
     }
 
     setIsBatchProcessing(false);
-    loadData();
+    await loadData();
     void loadPeriodMetrics();
   };
 
+  const handleBatchGenerate = () => handleInterBatch('EMIT');
+  const handleBatchStatusSync = () => handleInterBatch('SYNC');
 
 
   const percentProgress = batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0;
@@ -338,16 +352,25 @@ export default function CobrancasPage() {
               <span>Gerar Cobranças Mensais</span>
             </button>
 
-            {pendingBatchList.length > 0 && (
-              <button
-                onClick={handleBatchGenerate}
-                disabled={isBatchProcessing}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#280003] hover:bg-[#280003]/90 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
-              >
-                <Zap className="w-4 h-4 text-amber-400" />
-                <span>Gerar {pendingBatchList.length} Boletos Pendentes</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleBatchStatusSync}
+              disabled={isBatchProcessing}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#004777]/20 bg-white px-4 text-sm font-semibold text-[#004777] shadow-sm transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004777] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isBatchProcessing && batchOperation === 'SYNC' ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
+              <span>Atualizar status dos boletos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBatchGenerate}
+              disabled={isBatchProcessing}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#280003] px-4 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#280003]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#280003] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Zap className="h-4 w-4 text-amber-400" aria-hidden="true" />
+              <span>Gerar boletos automaticamente</span>
+            </button>
           </div>
         </div>
 
@@ -388,7 +411,9 @@ export default function CobrancasPage() {
             {/* Header */}
             <div className="bg-[#280003] text-white p-6 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-lg">Emissão de Boletos em Lote</h3>
+                <h3 className="font-bold text-lg">
+                  {batchOperation === 'SYNC' ? 'Atualização de Status em Lote' : 'Emissão de Boletos em Lote'}
+                </h3>
                 <p className="text-xs text-white/70 mt-0.5">
                   {isBatchProcessing ? 'Processando fila...' : 'Lote Concluído'}
                 </p>
@@ -396,7 +421,8 @@ export default function CobrancasPage() {
               {!isBatchProcessing && (
                 <button 
                   onClick={() => setShowBatchModal(false)}
-                  className="p-1 rounded-full hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+                  aria-label="Fechar resultado do lote"
+                  className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -405,6 +431,13 @@ export default function CobrancasPage() {
 
             {/* Content */}
             <div className="p-6 space-y-6">
+              {!isBatchProcessing && batchTotal === 0 && batchErrors.length === 0 && (
+                <p className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center text-sm font-semibold text-emerald-800" role="status">
+                  {batchOperation === 'SYNC'
+                    ? 'Todos os boletos já estão com o status atualizado.'
+                    : 'Não há cobranças pendentes disponíveis para emissão.'}
+                </p>
+              )}
               
               {/* Progress Indicator */}
               <div className="space-y-2">
@@ -457,7 +490,7 @@ export default function CobrancasPage() {
                 <div className="flex justify-end pt-2">
                   <button
                     onClick={() => setShowBatchModal(false)}
-                    className="px-6 py-2.5 rounded-xl bg-[#280003] hover:bg-[#280003]/90 text-white text-sm font-bold shadow-sm transition-colors cursor-pointer"
+                    className="min-h-11 cursor-pointer rounded-xl bg-[#280003] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#280003]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#280003]"
                   >
                     Fechar
                   </button>
@@ -467,7 +500,7 @@ export default function CobrancasPage() {
               {isBatchProcessing && (
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 py-2">
                   <Loader2 className="w-4 h-4 animate-spin text-[#280003]" />
-                  Aguardando intervalo de segurança anti-rate-limit...
+                  Processamento sequencial com intervalo de segurança do Banco Inter...
                 </div>
               )}
             </div>

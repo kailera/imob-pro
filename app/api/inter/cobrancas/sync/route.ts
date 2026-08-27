@@ -7,11 +7,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/inter/cobrancas/sync
+ * GET|POST /api/inter/cobrancas/sync
  * Reconcilia as cobranças pendentes com a API Cobrança V3 do Banco Inter.
  * Autenticação: Authorization: Bearer <CRON_SECRET>
  */
-export async function POST(request: Request) {
+async function handleSynchronization(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     return Response.json(
@@ -39,4 +39,12 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+export async function GET(request: Request) {
+  return handleSynchronization(request);
+}
+
+export async function POST(request: Request) {
+  return handleSynchronization(request);
 }

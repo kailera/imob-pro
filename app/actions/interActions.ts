@@ -5,6 +5,46 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { requireUserContext } from "@/lib/auth";
 import { isValidCpfCnpj } from "@/lib/document-validation";
+import type { Prisma } from "@/generated/prisma";
+
+const INTER_BATCH_DEFAULT_SIZE = 50;
+const INTER_BATCH_MAX_SIZE = 100;
+const INTER_BATCH_DEFAULT_INTERVAL_MS = 6_500;
+
+export type InterBatchOperation = "EMIT" | "SYNC";
+
+function readBoundedPositiveInteger(
+  value: string | undefined,
+  fallback: number,
+  maximum: number,
+) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, maximum);
+}
+
+function transactionTenantScope(tenantId: string): Prisma.TransacaoFinanceiraWhereInput {
+  return {
+    OR: [
+      { contrato: { imobId: tenantId } },
+      { lease: { tenantId } },
+      { imovel: { imobId: tenantId } },
+      { metadata: { path: ["imobId"], equals: tenantId } },
+    ],
+  };
+}
+
+async function requireInterTransactionAccess(transacaoId: string) {
+  const context = await requireUserContext();
+  const transaction = await prisma.transacaoFinanceira.findFirst({
+    where: {
+      id: transacaoId,
+      ...transactionTenantScope(context.tenantId),
+    },
+    select: { id: true },
+  });
+  if (!transaction) throw new Error("Cobrança não encontrada ou sem permissão de acesso.");
+}
 
 async function getOrCreateDefaultImobId() {
   const imob = await prisma.imob.findFirst();
@@ -183,11 +223,91 @@ export async function retrieveInterWebhookAction() {
   }
 }
 
+export async function listInterBatchCandidatesAction(operation: InterBatchOperation) {
+  try {
+    const context = await requireUserContext();
+    const batchSize = readBoundedPositiveInteger(
+      process.env.INTER_BATCH_SIZE,
+      INTER_BATCH_DEFAULT_SIZE,
+      INTER_BATCH_MAX_SIZE,
+    );
+    const intervalMs = readBoundedPositiveInteger(
+      process.env.INTER_BATCH_INTERVAL_MS,
+      INTER_BATCH_DEFAULT_INTERVAL_MS,
+      60_000,
+    );
+    const operationFilter: Prisma.TransacaoFinanceiraWhereInput = operation === "SYNC"
+      ? {
+          interCodigoSolicitacao: { not: null },
+          OR: [
+            { interStatus: null },
+            {
+              interStatus: {
+                notIn: [
+                  "RECEBIDO",
+                  "PAGO",
+                  "CANCELADO",
+                  "EXPIRADO",
+                  "FALHA_EMISSAO",
+                  "MARCADO_RECEBIDO",
+                ],
+              },
+            },
+          ],
+        }
+      : {
+          interCodigoSolicitacao: null,
+          interNossoNumero: null,
+          interTxId: null,
+          interBarcode: null,
+        };
+
+    const transactions = await prisma.transacaoFinanceira.findMany({
+      where: {
+        AND: [
+          transactionTenantScope(context.tenantId),
+          operationFilter,
+        ],
+        tipo: "RECEITA",
+        categoria: "ALUGUEL",
+        status: "PENDENTE",
+      },
+      orderBy: [{ dataVencimento: "asc" }, { createdAt: "asc" }],
+      take: batchSize,
+      select: { id: true, descricao: true },
+    });
+
+    return {
+      success: true as const,
+      intervalMs,
+      limitedTo: batchSize,
+      transactions: transactions.map(transaction => ({
+        id: transaction.id,
+        label: transaction.descricao.replace("Aluguel - ", ""),
+      })),
+    };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível preparar o lote.",
+    };
+  }
+}
+
 export async function gerarBolePixWrapperAction(transacaoId: string) {
-  const { gerarBolePixAction } = await import("@/lib/inter");
-  const result = await gerarBolePixAction(transacaoId);
-  revalidatePath("/cobrancas");
-  return result;
+  try {
+    await requireInterTransactionAccess(transacaoId);
+    const { gerarBolePixAction } = await import("@/lib/inter");
+    const result = await gerarBolePixAction(transacaoId);
+    revalidatePath("/cobrancas");
+    revalidatePath("/locacao");
+    return result;
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível emitir o boleto.",
+    };
+  }
 }
 
 export async function reemitirBolePixWrapperAction(transacaoId: string) {
@@ -209,10 +329,20 @@ export async function cancelarBolePixWrapperAction(transacaoId: string) {
 }
 
 export async function consultarBolePixWrapperAction(transacaoId: string) {
-  const { consultarBolePixAction } = await import("@/lib/inter");
-  const result = await consultarBolePixAction(transacaoId);
-  revalidatePath("/cobrancas");
-  return result;
+  try {
+    await requireInterTransactionAccess(transacaoId);
+    const { consultarBolePixAction } = await import("@/lib/inter");
+    const result = await consultarBolePixAction(transacaoId);
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+    revalidatePath("/locacao");
+    return result;
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível atualizar o status.",
+    };
+  }
 }
 
 export async function simularPagamentoBolePixWrapperAction(transacaoId: string) {

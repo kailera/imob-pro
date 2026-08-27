@@ -24,6 +24,7 @@ import {
   respostaInterIndicaCobrancaCancelada,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
+import { resolveInterTransactionTenantId } from "@/lib/inter-tenant";
 import {
   criarItensCobrancaDeMetadata,
   lerCondicoesBoletoMetadata,
@@ -836,7 +837,9 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     const transacao = await prisma.transacaoFinanceira.findUnique({
       where: { id: transacaoId },
       include: {
-        contrato: true,
+        contrato: { select: { imobId: true } },
+        lease: { select: { tenantId: true } },
+        imovel: { select: { imobId: true } },
       },
     });
 
@@ -848,10 +851,12 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter associada." };
     }
 
-    let imobId = transacao.contrato?.imobId;
+    const imobId = resolveInterTransactionTenantId(transacao);
     if (!imobId) {
-      const firstImob = await prisma.imob.findFirst();
-      imobId = firstImob?.id || "default";
+      return {
+        success: false,
+        error: "A cobrança não possui vínculo com uma imobiliária para consultar o Banco Inter.",
+      };
     }
 
     // Resolve credenciais do Inter

@@ -6,9 +6,11 @@ import {
   TipoTransacao,
   type Prisma,
 } from '@/generated/prisma';
+import { requireUserContext } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
+    const { tenantId } = await requireUserContext();
     const { searchParams } = new URL(req.url);
     const tipo = searchParams.get('tipo');
     const categoria = searchParams.get('categoria');
@@ -22,7 +24,16 @@ export async function GET(req: NextRequest) {
     const page = searchParams.get('page');
     const limit = searchParams.get('limit') || '10';
 
-    const where: Prisma.TransacaoFinanceiraWhereInput = {};
+    const where: Prisma.TransacaoFinanceiraWhereInput = {
+      AND: [{
+        OR: [
+          { contrato: { imobId: tenantId } },
+          { lease: { tenantId } },
+          { imovel: { imobId: tenantId } },
+          { metadata: { path: ['imobId'], equals: tenantId } },
+        ],
+      }],
+    };
     const searchTerm = search?.trim();
     const searchDocumentDigits = searchTerm?.replace(/\D/g, '') || '';
     const searchDocumentVariants = new Set(

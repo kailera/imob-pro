@@ -52,7 +52,7 @@ O reajuste é bloqueado se o intervalo mensal estiver incompleto.
 ## Sincronização diária dos boletos do Banco Inter
 
 Configure `CRON_SECRET` no ambiente do Docker/Portainer. O serviço
-`inter-status-cron` chama diariamente, às 12:00 UTC (09:00 em Brasília), a rota:
+`inter-status-cron` chama a cada 15 minutos a rota:
 
 ```bash
 curl -X POST https://SEU_DOMINIO/api/inter/cobrancas/sync \
@@ -65,6 +65,9 @@ data, valor e origem do recebimento. Por padrão, processa 50 cobranças por
 execução, com intervalo de 6,5 segundos para respeitar também o limite do
 sandbox. Os valores podem ser ajustados com `INTER_STATUS_SYNC_BATCH_SIZE` e
 `INTER_STATUS_SYNC_INTERVAL_MS`.
+
+Depois de alterar `CRON_SECRET` ou este agendamento, recrie o serviço
+`inter-status-cron` para que o Portainer/Docker carregue a configuração nova.
 
 O webhook do Inter permanece como atualização principal em tempo real; o cron
 serve como reconciliação para callbacks atrasados ou perdidos. A tela de
