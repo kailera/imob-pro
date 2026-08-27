@@ -17,6 +17,7 @@ type FinancialPeriodMetricsProps = {
   periodLabel: string;
   loading?: boolean;
   error?: string | null;
+  layout?: "list" | "grid";
 };
 
 const METRICS = [
@@ -51,6 +52,7 @@ export function FinancialPeriodMetrics({
   periodLabel,
   loading = false,
   error,
+  layout = "list",
 }: FinancialPeriodMetricsProps) {
   return (
     <aside
@@ -68,11 +70,16 @@ export function FinancialPeriodMetrics({
           {error}
         </p>
       ) : (
-        <dl className="divide-y divide-[#EEEEF3]">
+        <dl className={layout === "grid" ? "mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" : "divide-y divide-[#EEEEF3]"}>
           {METRICS.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div key={metric.key} className="flex min-h-16 items-center gap-3 py-3">
+              <div
+                key={metric.key}
+                className={layout === "grid"
+                  ? "flex min-h-20 items-center gap-3 rounded-2xl border border-[#EEEEF3] bg-[#FAFAFC] px-4 py-3"
+                  : "flex min-h-16 items-center gap-3 py-3"}
+              >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${metric.tone}`}>
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>

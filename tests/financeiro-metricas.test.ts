@@ -34,7 +34,8 @@ test("considera ativo o contrato cuja vigência cruza qualquer parte do mês", (
 
 test("rota limita métricas à imobiliária e usa as datas corretas do período", () => {
   const route = readSource("../app/api/financeiro/metricas/route.ts");
-  const page = readSource("../app/(admin)/financeiro/page.tsx");
+  const financePage = readSource("../app/(admin)/financeiro/page.tsx");
+  const chargesPage = readSource("../app/(admin)/cobrancas/page.tsx");
 
   assert.match(route, /requireUserContext/);
   assert.match(route, /imobId: context\.tenantId/);
@@ -42,6 +43,9 @@ test("rota limita métricas à imobiliária e usa as datas corretas do período"
   assert.match(route, /dataVencimento/);
   assert.match(route, /dataPagamento/);
   assert.match(route, /interDataRecebimento/);
-  assert.match(page, /api\/financeiro\/metricas\?month=/);
-  assert.match(page, /FinancialPeriodMetrics/);
+  assert.match(financePage, /api\/financeiro\/metricas\?month=/);
+  assert.match(financePage, /FinancialPeriodMetrics/);
+  assert.match(chargesPage, /api\/financeiro\/metricas\?month=/);
+  assert.match(chargesPage, /FinancialPeriodMetrics/);
+  assert.match(chargesPage, /layout="grid"/);
 });

@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import FinancialFilterBar from '@/components/cobrancas/FinancialFilterBar';
 import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTable';
 import FinancialSummary from '@/components/cobrancas/FinancialSummary';
+import {
+  FinancialPeriodMetrics,
+  type FinancialPeriodMetricsData,
+} from '@/components/financeiro/FinancialPeriodMetrics';
 import { gerarBolePixWrapperAction } from '@/app/actions/interActions';
 import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
 import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar } from 'lucide-react';
@@ -30,11 +34,26 @@ interface ApiTransaction {
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erro inesperado.';
 
+const EMPTY_PERIOD_METRICS: FinancialPeriodMetricsData = {
+  activeContracts: 0,
+  contractCharges: 0,
+  generatedBills: 0,
+  settledBills: 0,
+};
+
+const currentMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 export default function CobrancasPage() {
   const loadDataRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
   const [cobrancas, setCobrancas] = useState<BilletData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
+  const [periodMetrics, setPeriodMetrics] = useState<FinancialPeriodMetricsData>(EMPTY_PERIOD_METRICS);
+  const [periodMetricsLoading, setPeriodMetricsLoading] = useState(true);
+  const [periodMetricsError, setPeriodMetricsError] = useState('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,6 +93,35 @@ export default function CobrancasPage() {
     error?: string;
   } | null>(null);
 
+  const metricsMonth = filters.mesReferencia === 'TODOS'
+    ? currentMonth()
+    : filters.mesReferencia;
+  const metricsMonthLabel = useMemo(() => {
+    const [year, month] = metricsMonth.split('-').map(Number);
+    const label = new Intl.DateTimeFormat('pt-BR', {
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(year, month - 1, 1));
+    const formatted = label.charAt(0).toUpperCase() + label.slice(1);
+    return filters.mesReferencia === 'TODOS' ? `${formatted} (mês atual)` : formatted;
+  }, [filters.mesReferencia, metricsMonth]);
+
+  const loadPeriodMetrics = useCallback(async () => {
+    setPeriodMetricsLoading(true);
+    setPeriodMetricsError('');
+    try {
+      const response = await fetch(`/api/financeiro/metricas?month=${encodeURIComponent(metricsMonth)}`);
+      if (!response.ok) throw new Error('Falha ao carregar os indicadores.');
+      setPeriodMetrics(await response.json() as FinancialPeriodMetricsData);
+    } catch (loadError) {
+      console.error('Erro ao buscar indicadores das cobranças:', loadError);
+      setPeriodMetrics(EMPTY_PERIOD_METRICS);
+      setPeriodMetricsError('Não foi possível carregar os indicadores do período.');
+    } finally {
+      setPeriodMetricsLoading(false);
+    }
+  }, [metricsMonth]);
+
   const handleGenerateMonthlyBillings = async () => {
     setIsGenerating(true);
     setGenResult(null);
@@ -87,6 +135,7 @@ export default function CobrancasPage() {
           removedCount: res.removidosCount,
         });
         loadData();
+        void loadPeriodMetrics();
       } else {
         setGenResult({ success: false, error: res.error });
       }
@@ -207,6 +256,10 @@ export default function CobrancasPage() {
   }, [currentPage]);
 
   useEffect(() => {
+    void loadPeriodMetrics();
+  }, [loadPeriodMetrics]);
+
+  useEffect(() => {
     const refreshVisiblePage = () => {
       if (document.visibilityState === 'visible') void loadDataRef.current(true);
     };
@@ -255,6 +308,7 @@ export default function CobrancasPage() {
 
     setIsBatchProcessing(false);
     loadData();
+    void loadPeriodMetrics();
   };
 
 
@@ -301,6 +355,13 @@ export default function CobrancasPage() {
           filters={filters}
           onChange={(updates) => setFilters(prev => ({ ...prev, ...updates }))}
           onApply={handleApplyFilters}
+        />
+        <FinancialPeriodMetrics
+          data={periodMetrics}
+          periodLabel={metricsMonthLabel}
+          loading={periodMetricsLoading}
+          error={periodMetricsError}
+          layout="grid"
         />
         {loading ? (
           <div className="text-center py-12 text-[#280003] font-semibold">Carregando cobranças...</div>
