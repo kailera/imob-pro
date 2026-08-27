@@ -24,6 +24,11 @@ import {
 } from "lucide-react"
 import { TelefoneContato, EnderecoDetalhado, DocumentoUpload } from "@/lib/interfaces"
 import { CobrancasAcordosHistory } from "@/components/locacao/CobrancasAcordosHistory"
+import { LegacyContractActions } from "../../components/LegacyContractActions"
+import {
+    getLegacyContractDeletionInfo,
+    hasLegacyDocument,
+} from "@/lib/locacao/legacy-contract-deletion"
 
 // Safe JSON parsing helpers
 const parseTelefones = (field: any): TelefoneContato[] => {
@@ -338,6 +343,18 @@ export default async function ViewLocacao({
     const locadores = imovelLocacao?.locadors || []
     const vistorias = imovel?.vistorias || []
     const contratoDocumentos = parseDocumentos(contrato.documentoUrl)
+    const deletionInfo = getLegacyContractDeletionInfo({
+        transactions: contrato._count.transacaoFinanceiras,
+        maintenances: contrato._count.manutencoes,
+        inspectionLinks: locatarios.reduce(
+            (total, tenant) => total + tenant._count.vistorias + tenant._count.acessosVistoria,
+            0,
+        ),
+        documents:
+            Number(hasLegacyDocument(contrato.documentoUrl)) +
+            locatarios.filter(tenant => hasLegacyDocument(tenant.documentoUrl)).length +
+            fiadors.filter(guarantor => hasLegacyDocument(guarantor.documentoUrl)).length,
+    })
 
     // Encontrar o dia de vencimento com base nas cobranças existentes
     const aluguelTxs = transacaoFinanceiras.filter(tx => tx.categoria === "ALUGUEL")
@@ -376,12 +393,12 @@ export default async function ViewLocacao({
                             </div>
                             <p className="text-xs text-gray-500 mt-1">ID do Contrato: {contrato.id}</p>
                         </div>
-                        <Link
-                            href={`/locacao/contratos/${contrato.id}/editar`}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#004777] text-white rounded-xl text-xs font-semibold hover:bg-[#003355] transition-all w-fit"
-                        >
-                            Editar Contrato
-                        </Link>
+                        <LegacyContractActions
+                            contractId={contrato.id}
+                            deletionInfo={deletionInfo}
+                            isEditing={isEditMode}
+                            redirectAfterDelete="/locacao"
+                        />
                     </div>
                 </div>
 

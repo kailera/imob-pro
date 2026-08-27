@@ -17,6 +17,10 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
+import {
+  FinancialPeriodMetrics,
+  type FinancialPeriodMetricsData,
+} from "@/components/financeiro/FinancialPeriodMetrics";
 
 type TransactionType = "RECEITA" | "DESPESA";
 type TransactionStatus = "PENDENTE" | "LIQUIDADO" | "CANCELADO";
@@ -46,6 +50,13 @@ interface FinancialTransaction {
   interValorRecebido?: number | string | null;
   contrato?: { locatarios: TenantSummary[] } | null;
 }
+
+const EMPTY_PERIOD_METRICS: FinancialPeriodMetricsData = {
+  activeContracts: 0,
+  contractCharges: 0,
+  generatedBills: 0,
+  settledBills: 0,
+};
 
 const CATEGORY_LABELS: Record<TransactionCategory, string> = {
   ALUGUEL: "Aluguel",
@@ -91,6 +102,9 @@ export default function FinanceiroPage() {
   const [pendingTransactions, setPendingTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [periodMetrics, setPeriodMetrics] = useState(EMPTY_PERIOD_METRICS);
+  const [periodMetricsLoading, setPeriodMetricsLoading] = useState(true);
+  const [periodMetricsError, setPeriodMetricsError] = useState("");
   const [showModal, setShowModal] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -129,6 +143,25 @@ export default function FinanceiroPage() {
       year: "numeric",
     }).format(new Date(year, month - 1, 1));
     return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [selectedMonth]);
+
+  const loadPeriodMetrics = useCallback(async () => {
+    setPeriodMetricsLoading(true);
+    setPeriodMetricsError("");
+    try {
+      const response = await fetch(
+        `/api/financeiro/metricas?month=${encodeURIComponent(selectedMonth)}`,
+      );
+      if (!response.ok) throw new Error("Falha ao carregar os indicadores.");
+      const data = await response.json() as FinancialPeriodMetricsData;
+      setPeriodMetrics(data);
+    } catch (loadError) {
+      console.error("Erro ao buscar indicadores financeiros:", loadError);
+      setPeriodMetrics(EMPTY_PERIOD_METRICS);
+      setPeriodMetricsError("Não foi possível carregar os indicadores do período.");
+    } finally {
+      setPeriodMetricsLoading(false);
+    }
   }, [selectedMonth]);
 
   const loadTransactions = useCallback(async () => {
@@ -191,6 +224,11 @@ export default function FinanceiroPage() {
     const timeout = window.setTimeout(() => void loadTransactions(), 250);
     return () => window.clearTimeout(timeout);
   }, [loadTransactions]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadPeriodMetrics(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadPeriodMetrics]);
 
   const metrics = useMemo(() => {
     const totalReceipts = paidTransactions
@@ -290,10 +328,18 @@ export default function FinanceiroPage() {
           </div>
         </header>
 
-        <section aria-label={`Resumo financeiro de ${selectedMonthLabel}`} className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <MetricCard label="Receitas liquidadas" value={metrics.totalReceipts} detail={`A receber: ${formatCurrency(metrics.pendingReceipts)}`} tone="positive" icon={<ArrowUpRight className="h-6 w-6" />} />
-          <MetricCard label="Despesas pagas" value={metrics.totalExpenses} detail={`A pagar: ${formatCurrency(metrics.pendingExpenses)}`} tone="negative" icon={<ArrowDownRight className="h-6 w-6" />} />
-          <MetricCard label="Resultado líquido" value={metrics.netResult} detail={`Valores de ${selectedMonthLabel}`} tone={metrics.netResult >= 0 ? "neutral" : "warning"} icon={<Coins className="h-6 w-6" />} />
+        <section aria-label={`Resumo financeiro de ${selectedMonthLabel}`} className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,2.15fr)]">
+          <FinancialPeriodMetrics
+            data={periodMetrics}
+            periodLabel={selectedMonthLabel}
+            loading={periodMetricsLoading}
+            error={periodMetricsError}
+          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MetricCard label="Receitas liquidadas" value={metrics.totalReceipts} detail={`A receber: ${formatCurrency(metrics.pendingReceipts)}`} tone="positive" icon={<ArrowUpRight className="h-6 w-6" />} />
+            <MetricCard label="Despesas pagas" value={metrics.totalExpenses} detail={`A pagar: ${formatCurrency(metrics.pendingExpenses)}`} tone="negative" icon={<ArrowDownRight className="h-6 w-6" />} />
+            <MetricCard label="Resultado líquido" value={metrics.netResult} detail={`Valores de ${selectedMonthLabel}`} tone={metrics.netResult >= 0 ? "neutral" : "warning"} icon={<Coins className="h-6 w-6" />} />
+          </div>
         </section>
 
         <section className="rounded-3xl border border-white/60 bg-white p-5 shadow-sm sm:p-6">

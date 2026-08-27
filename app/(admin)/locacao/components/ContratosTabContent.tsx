@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { DataTable, Column } from '@/components/shared/DataTable';
 import { adicionarDiasUTC } from '@/lib/locacao/periodos';
+import { LegacyContractActions } from './LegacyContractActions';
+import type { LegacyContractDeletionInfo } from '@/lib/locacao/legacy-contract-deletion';
 
 export interface Contrato {
     id?: string;
@@ -22,6 +24,7 @@ export interface Contrato {
     status?: string;
     valorOriginal?: number;
     parcelasAtrasadas?: number;
+    deletionInfo?: LegacyContractDeletionInfo;
 }
 
 type PeriodoResumo = {
@@ -111,14 +114,21 @@ export default function ContratosTabContent({
             header: 'Contrato', 
             accessorKey: 'id',
             cell: (item: Contrato) => (
-                <Link
-                    href={item.recordType === 'LEASE'
-                        ? `/locacao/contratos/${item.id}/editar`
-                        : `/locacao/view-locacao/${item.id}`}
-                    className="text-[#004777] hover:text-[#002f50] font-bold hover:underline"
-                >
-                    {item.legacyCode || item.code || item.id}
-                </Link>
+                <div className="space-y-1">
+                    <Link
+                        href={item.recordType === 'LEASE'
+                            ? `/locacao/contratos/${item.id}/editar`
+                            : `/locacao/view-locacao/${item.id}`}
+                        className="block break-all font-bold text-[#004777] hover:text-[#002f50] hover:underline"
+                    >
+                        {item.legacyCode || item.code || item.id}
+                    </Link>
+                    {item.recordType === 'LEGACY' && (
+                        <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
+                            Legado
+                        </span>
+                    )}
+                </div>
             )
         },
         { 
@@ -227,9 +237,18 @@ export default function ContratosTabContent({
             header: 'Ações',
             accessorKey: 'id',
             cell: (item: Contrato) => {
+                if (item.recordType === 'LEGACY' && item.id) {
+                    return (
+                        <LegacyContractActions
+                            contractId={item.id}
+                            deletionInfo={item.deletionInfo}
+                            compact
+                        />
+                    );
+                }
                 return (
                     <div className="flex flex-wrap items-center justify-end gap-2 md:justify-start">
-                        {item.recordType === 'LEASE' && (
+                        {item.recordType === 'LEASE' && item.id && (
                             <Link
                                 href={`/locacao/view-locacao/${item.id}`}
                                 className="inline-flex items-center gap-1 text-[#004777] hover:text-[#002f50] font-semibold text-xs hover:underline"
@@ -237,14 +256,14 @@ export default function ContratosTabContent({
                                 Visualizar
                             </Link>
                         )}
-                        <Link
-                            href={item.recordType === 'LEASE'
-                                ? `/locacao/contratos/${item.id}/editar`
-                                : `/locacao/view-locacao/${item.id}`}
-                            className="inline-flex items-center gap-1 text-amber-600 hover:text-amber-800 font-semibold text-xs hover:underline"
-                        >
-                            {item.recordType === 'LEASE' ? 'Editar' : 'Visualizar legado'}
-                        </Link>
+                        {item.recordType === 'LEASE' && item.id && (
+                            <Link
+                                href={`/locacao/contratos/${item.id}/editar`}
+                                className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                            >
+                                Editar
+                            </Link>
+                        )}
                     </div>
                 );
             }

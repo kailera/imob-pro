@@ -22,10 +22,24 @@ import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 import { sincronizarPeriodoInicialLease } from "@/lib/locacao/sincronizarPeriodoInicialLease";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
 import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
+import { removerRascunhosFuturosDeContratoInativo } from "@/lib/locacao/cobrancas-inativos";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
     const competence = `${ano}-${String(mes).padStart(2, '0')}`;
+
+    // Repara contratos que já haviam sido inativados antes de a limpeza de
+    // cobranças futuras existir. Boletos emitidos e competências atuais/vencidas
+    // são preservados pela própria função de limpeza.
+    await prisma.$transaction(async tx => {
+      const inactiveLeases = await tx.lease.findMany({
+        where: { status: "SUSPENDED" },
+        select: { id: true },
+      });
+      for (const inactiveLease of inactiveLeases) {
+        await removerRascunhosFuturosDeContratoInativo(tx, inactiveLease.id);
+      }
+    });
 
     // 1. Buscar contratos de locação ativos
     const [contratosLegados, leasesCanonicos] = await Promise.all([
@@ -441,7 +455,15 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             .filter((value): value is string => Boolean(value && value !== leaseCompetence)),
         ));
 
-        await prisma.$transaction(async tx => {
+        const persisted = await prisma.$transaction(async tx => {
+          // O contrato pode ser inativado enquanto o lote está calculando. A
+          // conferência dentro da transação impede a gravação nessa janela.
+          const currentLease = await tx.lease.findUnique({
+            where: { id: lease.id },
+            select: { status: true },
+          });
+          if (currentLease?.status !== "ACTIVE") return false;
+
           await tx.leaseCharge.upsert({
             where: {
               leaseId_competence_chargeType: {
@@ -529,7 +551,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               },
             });
           }
+          return true;
         });
+
+        if (!persisted) continue;
 
         if (rascunhoPrincipal) {
           atualizadosCount++;

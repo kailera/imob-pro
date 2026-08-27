@@ -60,7 +60,7 @@ export function EtapasCadastroNav({ contratoId, status, etapas }: EtapasCadastro
     }
 
     const handleInactivate = () => {
-        if (confirm('Inativar este contrato? Nenhuma nova cobrança será gerada, mas todos os dados e cobranças existentes serão preservados.')) {
+        if (confirm('Inativar este contrato? Nenhuma nova cobrança será gerada. Rascunhos dos meses seguintes serão removidos; cobranças vencidas, pagas ou já emitidas serão preservadas.')) {
             startTransition(async () => {
                 const result = await inactivateContrato(contratoId)
                 setMessage(result.message)

@@ -21,10 +21,22 @@ import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincroniza
 import { requireUserContext } from "@/lib/auth";
 import {
     findCompleteLeaseForLegacyContract,
-    removeLegacyDuplicatesWithCompleteLease,
 } from "@/lib/locacao/contract-deduplication";
+import {
+    getLegacyContractDeletionInfo,
+    hasLegacyDocument,
+} from "@/lib/locacao/legacy-contract-deletion";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+async function requireLegacyLocacaoAccess(imovelLocacaoId: string) {
+    const context = await requireUserContext();
+    const contract = await prisma.contratoImovelLocacao.findFirst({
+        where: { imovelLocacaoId, imobId: context.tenantId },
+        select: { id: true },
+    });
+    if (!contract) throw new Error("Contrato de locação não encontrado ou sem permissão de acesso.");
+}
 
 async function sincronizarHistoricoLocacao(tx: PrismaTransaction, imovelLocacaoId: string) {
     const locacao = await tx.imovelLocacao.findUnique({
@@ -1033,8 +1045,9 @@ export async function createVistoria(input: CreateVistoriaInput) {
 }
 
 export const getCompleteContratoLocacao = async (id: string) => {
-    const contrato = await prisma.contratoImovelLocacao.findUnique({
-        where: { id },
+    const context = await requireUserContext();
+    const contrato = await prisma.contratoImovelLocacao.findFirst({
+        where: { id, imobId: context.tenantId },
         include: {
             // 1. Trazemos o imóvel e apenas as vistorias dele
             imovel: {
@@ -1066,8 +1079,15 @@ export const getCompleteContratoLocacao = async (id: string) => {
                 },
             },
             // 3. Trazemos as outras relações normalmente
-            locatarios: true,
+            locatarios: {
+                include: {
+                    _count: { select: { vistorias: true, acessosVistoria: true } },
+                },
+            },
             fiadors: true,
+            _count: {
+                select: { transacaoFinanceiras: true, manutencoes: true },
+            },
             transacaoFinanceiras: {
                 orderBy: {
                     dataVencimento: "asc",
@@ -1110,8 +1130,15 @@ export const getContratosLocacao = async (options?: { onlyInactive?: boolean }) 
                         },
                     }
                 },
-                locatarios: true,
+                locatarios: {
+                    include: {
+                        _count: { select: { vistorias: true, acessosVistoria: true } },
+                    },
+                },
                 fiadors: true,
+                _count: {
+                    select: { transacaoFinanceiras: true, manutencoes: true },
+                },
             },
             orderBy: {
                 id: "desc",
@@ -1155,13 +1182,25 @@ export const getContratosLocacao = async (options?: { onlyInactive?: boolean }) 
         }));
         const contratosLegados = options?.onlyInactive
           ? []
-          : removeLegacyDuplicatesWithCompleteLease(
-              contratos,
-              leases,
-            ).map(contrato => ({
-              ...contrato,
-              recordType: "LEGACY" as const,
-            }));
+          : contratos.map(contrato => {
+              const deletionInfo = getLegacyContractDeletionInfo({
+                transactions: contrato._count.transacaoFinanceiras,
+                maintenances: contrato._count.manutencoes,
+                inspectionLinks: contrato.locatarios.reduce(
+                  (total, tenant) => total + tenant._count.vistorias + tenant._count.acessosVistoria,
+                  0,
+                ),
+                documents:
+                  Number(hasLegacyDocument(contrato.documentoUrl)) +
+                  contrato.locatarios.filter(tenant => hasLegacyDocument(tenant.documentoUrl)).length +
+                  contrato.fiadors.filter(guarantor => hasLegacyDocument(guarantor.documentoUrl)).length,
+              });
+              return {
+                ...contrato,
+                recordType: "LEGACY" as const,
+                deletionInfo,
+              };
+            });
 
         return { success: true, data: [...leasesNormalizados, ...contratosLegados] };
     } catch (error: any) {
@@ -1213,6 +1252,7 @@ export const addPeriodoContratoLocacao = async (input: {
     diaVencimento?: number | null;
 }) => {
     try {
+        await requireLegacyLocacaoAccess(input.imovelLocacaoId);
         const dataInicioObj = normalizarDataUTC(input.dataInicio);
         const dataFimObj = normalizarDataUTC(input.dataFim);
 
@@ -1326,6 +1366,7 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
         if (!periodoAtual) {
             return { success: false, error: "Período não encontrado." };
         }
+        await requireLegacyLocacaoAccess(periodoAtual.imovelLocacaoId);
 
         const locacao = await prisma.imovelLocacao.findUnique({
             where: { id: periodoAtual.imovelLocacaoId },
@@ -1406,6 +1447,12 @@ export const updatePeriodoContratoLocacao = async (id: string, input: {
 // Excluir um período
 export const deletePeriodoContratoLocacao = async (id: string) => {
     try {
+        const periodoExistente = await prisma.periodoContratoLocacao.findUnique({
+            where: { id },
+            select: { imovelLocacaoId: true },
+        });
+        if (!periodoExistente) return { success: false, error: "Período não encontrado." };
+        await requireLegacyLocacaoAccess(periodoExistente.imovelLocacaoId);
         await prisma.$transaction(async (tx) => {
             const periodo = await tx.periodoContratoLocacao.delete({ where: { id } });
             await sincronizarHistoricoLocacao(tx, periodo.imovelLocacaoId);
@@ -1453,6 +1500,7 @@ export const updateImovelLocacao = async (id: string, input: {
     }>;
 }) => {
     try {
+        await requireLegacyLocacaoAccess(id);
         const dataInicio = normalizarDataUTC(input.dataInicio);
         const dataFim = normalizarDataUTC(input.dataFim);
         if (dataInicio > dataFim) {
