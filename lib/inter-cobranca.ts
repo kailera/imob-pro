@@ -338,6 +338,8 @@ export function criarResumoComposicaoBoletoInter(input: {
     WATER: "AGUA",
     ENERGY: "ENERG",
     GAS: "GAS",
+    LATE_FEE: "MULTA",
+    LATE_INTEREST: "JUROS",
     OTHER: "OUTROS",
   };
   const components = input.items?.length

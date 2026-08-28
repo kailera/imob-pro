@@ -20,6 +20,10 @@ import {
   calcularComposicaoPeriodo,
   cobrancaPodeSerSincronizada,
 } from "../lib/locacao/sincronizarCobrancas";
+import {
+  composicaoFoiEditadaManualmente,
+  resolverPeriodoLegadoAntesDaEmissao,
+} from "../lib/locacao/reconciliarCobrancaAntesEmissao";
 
 test("aceita números digitados nos formatos comum e brasileiro", () => {
   assert.equal(parseNumeroFlexivel("1050"), 1050);
@@ -253,4 +257,35 @@ test("só permite sincronizar cobrança pendente ainda não enviada ao banco", (
       situacaoOriginal: "Recepcionado",
     },
   }), false);
+});
+
+test("antes da emissão usa a vigência da competência e ignora periodId antigo", () => {
+  const periodos = [
+    {
+      id: "base-antiga",
+      dataInicio: new Date("2025-08-01T00:00:00.000Z"),
+      dataFim: new Date("2026-07-31T00:00:00.000Z"),
+      valorAluguel: 1200,
+    },
+    {
+      id: "vigencia-reajustada",
+      dataInicio: new Date("2026-08-01T00:00:00.000Z"),
+      dataFim: new Date("2027-07-31T00:00:00.000Z"),
+      valorAluguel: 1233.24,
+    },
+  ];
+
+  const periodo = resolverPeriodoLegadoAntesDaEmissao(
+    periodos,
+    { competence: "2026-09", periodId: "base-antiga", rentValue: 1233.12 },
+    new Date("2026-09-15T00:00:00.000Z"),
+  );
+
+  assert.equal(periodo?.id, "vigencia-reajustada");
+  assert.equal(periodo?.valorAluguel, 1233.24);
+});
+
+test("preserva uma composição avulsa editada explicitamente pelo usuário", () => {
+  assert.equal(composicaoFoiEditadaManualmente({ compositionEditedAt: "2026-08-28T10:00:00Z" }), true);
+  assert.equal(composicaoFoiEditadaManualmente({ competence: "2026-09" }), false);
 });

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   atualizarMetadataComposicao,
   asMetadataRecord,
+  calcularEncargosReemissaoVencida,
   calcularDescontoEfetivo,
   calcularTotalNominal,
   criarItensCobranca,
@@ -46,9 +47,68 @@ test("persiste itens positivos e desconto sem reduzir o valor nominal", () => {
   ]);
 });
 
+test("mantém multa e juros acumulados como itens separados da composição", () => {
+  const items = criarItensCobranca({
+    rentValue: 1_000,
+    iptuValue: 0,
+    condominiumValue: 0,
+    waterValue: 0,
+    electricityValue: 0,
+    gasValue: 0,
+    lateFeeAmount: 100,
+    lateInterestAmount: 2.67,
+  });
+
+  assert.equal(calcularTotalNominal({
+    rentValue: 1_000,
+    iptuValue: 0,
+    condominiumValue: 0,
+    waterValue: 0,
+    electricityValue: 0,
+    gasValue: 0,
+    lateFeeAmount: 100,
+    lateInterestAmount: 2.67,
+  }), 1_102.67);
+  assert.deepEqual(items.map(item => [item.type, item.amount]), [
+    ["RENT", 1_000],
+    ["LATE_FEE", 100],
+    ["LATE_INTEREST", 2.67],
+  ]);
+});
+
 test("calcula desconto fixo e percentual somente sobre o aluguel", () => {
   assert.equal(calcularDescontoEfetivo(1_000, 100, "FIXED"), 100);
   assert.equal(calcularDescontoEfetivo(1_000, 9.26, "PERCENT"), 92.60);
+});
+
+test("calcula multa única e juros mensais proporcionais para a reemissão", () => {
+  assert.deepEqual(calcularEncargosReemissaoVencida({
+    baseAmount: 1_000,
+    originalDueDate: "2026-08-20",
+    calculationDate: "2026-08-28",
+    lateFeePercentage: 10,
+    lateInterestMonthly: 1,
+  }), {
+    daysLate: 8,
+    lateFeeAmount: 100,
+    lateInterestAmount: 2.67,
+    updatedTotal: 1_102.67,
+  });
+});
+
+test("não aplica encargos quando a data de cálculo não passou do vencimento", () => {
+  assert.deepEqual(calcularEncargosReemissaoVencida({
+    baseAmount: 1_000,
+    originalDueDate: "2026-08-28",
+    calculationDate: "2026-08-28",
+    lateFeePercentage: 10,
+    lateInterestMonthly: 1,
+  }), {
+    daysLate: 0,
+    lateFeeAmount: 0,
+    lateInterestAmount: 0,
+    updatedTotal: 1_000,
+  });
 });
 
 test("salva e recupera a fotografia das condições do boleto, inclusive valores zero", () => {

@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, ExternalLink, Loader2, Pencil, Save, X } from "lucide-react";
+import { AlertCircle, Calculator, CheckCircle2, ExternalLink, Loader2, Pencil, Save, X } from "lucide-react";
 import {
   getBoletoCompositionAction,
   updateBoletoCompositionAction,
 } from "@/app/actions/boletoCompositionActions";
 import { FormattedNumberInput } from "@/components/shared/FormattedNumberInput";
 import { parseNumeroFlexivel } from "@/lib/locacao/financeiro";
+import {
+  calcularEncargosReemissaoVencida,
+  type OverdueReissueInput,
+} from "@/lib/financeiro/boleto-composicao";
 
 type Composition = Extract<
   Awaited<ReturnType<typeof getBoletoCompositionAction>>,
@@ -29,6 +33,29 @@ function numberString(value: number | null | undefined) {
   return String(value ?? 0).replace(".", ",");
 }
 
+function compositionToForm(value: Composition) {
+  return {
+    dueDate: value.dueDate.slice(0, 10),
+    rentValue: numberString(value.rentValue),
+    iptuValue: numberString(value.iptuValue),
+    condominiumValue: numberString(value.condominiumValue),
+    waterValue: numberString(value.waterValue),
+    electricityValue: numberString(value.electricityValue),
+    gasValue: numberString(value.gasValue),
+    otherValue: numberString(value.otherValue),
+    otherDescription: value.otherDescription,
+    lateFeeAmount: numberString(value.lateFeeAmount),
+    lateInterestAmount: numberString(value.lateInterestAmount),
+    discountValue: numberString(value.discountValue),
+    lateFeePercentage: numberString(value.lateFeePercentage),
+    lateInterestMonthly: numberString(value.lateInterestMonthly),
+    discountDaysBefore: String(value.discountDaysBefore),
+    discountType: value.discountType,
+    iptuPaymentStartDate: value.iptuPaymentStartDate ?? "",
+    iptuInstallments: value.iptuInstallments ?? "",
+  };
+}
+
 export default function BoletoCompositionModal({
   transactionId,
   onClose,
@@ -42,6 +69,7 @@ export default function BoletoCompositionModal({
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [applyToContract, setApplyToContract] = useState(false);
+  const [overdueReissue, setOverdueReissue] = useState<OverdueReissueInput | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,24 +82,7 @@ export default function BoletoCompositionModal({
       }
       const value = result.composition;
       setComposition(value);
-      setForm({
-        dueDate: value.dueDate.slice(0, 10),
-        rentValue: numberString(value.rentValue),
-        iptuValue: numberString(value.iptuValue),
-        condominiumValue: numberString(value.condominiumValue),
-        waterValue: numberString(value.waterValue),
-        electricityValue: numberString(value.electricityValue),
-        gasValue: numberString(value.gasValue),
-        otherValue: numberString(value.otherValue),
-        otherDescription: value.otherDescription,
-        discountValue: numberString(value.discountValue),
-        lateFeePercentage: numberString(value.lateFeePercentage),
-        lateInterestMonthly: numberString(value.lateInterestMonthly),
-        discountDaysBefore: String(value.discountDaysBefore),
-        discountType: value.discountType,
-        iptuPaymentStartDate: value.iptuPaymentStartDate ?? "",
-        iptuInstallments: value.iptuInstallments ?? "",
-      });
+      setForm(compositionToForm(value));
       setLoading(false);
     });
     return () => {
@@ -93,6 +104,8 @@ export default function BoletoCompositionModal({
       parsed("electricityValue"),
       parsed("gasValue"),
       parsed("otherValue"),
+      parsed("lateFeeAmount"),
+      parsed("lateInterestAmount"),
     ].reduce((sum, value) => sum + value, 0);
     const discount = ["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(
       (form.discountType ?? "").toUpperCase(),
@@ -110,6 +123,52 @@ export default function BoletoCompositionModal({
     setForm(current => ({ ...current, [key]: value }));
   };
 
+  const handleCalculateOverdueReissue = () => {
+    if (!composition?.canCalculateOverdueReissue) return;
+    const originalDueDate = composition.dueDate.slice(0, 10);
+    const calculationDate = composition.suggestedReissueDate;
+    const baseAmount = composition.nominalTotal
+      - composition.lateFeeAmount
+      - composition.lateInterestAmount;
+    const calculation = calcularEncargosReemissaoVencida({
+      baseAmount,
+      originalDueDate,
+      calculationDate,
+      lateFeePercentage: composition.lateFeePercentage,
+      lateInterestMonthly: composition.lateInterestMonthly,
+    });
+
+    setForm(current => ({
+      ...current,
+      dueDate: calculationDate,
+      discountValue: "0",
+      discountDaysBefore: "0",
+      lateFeeAmount: numberString(calculation.lateFeeAmount),
+      lateInterestAmount: numberString(calculation.lateInterestAmount),
+      // A multa já foi incorporada ao valor. Mantê-la faria o Inter cobrá-la novamente.
+      lateFeePercentage: "0",
+    }));
+    setOverdueReissue({
+      originalDueDate,
+      calculationDate,
+      daysLate: calculation.daysLate,
+      baseAmount,
+      lateFeePercentage: composition.lateFeePercentage,
+      lateInterestMonthly: composition.lateInterestMonthly,
+    });
+    setApplyToContract(false);
+    setError(null);
+    setSuccess(null);
+    setEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    if (composition) setForm(compositionToForm(composition));
+    setApplyToContract(false);
+    setOverdueReissue(null);
+    setEditing(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
@@ -124,6 +183,8 @@ export default function BoletoCompositionModal({
       gasValue: parsed("gasValue"),
       otherValue: parsed("otherValue"),
       otherDescription: form.otherDescription?.trim() || "Outros",
+      lateFeeAmount: parsed("lateFeeAmount"),
+      lateInterestAmount: parsed("lateInterestAmount"),
       discountValue: parsed("discountValue"),
       discountType: form.discountType || "FIXED",
       discountDaysBefore: Math.trunc(parsed("discountDaysBefore")),
@@ -132,6 +193,7 @@ export default function BoletoCompositionModal({
       applyToContract,
       iptuPaymentStartDate: form.iptuPaymentStartDate || null,
       iptuInstallments: form.iptuInstallments || null,
+      overdueReissue,
     });
     setSaving(false);
     if (!result.success) {
@@ -140,9 +202,13 @@ export default function BoletoCompositionModal({
     }
     setSuccess([result.message, result.warning].filter(Boolean).join(" "));
     setEditing(false);
+    setOverdueReissue(null);
     onSaved?.();
     const refreshed = await getBoletoCompositionAction(transactionId);
-    if (refreshed.success) setComposition(refreshed.composition);
+    if (refreshed.success) {
+      setComposition(refreshed.composition);
+      setForm(compositionToForm(refreshed.composition));
+    }
   };
 
   const components = [
@@ -202,7 +268,8 @@ export default function BoletoCompositionModal({
                         required
                         value={form.dueDate ?? ""}
                         onChange={event => setField("dueDate", event.target.value)}
-                        className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-[#280003]"
+                        disabled={Boolean(overdueReissue)}
+                        className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-[#280003] disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     </label>
                   ) : (
@@ -223,12 +290,24 @@ export default function BoletoCompositionModal({
                     </a>
                   )}
                   {composition.canEdit && !editing && (
-                    <button
-                      onClick={() => setEditing(true)}
-                      className="inline-flex items-center gap-1 rounded-xl bg-[#004777] px-3 py-2 text-xs font-bold text-white hover:bg-[#00365c]"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Editar composição
-                    </button>
+                    <>
+                      {composition.canCalculateOverdueReissue && (
+                        <button
+                          type="button"
+                          onClick={handleCalculateOverdueReissue}
+                          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-[#280003] hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                        >
+                          <Calculator className="h-4 w-4" /> Calcular reemissão vencida
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditing(true)}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-[#004777] px-3 py-2 text-xs font-bold text-white hover:bg-[#00365c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Editar composição
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -238,10 +317,20 @@ export default function BoletoCompositionModal({
                   Esta cobrança está disponível somente para consulta porque não está pendente.
                 </div>
               )}
-              {composition.canEdit && composition.registeredAtInter && (
+              {composition.canEdit && composition.registeredAtInter && composition.status !== "CANCELADO" && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                   Ao salvar, o boleto atual será cancelado no Banco Inter e um novo será emitido
                   automaticamente com o vencimento e a composição atualizados.
+                </div>
+              )}
+              {overdueReissue && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p className="font-bold">Reemissão de cobrança vencida</p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    Vencimento original {new Date(`${overdueReissue.originalDueDate}T00:00:00.000Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                    {` · ${overdueReissue.daysLate} dia(s) em atraso. `}
+                    O desconto foi retirado, a multa foi incorporada uma única vez e o contrato não será alterado.
+                  </p>
                 </div>
               )}
 
@@ -256,7 +345,8 @@ export default function BoletoCompositionModal({
                         value={form[key] ?? ""}
                         onValueChange={value => setField(key, value)}
                         format="currency"
-                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 font-bold text-[#280003]"
+                        disabled={Boolean(overdueReissue)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 font-bold text-[#280003] disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     ) : (
                       <span className="text-base font-bold text-[#280003]">
@@ -274,8 +364,9 @@ export default function BoletoCompositionModal({
                       value={form.otherDescription ?? ""}
                       onChange={event => setField("otherDescription", event.target.value)}
                       maxLength={120}
+                      disabled={Boolean(overdueReissue)}
                       placeholder="Ex.: taxa extraordinária"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500"
                     />
                   ) : composition.otherDescription || "Outros"}
                 </Field>
@@ -285,11 +376,23 @@ export default function BoletoCompositionModal({
                       value={form.otherValue ?? ""}
                       onValueChange={value => setField("otherValue", value)}
                       format="currency"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2"
+                      disabled={Boolean(overdueReissue)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500"
                     />
                   ) : money.format(composition.otherValue)}
                 </Field>
               </div>
+
+              {(overdueReissue || parsed("lateFeeAmount") > 0 || parsed("lateInterestAmount") > 0) && (
+                <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:grid-cols-2">
+                  <Field label="Multa acumulada">
+                    {money.format(parsed("lateFeeAmount"))}
+                  </Field>
+                  <Field label="Juros acumulados">
+                    {money.format(parsed("lateInterestAmount"))}
+                  </Field>
+                </div>
+              )}
 
               {composition.iptuValue > 0 && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-[#004777]">
@@ -306,27 +409,27 @@ export default function BoletoCompositionModal({
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="Desconto">
                     {editing ? (
-                      <FormattedNumberInput value={form.discountValue ?? ""} onValueChange={v => setField("discountValue", v)} format={["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(form.discountType) ? "percentage" : "currency"} className="w-full rounded-xl border border-gray-200 px-3 py-2" />
+                      <FormattedNumberInput value={form.discountValue ?? ""} onValueChange={v => setField("discountValue", v)} format={["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(form.discountType) ? "percentage" : "currency"} disabled={Boolean(overdueReissue)} className="w-full rounded-xl border border-gray-200 px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500" />
                     ) : ["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(composition.discountType)
                       ? `${composition.discountValue.toLocaleString("pt-BR")}% (${money.format(composition.effectiveDiscount)})`
                       : money.format(composition.discountValue)}
                   </Field>
                   <Field label="Tipo">
                     {editing ? (
-                      <select value={form.discountType} onChange={e => setField("discountType", e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2">
+                      <select value={form.discountType} onChange={e => setField("discountType", e.target.value)} disabled={Boolean(overdueReissue)} className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500">
                         <option value="FIXED">Valor fixo</option>
                         <option value="PERCENT">Percentual</option>
                       </select>
                     ) : ["PERCENT", "PERCENTAGE", "PERCENTUAL"].includes(composition.discountType) ? "Percentual" : "Valor fixo"}
                   </Field>
                   <Field label="Antecedência">
-                    {editing ? <input type="number" min={0} value={form.discountDaysBefore} onChange={e => setField("discountDaysBefore", e.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2" /> : `${composition.discountDaysBefore} dia(s)`}
+                    {editing ? <input type="number" min={0} value={form.discountDaysBefore} onChange={e => setField("discountDaysBefore", e.target.value)} disabled={Boolean(overdueReissue)} className="w-full rounded-xl border border-gray-200 px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500" /> : `${composition.discountDaysBefore} dia(s)`}
                   </Field>
                   <Field label="Multa">
-                    {editing ? <FormattedNumberInput value={form.lateFeePercentage ?? ""} onValueChange={v => setField("lateFeePercentage", v)} format="percentage" className="w-full rounded-xl border border-gray-200 px-3 py-2" /> : `${composition.lateFeePercentage.toLocaleString("pt-BR")}%`}
+                    {editing ? <FormattedNumberInput value={form.lateFeePercentage ?? ""} onValueChange={v => setField("lateFeePercentage", v)} format="percentage" disabled={Boolean(overdueReissue)} className="w-full rounded-xl border border-gray-200 px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500" /> : `${composition.lateFeePercentage.toLocaleString("pt-BR")}%`}
                   </Field>
                   <Field label="Juros ao mês">
-                    {editing ? <FormattedNumberInput value={form.lateInterestMonthly ?? ""} onValueChange={v => setField("lateInterestMonthly", v)} format="percentage" decimals={4} className="w-full rounded-xl border border-gray-200 px-3 py-2" /> : `${composition.lateInterestMonthly.toLocaleString("pt-BR")}%`}
+                    {editing ? <FormattedNumberInput value={form.lateInterestMonthly ?? ""} onValueChange={v => setField("lateInterestMonthly", v)} format="percentage" decimals={4} disabled={Boolean(overdueReissue)} className="w-full rounded-xl border border-gray-200 px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500" /> : `${composition.lateInterestMonthly.toLocaleString("pt-BR")}%`}
                   </Field>
                 </div>
               </div>
@@ -371,7 +474,7 @@ export default function BoletoCompositionModal({
 
               {editing && (
                 <>
-                  {composition.canUpdateContract && (
+                  {composition.canUpdateContract && !overdueReissue && (
                     <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                       <input type="checkbox" checked={applyToContract} onChange={e => setApplyToContract(e.target.checked)} className="mt-0.5 h-4 w-4" />
                       <span>
@@ -381,12 +484,12 @@ export default function BoletoCompositionModal({
                     </label>
                   )}
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditing(false)} disabled={saving} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">
+                    <button onClick={handleCancelEditing} disabled={saving} className="min-h-11 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]">
                       Cancelar
                     </button>
-                    <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#280003] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                    <button onClick={handleSave} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#280003] px-5 py-2.5 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777] disabled:opacity-50">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Salvar alterações
+                      {overdueReissue ? "Salvar e emitir novo boleto" : "Salvar alterações"}
                     </button>
                   </div>
                 </>

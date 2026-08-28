@@ -7,6 +7,7 @@ import { requireUserContext } from "@/lib/auth";
 import {
   asMetadataRecord,
   atualizarMetadataComposicao,
+  calcularEncargosReemissaoVencida,
   calcularDescontoEfetivo,
   calcularTotalNominal,
   criarItensCobranca,
@@ -46,10 +47,38 @@ const transactionInclude = {
   itensCobranca: { orderBy: { order: "asc" as const } },
 } satisfies Prisma.TransacaoFinanceiraInclude;
 
+const inactiveInterStatuses = new Set(["CANCELADO", "EXPIRADO", "FALHA_EMISSAO"]);
+
 function podeEditarCobranca(transaction: {
   status: string;
+  interStatus?: string | null;
 }) {
-  return transaction.status === "PENDENTE";
+  return transaction.status === "PENDENTE"
+    || (
+      transaction.status === "CANCELADO"
+      && inactiveInterStatuses.has(transaction.interStatus ?? "")
+    );
+}
+
+function dataSugeridaReemissaoEmSaoPaulo() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const localDate = `${value.year}-${value.month}-${value.day}`;
+  const afterSameDayCutoff = Number(value.hour) > 19
+    || (Number(value.hour) === 19 && Number(value.minute) >= 50);
+  if (!afterSameDayCutoff) return localDate;
+
+  const nextDay = new Date(`${localDate}T12:00:00.000Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return nextDay.toISOString().slice(0, 10);
 }
 
 function resolverPeriodoLease(
@@ -171,6 +200,14 @@ export async function getBoletoCompositionAction(transactionId: string) {
       numeroSeguro(utilityByType("ELECTRICITY")?.amount),
     );
     const gasValue = numeroSeguro(metadata.gasValue, numeroSeguro(utilityByType("GAS")?.amount));
+    const lateFeeItems = transaction.itensCobranca.filter(item => item.type === "LATE_FEE");
+    const lateInterestItems = transaction.itensCobranca.filter(item => item.type === "LATE_INTEREST");
+    const lateFeeAmount = lateFeeItems.length > 0
+      ? lateFeeItems.reduce((total, item) => total + Number(item.amount), 0)
+      : numeroSeguro(metadata.lateFeeAmount);
+    const lateInterestAmount = lateInterestItems.length > 0
+      ? lateInterestItems.reduce((total, item) => total + Number(item.amount), 0)
+      : numeroSeguro(metadata.lateInterestAmount);
     const outrosPersistidos = transaction.itensCobranca.filter(item => item.type === "OTHER");
     const otherValue = outrosPersistidos.length > 0
       ? outrosPersistidos.reduce((total, item) => total + Number(item.amount), 0)
@@ -189,6 +226,8 @@ export async function getBoletoCompositionAction(transactionId: string) {
       electricityValue,
       gasValue,
       otherValue,
+      lateFeeAmount,
+      lateInterestAmount,
     });
     const effectiveDiscount = calcularDescontoEfetivo(
       rentValue,
@@ -215,6 +254,8 @@ export async function getBoletoCompositionAction(transactionId: string) {
           gasValue,
           otherValue,
           otherDescription,
+          lateFeeAmount,
+          lateInterestAmount,
         }, conditions);
     const previewMessage = criarMensagemCobrancaInter({
       metadata,
@@ -229,6 +270,15 @@ export async function getBoletoCompositionAction(transactionId: string) {
       multaPercentual: conditions.lateFeePercentage,
       jurosMensal: conditions.lateInterestMonthly,
     });
+    const suggestedReissueDate = dataSugeridaReemissaoEmSaoPaulo();
+    const originalDueDate = transaction.dataVencimento.toISOString().slice(0, 10);
+    const canCalculateOverdueReissue = podeEditarCobranca(transaction)
+      && transaction.status === "CANCELADO"
+      && inactiveInterStatuses.has(transaction.interStatus ?? "")
+      && originalDueDate < suggestedReissueDate
+      && lateFeeAmount === 0
+      && lateInterestAmount === 0;
+    const overdueReissue = asMetadataRecord(metadata.overdueReissue);
 
     return {
       success: true as const,
@@ -252,6 +302,8 @@ export async function getBoletoCompositionAction(transactionId: string) {
         gasValue,
         otherValue,
         otherDescription,
+        lateFeeAmount,
+        lateInterestAmount,
         ...conditions,
         nominalTotal,
         effectiveDiscount,
@@ -262,6 +314,9 @@ export async function getBoletoCompositionAction(transactionId: string) {
         iptuInstallment: numeroSeguro(metadata.iptuInstallment) || null,
         iptuInstallmentsOnCharge: numeroSeguro(metadata.iptuInstallments) || null,
         canEdit: podeEditarCobranca(transaction),
+        canCalculateOverdueReissue,
+        suggestedReissueDate,
+        overdueReissue: Object.keys(overdueReissue).length > 0 ? overdueReissue : null,
         canUpdateContract: Boolean(transaction.lease || legacyLocacao),
         registeredAtInter,
         interMessage: registeredAtInter && persistedMessage.length > 0
@@ -287,6 +342,8 @@ function validarInput(input: BoletoCompositionInput) {
     input.electricityValue,
     input.gasValue,
     input.otherValue ?? 0,
+    input.lateFeeAmount ?? 0,
+    input.lateInterestAmount ?? 0,
     input.discountValue,
     input.lateFeePercentage,
     input.lateInterestMonthly,
@@ -320,14 +377,57 @@ export async function updateBoletoCompositionAction(
     const transaction = await getAuthorizedTransaction(transactionId, context.tenantId);
     if (!podeEditarCobranca(transaction)) {
       throw new Error(
-        "Somente cobranças pendentes podem ser editadas.",
+        "Somente cobranças pendentes ou canceladas no Inter podem ser editadas.",
       );
+    }
+
+    if (input.overdueReissue) {
+      const originalDueDate = transaction.dataVencimento.toISOString().slice(0, 10);
+      const conditions = resolverCondicoes(transaction);
+      const baseAmount = calcularTotalNominal({
+        ...input,
+        lateFeeAmount: 0,
+        lateInterestAmount: 0,
+      });
+      const expected = calcularEncargosReemissaoVencida({
+        baseAmount,
+        originalDueDate,
+        calculationDate: input.dueDate,
+        lateFeePercentage: conditions.lateFeePercentage,
+        lateInterestMonthly: conditions.lateInterestMonthly,
+      });
+      const isCancelledOverdue = transaction.status === "CANCELADO"
+        && inactiveInterStatuses.has(transaction.interStatus ?? "")
+        && originalDueDate < input.dueDate
+        && input.dueDate >= dataSugeridaReemissaoEmSaoPaulo();
+      const matchesCalculation = input.overdueReissue.originalDueDate === originalDueDate
+        && input.overdueReissue.calculationDate === input.dueDate
+        && input.overdueReissue.daysLate === expected.daysLate
+        && Math.abs(input.overdueReissue.baseAmount - baseAmount) < 0.01
+        && Math.abs(input.overdueReissue.lateFeePercentage - conditions.lateFeePercentage) < 0.0001
+        && Math.abs(input.overdueReissue.lateInterestMonthly - conditions.lateInterestMonthly) < 0.0001
+        && Math.abs((input.lateFeeAmount ?? 0) - expected.lateFeeAmount) < 0.01
+        && Math.abs((input.lateInterestAmount ?? 0) - expected.lateInterestAmount) < 0.01;
+      if (!isCancelledOverdue || !matchesCalculation) {
+        throw new Error(
+          "Os encargos da reemissão estão desatualizados. Reabra a composição e calcule novamente.",
+        );
+      }
+      if (
+        input.discountValue !== 0
+        || input.lateFeePercentage !== 0
+        || Math.abs(input.lateInterestMonthly - conditions.lateInterestMonthly) >= 0.0001
+        || input.applyToContract
+      ) {
+        throw new Error(
+          "A reemissão vencida deve ficar sem desconto, sem nova multa e sem alterar o contrato.",
+        );
+      }
     }
 
     const registeredAtInter = Boolean(
       transaction.interNossoNumero || transaction.interCodigoSolicitacao,
     );
-    const inactiveInterStatuses = new Set(["CANCELADO", "EXPIRADO", "FALHA_EMISSAO"]);
     if (
       transaction.interCodigoSolicitacao
       && !inactiveInterStatuses.has(transaction.interStatus ?? "")
