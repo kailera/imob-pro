@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   criarDescontoInterV3,
   criarMoraInterV3,
+  extrairMensagemErroInter,
   extrairSituacaoCobrancaInter,
+  sanitizarTextoPagadorInter,
 } from "../lib/inter-cobranca";
 
 test("extrai a situação da resposta aninhada da API Cobrança V3", () => {
@@ -48,4 +50,27 @@ test("usa o código de taxa mensal vigente para a mora da API V3", () => {
     taxa: 1,
   });
   assert.equal(criarMoraInterV3(0), undefined);
+});
+
+test("prioriza as violações da API do Inter sobre o título genérico", () => {
+  assert.equal(extrairMensagemErroInter({
+    title: "Found violation(s) for the billing",
+    detail: "Verifique os dados informados.",
+    violacoes: [
+      { propriedade: "pagador.cep", razao: "CEP inválido." },
+      { propriedade: "pagador.nome", razao: "Tamanho máximo excedido." },
+    ],
+  }), "Inter rejeitou a cobrança: pagador.cep: CEP inválido.; pagador.nome: Tamanho máximo excedido.");
+});
+
+test("usa detail antes do título quando não há violações", () => {
+  assert.equal(extrairMensagemErroInter({
+    title: "Dados inválidos.",
+    detail: "Cobrança já cadastrada.",
+  }), "Cobrança já cadastrada.");
+});
+
+test("sanitiza caracteres corrompidos e limita campos do pagador", () => {
+  assert.equal(sanitizarTextoPagadorInter("  João\u0000 da  Silva  ", 100), "João da Silva");
+  assert.equal(sanitizarTextoPagadorInter("Rua das Flores nº 123", 15), "Rua das Flores");
 });

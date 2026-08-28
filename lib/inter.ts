@@ -16,12 +16,14 @@ import {
   criarMoraInterV3,
   criarMetadataNovaEmissaoInter,
   criarSeuNumeroInter,
+  extrairMensagemErroInter,
   extrairRecebimentoCobrancaInter,
   extrairSituacaoCobrancaInter,
   formatarMensagemInter,
   resolverBonificacaoLease,
   resolverNumDiasAgendaInter,
   respostaInterIndicaCobrancaCancelada,
+  sanitizarTextoPagadorInter,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 import { resolveInterTransactionTenantId } from "@/lib/inter-tenant";
@@ -450,13 +452,13 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       pagador: {
         cpfCnpj: cleanCpfCnpj,
         tipoPessoa: cleanCpfCnpj.length > 11 ? "JURIDICA" : "FISICA",
-        nome: locatario.nome,
-        endereco: enderecoObj.logradouro,
-        numero: enderecoObj.numero || undefined,
-        complemento: enderecoObj.complemento || undefined,
-        bairro: enderecoObj.bairro,
-        cidade: enderecoObj.municipio,
-        uf: enderecoObj.estado,
+        nome: sanitizarTextoPagadorInter(locatario.nome, 100),
+        endereco: sanitizarTextoPagadorInter(enderecoObj.logradouro, 100),
+        numero: sanitizarTextoPagadorInter(enderecoObj.numero, 10) || undefined,
+        complemento: sanitizarTextoPagadorInter(enderecoObj.complemento, 30) || undefined,
+        bairro: sanitizarTextoPagadorInter(enderecoObj.bairro, 60),
+        cidade: sanitizarTextoPagadorInter(enderecoObj.municipio, 60),
+        uf: sanitizarTextoPagadorInter(enderecoObj.estado, 2).toUpperCase(),
         cep: enderecoObj.cep,
       },
       formasRecebimento: ["BOLETO", "PIX"],
@@ -819,7 +821,9 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     }
     return {
       success: false,
-      error: err.response?.data?.title || err.response?.data?.message || err.response?.data?.detail || err.message || "Erro inesperado ao gerar BolePix.",
+      error: extrairMensagemErroInter(err.response?.data)
+        || err.message
+        || "Erro inesperado ao gerar BolePix.",
     };
   }
 }

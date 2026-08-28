@@ -59,6 +59,63 @@ export type DescontoInterV3 = {
   taxa?: number;
 };
 
+function stringNaoVazia(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Monta uma mensagem acionável a partir do application/problem+json do Inter.
+ * A API usa `title` genérico e informa a causa real em `violacoes`.
+ */
+export function extrairMensagemErroInter(response: unknown): string | null {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return null;
+
+  const data = response as Record<string, unknown>;
+  const rawViolations = Array.isArray(data.violacoes)
+    ? data.violacoes
+    : Array.isArray(data.violations)
+      ? data.violations
+      : [];
+  const violations = rawViolations.flatMap((violation) => {
+    if (typeof violation === "string") {
+      const text = violation.trim();
+      return text ? [text] : [];
+    }
+    if (!violation || typeof violation !== "object" || Array.isArray(violation)) return [];
+
+    const item = violation as Record<string, unknown>;
+    const property = stringNaoVazia(
+      item.propriedade ?? item.property ?? item.campo ?? item.field,
+    );
+    const reason = stringNaoVazia(
+      item.razao ?? item.reason ?? item.mensagem ?? item.message ?? item.detail,
+    );
+    if (!property && !reason) return [];
+    return [property && reason ? `${property}: ${reason}` : (reason ?? property)!];
+  });
+
+  if (violations.length > 0) {
+    return `Inter rejeitou a cobrança: ${violations.join("; ")}`;
+  }
+
+  return stringNaoVazia(data.detail)
+    ?? stringNaoVazia(data.message)
+    ?? stringNaoVazia(data.title);
+}
+
+/** Remove caracteres de controle/corrupção sem tentar reconstruir dados cadastrais. */
+export function sanitizarTextoPagadorInter(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFC")
+    .replace(/[\u0000-\u001f\u007f-\u009f\ufffd]/g, " ")
+    .replace(/[^\p{L}\p{N}\s.,'’&()\-\/]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength)
+    .trim();
+}
+
 export function extrairSituacaoCobrancaInter(response: unknown): string | null {
   if (!response || typeof response !== "object" || Array.isArray(response)) return null;
   const root = response as Record<string, unknown>;
