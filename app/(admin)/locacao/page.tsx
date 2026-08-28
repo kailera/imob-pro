@@ -1,4 +1,4 @@
-import { getContratosLocacao, getCobrancas, getAgendaVencimentosLocacao, getAllLocatarios, getPainelIndicesReajuste } from './actions/actions';
+import { getContratosLocacao, getAgendaVencimentosLocacao, getAllLocatarios, getPainelIndicesReajuste } from './actions/actions';
 import { getImoveis } from '@/app/actions/imoveisActions';
 import LocacaoClientContainer from './components/LocacaoClientContainer';
 export const dynamic = 'force-dynamic';
@@ -12,9 +12,8 @@ export default async function LocacaoPage() {
   const agora = new Date();
   const agendaAno = agora.getFullYear();
   const agendaMes = agora.getMonth() + 1;
-  const [contratosRes, cobrancasRes, imoveisRes, agendaRes, locatariosRes, indicesRes] = await Promise.all([
+  const [contratosRes, imoveisRes, agendaRes, locatariosRes, indicesRes] = await Promise.all([
     getContratosLocacao(),
-    getCobrancas(),
     getImoveis(), // Pre-carregamos os imóveis aqui no servidor para já entregar pronto
     getAgendaVencimentosLocacao(agendaAno, agendaMes),
     getAllLocatarios(),
@@ -23,7 +22,6 @@ export default async function LocacaoPage() {
 
   // 3. Tratamento defensivo: garantimos que sempre teremos um array, mesmo se a API falhar
   const contratos = contratosRes?.data || [];
-  const cobrancas = cobrancasRes?.data || [];
   const imoveis = imoveisRes?.data || [];
   const locatarios = locatariosRes?.data || [];
 
@@ -32,7 +30,6 @@ export default async function LocacaoPage() {
     <div className="min-h-screen bg-gray-50">
       <LocacaoClientContainer
         initialContratos={contratos}
-        initialCobrancas={cobrancas}
         initialImoveis={imoveis}
         initialAgenda={agendaRes.data}
         initialIndices={indicesRes.data}

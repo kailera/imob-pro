@@ -4,9 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarClock, Key, DollarSign, FileText, Plus } from 'lucide-react';
 
-// O componente de Cobranças que você já isolou antes!
-import CobrancasTabContent from './CobrancasTabContent';
-
 // Futuros componentes (vamos criá-los nos próximos passos)
 import ContratosTabContent from './ContratosTabContent';
 import ModelosTabContent, { ContractTemplate } from './ModelosTabContent';
@@ -15,7 +12,6 @@ import type { AgendaLocacaoEvento, PainelIndiceReajuste } from '../actions/actio
 import { countPendingContractUpdates } from '@/lib/locacao/contract-updates';
 interface LocacaoClientContainerProps {
     initialContratos: any[];
-    initialCobrancas: any[];
     initialImoveis: any[];
     initialAgenda: AgendaLocacaoEvento[];
     initialIndices: PainelIndiceReajuste[];
@@ -26,7 +22,6 @@ interface LocacaoClientContainerProps {
 
 export default function LocacaoClientContainer({
     initialContratos,
-    initialCobrancas,
     initialImoveis,
     initialAgenda,
     initialIndices,
@@ -36,7 +31,7 @@ export default function LocacaoClientContainer({
 }: LocacaoClientContainerProps) {
 
     // 1. Estados que controlam a interface geral da página
-    const [activeTab, setActiveTab] = useState<'contratos' | 'cobrancas' | 'atualizacoes' | 'modelos'>('contratos');
+    const [activeTab, setActiveTab] = useState<'contratos' | 'atualizacoes' | 'modelos'>('contratos');
     const [pendingUpdates, setPendingUpdates] = useState(() => countPendingContractUpdates(initialAgenda));
     const [contractFields, setContractFields] = useState<Record<string, string>>({});
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -87,19 +82,6 @@ export default function LocacaoClientContainer({
     const fiadoresUnicos = removerDuplicados(allFiadores);
     const locadoresUnicos = removerDuplicados(allLocador);
 
-    // Totais de cobrança reais calculados dinamicamente
-    const cobrancasTotals = initialCobrancas.reduce(
-        (acc, curr) => {
-            const val = curr.valor || 0;
-            acc.registrado += val;
-            if (curr.status === 'LIQUIDADO') acc.liquidado += val;
-            else if (curr.status === 'CANCELADO') acc.cancelado += val;
-            else acc.recepcionado += val;
-            return acc;
-        },
-        { registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 }
-    );
-
     return (
         <div className="space-y-6">
             {/* ── HEADER E ABAS DE NAVEGAÇÃO ── */}
@@ -115,16 +97,13 @@ export default function LocacaoClientContainer({
                         <Key className="w-4 h-4" />
                         Contratos de Locação
                     </button>
-                    <button
-                        onClick={() => setActiveTab('cobrancas')}
-                        className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition-all ${activeTab === 'cobrancas'
-                            ? 'border-[#004777] text-[#004777]'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                    <Link
+                        href="/cobrancas"
+                        className="flex min-h-11 shrink-0 items-center gap-2 border-b-2 border-transparent pb-3 text-sm font-semibold text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004777]"
                     >
-                        <DollarSign className="w-4 h-4" />
+                        <DollarSign className="h-4 w-4" aria-hidden="true" />
                         Cobranças de Aluguéis
-                    </button>
+                    </Link>
                     <button
                         type="button"
                         onClick={() => setActiveTab('atualizacoes')}
@@ -185,13 +164,6 @@ export default function LocacaoClientContainer({
                     contratos={initialContratos}
                 />
             )}
-            {/* O seu componente de Cobranças já está pronto e sendo usado aqui! */}
-            <CobrancasTabContent
-                activeTab={activeTab}
-                cobrancaTotals={cobrancasTotals}
-                cobrancas={initialCobrancas}
-            />
-
             {activeTab === 'modelos' && (
                 <ModelosTabContent
                     templates={templates}

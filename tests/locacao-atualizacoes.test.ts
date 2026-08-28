@@ -27,6 +27,8 @@ test("agenda aparece somente na aba de atualizações e mantém histórico separ
   );
 
   assert.match(container, /Atualizações de contratos/);
+  assert.match(container, /href="\/cobrancas"/);
+  assert.doesNotMatch(container, /setActiveTab\('cobrancas'\)/);
   assert.match(container, /motion-safe:animate-pulse/);
   assert.match(container, /activeTab === 'atualizacoes'/);
   assert.doesNotMatch(container, /activeTab === 'contratos' && \(\s*<AgendaVencimentosLocacao/);
