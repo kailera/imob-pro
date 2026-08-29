@@ -241,6 +241,52 @@ export function resolverPeriodoEfetivoDaCobranca<T extends {
   ) ?? null;
 }
 
+/**
+ * Resolve em conjunto o vencimento, a competência e a vigência contratual.
+ * O cálculo é repetido porque o dia de vencimento também pode mudar entre
+ * vigências e, por consequência, alterar a competência do ciclo.
+ */
+export function resolverVigenciaCobrancaMensal<T extends {
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
+  paymentDueDay: number;
+}>(input: {
+  periodos: T[];
+  ano: number;
+  mes: number;
+  diaVencimentoPadrao: number;
+  primeiroVencimento?: string | Date | null;
+  fimPeriodo?: string | null;
+}) {
+  let diaVencimento = input.diaVencimentoPadrao;
+  let resultado: { dataVencimento: Date; competencia: string; periodo: T } | null = null;
+
+  for (let tentativa = 0; tentativa < 3; tentativa += 1) {
+    const dataVencimento = calcularVencimentoMensal(
+      input.ano,
+      input.mes,
+      diaVencimento,
+      input.primeiroVencimento,
+    );
+    if (!dataVencimento) return null;
+
+    const competencia = calcularCompetenciaPorVencimento(dataVencimento, input.fimPeriodo);
+    const periodo = resolverPeriodoEfetivoDaCobranca(
+      input.periodos,
+      competencia,
+      dataVencimento,
+      input.fimPeriodo,
+    );
+    if (!periodo) return { dataVencimento, competencia, periodo: null };
+
+    resultado = { dataVencimento, competencia, periodo };
+    if (periodo.paymentDueDay === diaVencimento) return resultado;
+    diaVencimento = periodo.paymentDueDay;
+  }
+
+  return resultado;
+}
+
 export function substituirCompetenciaNaDescricao(
   descricao: string,
   competencia: string,

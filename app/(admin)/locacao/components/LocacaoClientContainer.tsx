@@ -95,7 +95,7 @@ export default function LocacaoClientContainer({
                             }`}
                     >
                         <Key className="w-4 h-4" />
-                        Contratos de Locação
+                        Contratos de Locação ( Quantidade: {initialContratos.length})
                     </button>
                     <Link
                         href="/cobrancas"

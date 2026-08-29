@@ -29,7 +29,7 @@ import { liquidarCobrancaAction } from '@/app/actions/financeiroActions';
 import { deleteBoletoChargeAction } from '@/app/actions/boletoCompositionActions';
 import BoletoCompositionModal from '@/components/cobrancas/BoletoCompositionModal';
 
-export type BilletStatus = 'Liquidado' | 'Recepcionado' | 'Pendente' | 'Cancelado' | 'Baixado';
+export type BilletStatus = 'Liquidado' | 'Não gerado' | 'Recepcionado' | 'Pendente' | 'Não pago' | 'Cancelado' | 'Baixado';
 
 export interface BilletData {
   id: string;
@@ -55,6 +55,9 @@ export interface BilletData {
   interBarcode?: string | null;
   interPdfKey?: string | null;
   interStatus?: string | null;
+  interStatusLabel?: string | null;
+  boletoAtivo?: boolean;
+  podeCorrigirEReemitir?: boolean;
   sacadoTelefone?: string | null;
 }
 
@@ -75,6 +78,10 @@ const getStatusBadge = (status: BilletStatus) => {
     case 'Recepcionado':
     case 'Pendente':
       return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/40">{status}</span>;
+    case 'Não gerado':
+      return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200/60">Não gerado</span>;
+    case 'Não pago':
+      return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">Não pago</span>;
     case 'Cancelado':
       return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200/40">Cancelado</span>;
     case 'Baixado':
@@ -401,16 +408,25 @@ export default function FinancialTable({
                   <div className="text-xs text-gray-500">{item.sacadoCpf}</div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  {item.interStatus ? (
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700 uppercase">
-                      {item.interStatus}
+                  {item.interStatusLabel ? (
+                    <span className="inline-flex max-w-[190px] whitespace-normal rounded bg-gray-100 px-2 py-1 text-xs font-semibold leading-tight text-gray-700">
+                      {item.interStatusLabel}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-center">
-                  {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' ? (
+                  {item.podeCorrigirEReemitir ? (
+                    <button
+                      type="button"
+                      onClick={() => setCompositionTransactionId(item.id)}
+                      className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-amber-50 px-3 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      Corrigir e reemitir
+                    </button>
+                  ) : item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' ? (
                     !item.interNossoNumero ? (
                       <button
                         onClick={() => item.interCodigoSolicitacao

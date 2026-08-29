@@ -76,7 +76,7 @@ function formatPropertyAddress(property: PropertyAddress) {
 
 export default function ContratosTabContent({
     contratos,
-    title = 'Contratos de Locação',
+    title = `Contratos de Locação (${contratos.length})`,
     searchPlaceholder = 'Buscar por contrato, inquilino, imóvel ou status...',
 }: ContratosTabContentProps) {
 
@@ -85,8 +85,8 @@ export default function ContratosTabContent({
         const status = item.recordType === 'LEASE'
             ? item.status === 'ACTIVE' ? 'Ativo'
                 : item.status === 'SUSPENDED' ? 'Inativo'
-                : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
-                    : 'Pendente'
+                    : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                        : 'Pendente'
             : locacao?.dataFim && new Date(locacao.dataFim) < new Date() ? 'Encerrado' : 'Ativo';
         const property = item.imovel || {};
 
@@ -110,8 +110,8 @@ export default function ContratosTabContent({
 
     // Definição das colunas adaptadas para o modelo Prisma Real
     const columns: Column<Contrato>[] = [
-        { 
-            header: 'Contrato', 
+        {
+            header: 'Contrato',
             accessorKey: 'id',
             cell: (item: Contrato) => (
                 <div className="space-y-1">
@@ -131,16 +131,16 @@ export default function ContratosTabContent({
                 </div>
             )
         },
-        { 
-            header: 'Inquilino', 
+        {
+            header: 'Inquilino',
             accessorKey: 'locatarios',
             cell: (item: Contrato) => {
                 const locatario = item.locatarios?.[0];
                 return locatario ? locatario.nome : 'Não informado';
             }
         },
-        { 
-            header: 'Imóvel', 
+        {
+            header: 'Imóvel',
             accessorKey: 'imovel',
             cell: (item: Contrato) => {
                 if (!item.imovel) return 'Não informado';
@@ -152,8 +152,8 @@ export default function ContratosTabContent({
                 );
             }
         },
-        { 
-            header: 'Vencimento', 
+        {
+            header: 'Vencimento',
             accessorKey: 'vencimento',
             cell: (item: Contrato) => {
                 // Tenta buscar da relação imovelLocacao direta (se inclusa) ou do imovel.imovelLocacaos
@@ -215,11 +215,11 @@ export default function ContratosTabContent({
                 let statusVal = item.recordType === 'LEASE'
                     ? item.status === 'ACTIVE' ? 'Ativo'
                         : item.status === 'SUSPENDED' ? 'Inativo'
-                        : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
-                            : 'Pendente'
+                            : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                                : 'Pendente'
                     : 'Ativo';
                 if (item.recordType !== 'LEASE' && locacao?.dataFim && new Date(locacao.dataFim) < new Date()) statusVal = 'Encerrado';
-                
+
                 let bgClass = 'bg-gray-100 text-gray-700';
                 if (statusVal === 'Ativo') bgClass = 'bg-[#708D81]/10 text-[#708D81]';
                 else if (statusVal === 'Inativo') bgClass = 'bg-gray-200 text-gray-600';

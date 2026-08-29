@@ -7,8 +7,15 @@ import {
   numeroSeguro,
   type BoletoCompositionValues,
 } from "@/lib/financeiro/boleto-composicao";
-import { calcularInicioCompetencia, criarDataVencimento } from "./financeiro";
+import { calcularCondominioDaCobranca } from "./condominio";
+import { calcularIptuDaCobranca } from "./iptu";
+import {
+  calcularInicioCompetencia,
+  criarDataVencimento,
+  resolverVigenciaCobrancaMensal,
+} from "./financeiro";
 import { normalizarDataUTC } from "./periodos";
+import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
 
 type LegacyPeriodForEmission = {
   id: string;
@@ -177,4 +184,164 @@ export async function reconciliarCobrancaLegadaAntesDaEmissao(transacaoId: strin
   });
 
   return { updated: true as const, rentValue: values.rentValue, total, dueDate };
+}
+
+/**
+ * Atualiza um rascunho do fluxo novo usando a vigência válida no ciclo da
+ * cobrança. Boletos emitidos, cobranças pagas e composições editadas pelo
+ * usuário nunca são alterados por esta reconciliação.
+ */
+export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: string) {
+  const transaction = await prisma.transacaoFinanceira.findUnique({
+    where: { id: transacaoId },
+    include: {
+      lease: {
+        include: {
+          terms: true,
+          termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+          iptu: true,
+          condominium: true,
+          utilities: true,
+          property: { include: { residencial: { include: { despesas: true } } } },
+        },
+      },
+    },
+  });
+
+  if (!transaction?.lease) return { handled: false as const, updated: false as const };
+  if (
+    transaction.categoria !== "ALUGUEL"
+    || transaction.tipo !== "RECEITA"
+    || transaction.status !== "PENDENTE"
+    || transaction.lease.status !== "ACTIVE"
+    || transaction.interCodigoSolicitacao
+    || transaction.interNossoNumero
+    || transaction.interTxId
+    || transaction.interBarcode
+    || composicaoFoiEditadaManualmente(transaction.metadata)
+  ) {
+    return { handled: true as const, updated: false as const };
+  }
+
+  const lease = transaction.lease;
+  if (lease.termsPeriods.length === 0) {
+    return { handled: true as const, updated: false as const, error: "O contrato não possui vigência financeira cadastrada." };
+  }
+
+  const dueDateAtual = normalizarDataUTC(transaction.dataVencimento);
+  const vigencia = resolverVigenciaCobrancaMensal({
+    periodos: lease.termsPeriods,
+    ano: dueDateAtual.getUTCFullYear(),
+    mes: dueDateAtual.getUTCMonth() + 1,
+    diaVencimentoPadrao: lease.terms?.paymentDueDay ?? dueDateAtual.getUTCDate(),
+    primeiroVencimento: lease.terms?.firstPeriodDueDate,
+    fimPeriodo: lease.terms?.firstPeriodEndDay,
+  });
+  if (!vigencia?.periodo) {
+    return { handled: true as const, updated: false as const, error: "A cobrança não está coberta por uma vigência financeira do contrato." };
+  }
+  const period = vigencia.periodo;
+  if (period.reviewStatus !== "REVIEWED") {
+    return { handled: true as const, updated: false as const, error: `A vigência da competência ${vigencia.competencia} ainda não foi conferida.` };
+  }
+
+  const iptu = calcularIptuDaCobranca(lease.iptu, vigencia.dataVencimento, {
+    legacySystem: lease.legacySystem,
+  });
+  const condominiumValue = calcularCondominioDaCobranca(lease.condominium);
+  const waterValue = Number(lease.utilities.find(item => item.type === "WATER")?.amount ?? 0);
+  const electricityValue = Number(lease.utilities.find(item => item.type === "ELECTRICITY")?.amount ?? 0);
+  const leaseGasValue = Number(lease.utilities.find(item => item.type === "GAS")?.amount ?? 0);
+  const despesas = resolverDespesasResidencial(
+    lease.property?.residencial?.despesas,
+    vigencia.dataVencimento,
+    leaseGasValue,
+  );
+  const metadataAtual = asMetadataRecord(transaction.metadata);
+  const values: BoletoCompositionValues = {
+    rentValue: Number(period.rentAmount),
+    condominiumValue,
+    iptuValue: iptu.valor,
+    waterValue,
+    electricityValue,
+    gasValue: despesas.gasValue,
+    otherValue: numeroSeguro(metadataAtual.otherValue),
+    otherDescription: typeof metadataAtual.otherDescription === "string" ? metadataAtual.otherDescription : undefined,
+    residentialExpenses: despesas.residentialExpenses,
+  };
+  const billingConditions = {
+    discountValue: Number(period.earlyPaymentDiscount ?? lease.terms?.earlyPaymentDiscount ?? 0),
+    discountType: period.discountType ?? lease.terms?.discountType ?? "FIXED",
+    discountDaysBefore: period.discountDaysBefore ?? lease.terms?.discountDaysBefore ?? 0,
+    lateFeePercentage: Number(period.lateFeePercentage ?? lease.terms?.lateFeePercentage ?? 0),
+    lateInterestMonthly: Number(period.lateInterestMonthly ?? lease.terms?.lateInterestMonthly ?? 0),
+  };
+  const total = calcularTotalNominal(values);
+  const metadata = {
+    ...metadataAtual,
+    competence: vigencia.competencia,
+    leaseId: lease.id,
+    termsPeriodId: period.id,
+    rentValue: values.rentValue,
+    condominiumValue,
+    iptuValue: iptu.valor,
+    waterValue,
+    electricityValue,
+    gasValue: despesas.gasValue,
+    residentialExpenses: despesas.residentialExpenses,
+    residentialGasOverridden: despesas.gasOverridden,
+    iptuInstallment: iptu.numeroParcela,
+    iptuInstallments: iptu.quantidadeParcelas,
+    billingConditions,
+    dueDay: period.paymentDueDay,
+    source: "LEASE_TERMS_PERIOD",
+    preEmissionSyncedAt: new Date().toISOString(),
+  };
+  const items = criarItensCobranca(values, billingConditions);
+
+  await prisma.$transaction(async tx => {
+    await tx.transacaoFinanceira.update({
+      where: { id: transaction.id },
+      data: {
+        valor: total,
+        dataVencimento: vigencia.dataVencimento,
+        metadata: metadata as Prisma.InputJsonValue,
+      },
+    });
+    await tx.boletoChargeItem.deleteMany({ where: { transacaoId: transaction.id } });
+    if (items.length > 0) {
+      await tx.boletoChargeItem.createMany({
+        data: items.map(item => ({
+          transacaoId: transaction.id,
+          type: item.type,
+          description: item.description,
+          amount: item.amount,
+          order: item.order,
+        })),
+      });
+    }
+    await tx.leaseCharge.updateMany({
+      where: {
+        leaseId: lease.id,
+        competence: competenciaDaCobranca(transaction.metadata, transaction.dataVencimento),
+        chargeType: "RENT",
+        status: "PENDING",
+      },
+      data: {
+        termsPeriodId: period.id,
+        competence: vigencia.competencia,
+        amount: total,
+        dueDate: vigencia.dataVencimento,
+        calculationData: metadata as Prisma.InputJsonValue,
+      },
+    });
+  });
+
+  return { handled: true as const, updated: true as const, rentValue: values.rentValue, total, dueDate: vigencia.dataVencimento };
+}
+
+export async function reconciliarCobrancaAntesDaEmissao(transacaoId: string) {
+  const canonical = await reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId);
+  if (canonical.handled) return canonical;
+  return reconciliarCobrancaLegadaAntesDaEmissao(transacaoId);
 }

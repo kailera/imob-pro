@@ -13,6 +13,7 @@ import {
   criarDataVencimento,
   parseNumeroFlexivel,
   resolverPeriodoEfetivoDaCobranca,
+  resolverVigenciaCobrancaMensal,
   substituirCompetenciaNaDescricao,
 } from "../lib/locacao/financeiro";
 import { resolverPeriodoDaCobranca } from "../lib/locacao/resolverPeriodoCobranca";
@@ -149,6 +150,36 @@ test("respeita o início do ciclo não-calendário ao aplicar reajuste", () => {
     )?.id,
     "reajuste",
   );
+});
+
+test("usa o dia e o valor da vigência atual mesmo com termos principais desatualizados", () => {
+  const periodos = [
+    {
+      id: "base",
+      effectiveFrom: new Date("2025-08-01T00:00:00.000Z"),
+      effectiveTo: new Date("2026-08-01T00:00:00.000Z"),
+      paymentDueDay: 10,
+      rentAmount: 1000,
+    },
+    {
+      id: "reajuste",
+      effectiveFrom: new Date("2026-08-01T00:00:00.000Z"),
+      effectiveTo: null,
+      paymentDueDay: 20,
+      rentAmount: 1150,
+    },
+  ];
+
+  const resultado = resolverVigenciaCobrancaMensal({
+    periodos,
+    ano: 2026,
+    mes: 8,
+    diaVencimentoPadrao: 10,
+  });
+
+  assert.equal(resultado?.periodo?.id, "reajuste");
+  assert.equal(resultado?.periodo?.rentAmount, 1150);
+  assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-08-20");
 });
 
 test("converte a cláusula entre percentual e meses sem alterar a equivalência", () => {

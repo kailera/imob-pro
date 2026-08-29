@@ -16,6 +16,8 @@ import {
 } from '@/app/actions/interActions';
 import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
 import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar, RefreshCw } from 'lucide-react';
+import { resolverSituacaoVisualBoleto } from '@/lib/financeiro/situacao-boleto';
+import { formatarDataLocalISO } from '@/lib/locacao/financeiro';
 
 interface ApiTransaction {
   id: string;
@@ -32,6 +34,8 @@ interface ApiTransaction {
   interBarcode?: string | null;
   interPdfKey?: string | null;
   interStatus?: string | null;
+  interTxId?: string | null;
+  metadata?: unknown;
   contrato?: {
     locatarios?: Array<{ telefone?: unknown; cpfCnpj?: string | null }>;
   } | null;
@@ -196,7 +200,10 @@ export default function CobrancasPage() {
             return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
           };
 
-          const situacaoLabel = tx.status === 'LIQUIDADO' ? 'Liquidado' : tx.status === 'CANCELADO' ? 'Cancelado' : 'Recepcionado';
+          const estadoBoleto = resolverSituacaoVisualBoleto({
+            ...tx,
+            hoje: formatarDataLocalISO(),
+          });
 
           const locatarioObj = tx.contrato?.locatarios?.[0];
           let sacadoTelefone = "";
@@ -220,7 +227,7 @@ export default function CobrancasPage() {
             movimentoData: formatShortDate(tx.updatedAt) || '',
             movimentoHora: formatTime(tx.updatedAt),
             vencimento: formatShortDate(tx.dataVencimento) || '',
-            situacao: situacaoLabel,
+            situacao: estadoBoleto.situacao,
             valor: tx.valor,
             cedente: 'Imob Pro',
             sacadoNome: tx.descricao.replace('Aluguel - ', ''),
@@ -234,6 +241,9 @@ export default function CobrancasPage() {
             interBarcode: tx.interBarcode,
             interPdfKey: tx.interPdfKey,
             interStatus: tx.interStatus,
+            interStatusLabel: estadoBoleto.interStatusLabel,
+            boletoAtivo: estadoBoleto.boletoAtivo,
+            podeCorrigirEReemitir: estadoBoleto.podeCorrigirEReemitir,
           };
       });
       setCobrancas(mapped);

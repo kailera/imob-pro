@@ -27,7 +27,7 @@ import {
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
 import { resolveInterTransactionTenantId } from "@/lib/inter-tenant";
-import { reconciliarCobrancaLegadaAntesDaEmissao } from "@/lib/locacao/reconciliarCobrancaAntesEmissao";
+import { reconciliarCobrancaAntesDaEmissao } from "@/lib/locacao/reconciliarCobrancaAntesEmissao";
 import {
   criarItensCobrancaDeMetadata,
   lerCondicoesBoletoMetadata,
@@ -227,7 +227,7 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
   let baseUrl = "";
   let seuNumeroGerado = transacaoId.replace(/-/g, "").substring(0, 15);
   try {
-    const reconciliation = await reconciliarCobrancaLegadaAntesDaEmissao(transacaoId);
+    const reconciliation = await reconciliarCobrancaAntesDaEmissao(transacaoId);
     if (reconciliation.error) {
       return { success: false, error: reconciliation.error };
     }

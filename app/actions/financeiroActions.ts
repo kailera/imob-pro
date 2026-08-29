@@ -3,14 +3,11 @@
 import { prisma } from "@/lib/prisma";
 import { criarEstadoParaNovaEmissaoInter } from "@/lib/inter-cobranca";
 import { revalidatePath } from "next/cache";
-import { CategoriaTransacao, StatusTransacao, TipoTransacao } from "@/generated/prisma";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import {
   calcularInicioCompetencia,
-  calcularCompetenciaPorVencimento,
-  calcularVencimentoMensal,
   criarDataVencimento,
-  resolverPeriodoEfetivoDaCobranca,
+  resolverVigenciaCobrancaMensal,
 } from "@/lib/locacao/financeiro";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
@@ -300,29 +297,22 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         }
 
         const primeiroVencimento = lease.terms?.firstPeriodDueDate ?? null;
-        const dataVencimento = calcularVencimentoMensal(
+        const vigencia = resolverVigenciaCobrancaMensal({
+          periodos: lease.termsPeriods,
           ano,
           mes,
-          lease.terms?.paymentDueDay ?? lease.termsPeriods[0].paymentDueDay,
+          diaVencimentoPadrao: lease.terms?.paymentDueDay
+            ?? lease.termsPeriods[0].paymentDueDay,
           primeiroVencimento,
-        );
-        if (!dataVencimento) continue;
+          fimPeriodo: lease.terms?.firstPeriodEndDay,
+        });
+        if (!vigencia) continue;
+        const { dataVencimento, competencia: leaseCompetence, periodo: periodoAtivo } = vigencia;
         if (lease.billingStartDate && dataVencimento < lease.billingStartDate) continue;
-
-        const leaseCompetence = calcularCompetenciaPorVencimento(
-          dataVencimento,
-          lease.terms?.firstPeriodEndDay,
-        );
-        const [competenceYear, competenceMonth] = leaseCompetence.split("-").map(Number);
-        const periodoAtivo = resolverPeriodoEfetivoDaCobranca(
-          lease.termsPeriods,
-          leaseCompetence,
-          dataVencimento,
-          lease.terms?.firstPeriodEndDay,
-        );
         if (!periodoAtivo) {
           throw new Error(`A competência ${leaseCompetence} não está coberta por um período locatício.`);
         }
+        const [competenceYear, competenceMonth] = leaseCompetence.split("-").map(Number);
 
         if (periodoAtivo.reviewStatus !== "REVIEWED") {
           throw new Error(`O período da competência ${leaseCompetence} ainda não foi conferido.`);

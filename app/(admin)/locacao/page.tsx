@@ -27,7 +27,7 @@ export default async function LocacaoPage() {
 
   // 4. Passamos os dados limpos via propriedades (props) para o Client Component
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ">
       <LocacaoClientContainer
         initialContratos={contratos}
         initialImoveis={imoveis}
