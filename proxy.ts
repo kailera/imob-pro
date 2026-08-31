@@ -21,6 +21,10 @@ const isPublicRoute = createRouteMatcher([
   "/sw.js",
 ]);
 
+const isInternalJobRoute = createRouteMatcher([
+  "/api/inter/cobrancas/sync",
+  "/api/internal/inter/tasks/process",
+]);
 // Mantém compatibilidade apenas com o link público legado
 // `/vistorias/<token>`. Rotas administrativas mais profundas, como
 // `/vistorias/ficha-vistoria/<id>`, precisam obrigatoriamente de sessão.
@@ -32,8 +36,8 @@ function isLegacyPublicInspection(pathname: string) {
 export default clerkMiddleware(async (auth, request) => {
   const hostname = normalizeHostname(
     request.headers.get("x-forwarded-host") ??
-      request.headers.get("host") ??
-      request.nextUrl.hostname,
+    request.headers.get("host") ??
+    request.nextUrl.hostname,
   );
   const pathname = request.nextUrl.pathname;
 
@@ -42,6 +46,10 @@ export default clerkMiddleware(async (auth, request) => {
   if (isInterWebhookHost(hostname)) {
     if (pathname === "/api/webhooks/inter") return;
     return new Response("Not Found", { status: 404 });
+  }
+
+  if (hostname === "app" && isInternalJobRoute(request)) {
+    return;
   }
 
   // Suporte a desenvolvimento local (localhost / 127.0.0.1)
