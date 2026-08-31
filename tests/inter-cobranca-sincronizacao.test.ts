@@ -54,6 +54,13 @@ test("cobrança em processamento oferece atualização em vez de reemissão", ()
   assert.match(tableSource, /O Banco Inter ainda está processando esta cobrança/);
 });
 
+test("menu de ações escapa da área rolável e mantém composição visível", () => {
+  assert.match(tableSource, /createPortal/);
+  assert.match(tableSource, /className="fixed z-\[80\] w-56/);
+  assert.match(tableSource, />\s*Composição\s*<\/button>/);
+  assert.doesNotMatch(tableSource, /bottom-\[calc\(50%\+1\.5rem\)\]/);
+});
+
 test("timeout da consulta inicial preserva a solicitação como processamento aceito", () => {
   assert.match(interSource, /return \{ success: true, processing: true \}/);
 });

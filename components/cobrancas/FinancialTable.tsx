@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Download, 
-  QrCode, 
   Copy, 
   Check, 
   RefreshCw, 
@@ -10,7 +10,6 @@ import {
   FileText,
   AlertCircle,
   CheckSquare,
-  Coins,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -116,6 +115,11 @@ export default function FinancialTable({
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [compositionTransactionId, setCompositionTransactionId] = useState<string | null>(null);
   const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<{
+    left: number;
+    top: number;
+    openUpward: boolean;
+  } | null>(null);
 
   // Manual payment states
   const [payingBillet, setPayingBillet] = useState<BilletData | null>(null);
@@ -132,14 +136,46 @@ export default function FinancialTable({
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpenActionsMenuId(null);
     };
+    const closeOnViewportChange = () => setOpenActionsMenuId(null);
 
     document.addEventListener('pointerdown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', closeOnViewportChange);
+    window.addEventListener('scroll', closeOnViewportChange, true);
     return () => {
       document.removeEventListener('pointerdown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', closeOnViewportChange);
+      window.removeEventListener('scroll', closeOnViewportChange, true);
     };
   }, []);
+
+  const toggleActionsMenu = (
+    itemId: string,
+    anchor: HTMLButtonElement,
+  ) => {
+    if (openActionsMenuId === itemId) {
+      setOpenActionsMenuId(null);
+      setActionsMenuPosition(null);
+      return;
+    }
+
+    const rect = anchor.getBoundingClientRect();
+    const menuWidth = 224;
+    const estimatedMenuHeight = 280;
+    const viewportPadding = 12;
+    const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight
+      && rect.top > window.innerHeight - rect.bottom;
+    setActionsMenuPosition({
+      left: Math.min(
+        window.innerWidth - menuWidth - viewportPadding,
+        Math.max(viewportPadding, rect.right - menuWidth),
+      ),
+      top: openUpward ? rect.top - 8 : rect.bottom + 8,
+      openUpward,
+    });
+    setOpenActionsMenuId(itemId);
+  };
 
   const handleOpenPayModal = (billet: BilletData) => {
     setPayingBillet(billet);
@@ -388,7 +424,7 @@ export default function FinancialTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((item, index) => (
+            {data.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="text-[#280003] font-medium">{item.recepcaoData}</div>
@@ -497,7 +533,7 @@ export default function FinancialTable({
                   <div data-billet-actions-menu className="inline-block">
                     <button
                       type="button"
-                      onClick={() => setOpenActionsMenuId(current => current === item.id ? null : item.id)}
+                      onClick={(event) => toggleActionsMenu(item.id, event.currentTarget)}
                       disabled={actionLoading !== null}
                       aria-expanded={openActionsMenuId === item.id}
                       aria-controls={`billet-actions-${item.id}`}
@@ -507,14 +543,25 @@ export default function FinancialTable({
                       <MoreHorizontal className="h-5 w-5" />
                     </button>
 
-                    {openActionsMenuId === item.id && (
+                    {openActionsMenuId === item.id
+                      && actionsMenuPosition
+                      && typeof document !== 'undefined'
+                      && createPortal(
                       <div
                         id={`billet-actions-${item.id}`}
+                        data-billet-actions-menu
+                        role="menu"
                         aria-label={`Ações da cobrança de ${item.sacadoNome}`}
-                        className={`absolute right-4 z-30 w-56 rounded-xl border border-gray-200 bg-white p-1.5 text-left shadow-xl ${index >= data.length - 3 ? "bottom-[calc(50%+1.5rem)]" : "top-[calc(50%+1.5rem)]"}`}
+                        style={{
+                          left: actionsMenuPosition.left,
+                          top: actionsMenuPosition.top,
+                          transform: actionsMenuPosition.openUpward ? 'translateY(-100%)' : undefined,
+                        }}
+                        className="fixed z-[80] w-56 rounded-xl border border-gray-200 bg-white p-1.5 text-left shadow-xl"
                       >
                         <button
                           type="button"
+                          role="menuitem"
                           onClick={() => {
                             setOpenActionsMenuId(null);
                             setCompositionTransactionId(item.id);
@@ -527,6 +574,7 @@ export default function FinancialTable({
                         {item.situacao !== 'Liquidado' && item.situacao !== 'Cancelado' && (
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => {
                               setOpenActionsMenuId(null);
                               handleOpenPayModal(item);
@@ -540,6 +588,7 @@ export default function FinancialTable({
                         {item.contratoStatus === 'Pendente' && (
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => {
                               setOpenActionsMenuId(null);
                               onOpenSignatureModal?.(item);
@@ -556,6 +605,7 @@ export default function FinancialTable({
                           && item.interStatus !== 'CANCELADO' && (
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => handleCancelarBoleto(item)}
                             className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
                           >
@@ -566,6 +616,7 @@ export default function FinancialTable({
                         <div className="my-1 border-t border-gray-100" />
                         <button
                           type="button"
+                          role="menuitem"
                           onClick={() => {
                             setOpenActionsMenuId(null);
                             handleDeleteCharge(item);
@@ -576,7 +627,8 @@ export default function FinancialTable({
                           <Trash2 className="h-4 w-4" />
                           Excluir cobrança
                         </button>
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                 </td>
