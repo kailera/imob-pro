@@ -14,6 +14,7 @@ import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
 import {
   cobrancaEhRascunhoReutilizavel,
+  filtrarRascunhosReutilizaveisDaCompetencia,
   obterCompetenciaDaCobranca,
 } from "@/lib/financeiro/cobranca-rascunho";
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
@@ -220,7 +221,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           continue;
         }
 
-        const rascunhos = cobrancasExistentes.filter(cobrancaEhRascunhoReutilizavel);
+        const rascunhos = filtrarRascunhosReutilizaveisDaCompetencia(
+          cobrancasExistentes,
+          competence,
+        );
         const rascunhoPrincipal = cobrancaDaCompetencia ?? rascunhos[0] ?? null;
         if (rascunhoPrincipal) {
           const idsExcedentes = rascunhos
@@ -462,17 +466,14 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           continue;
         }
 
-        const rascunhos = cobrancasExistentes.filter(cobrancaEhRascunhoReutilizavel);
+        const rascunhos = filtrarRascunhosReutilizaveisDaCompetencia(
+          cobrancasExistentes,
+          leaseCompetence,
+        );
         const rascunhoPrincipal = cobrancaDaCompetencia ?? rascunhos[0] ?? null;
         const idsExcedentes = rascunhos
           .filter(item => item.id !== rascunhoPrincipal?.id)
           .map(item => item.id);
-        const competenciasAntigas = Array.from(new Set(
-          rascunhos
-            .map(item => obterCompetenciaDaCobranca(item.metadata))
-            .filter((value): value is string => Boolean(value && value !== leaseCompetence)),
-        ));
-
         const persisted = await prisma.$transaction(async tx => {
           // O contrato pode ser inativado enquanto o lote está calculando. A
           // conferência dentro da transação impede a gravação nessa janela.
@@ -558,16 +559,6 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           if (idsExcedentes.length > 0) {
             await tx.transacaoFinanceira.deleteMany({
               where: { id: { in: idsExcedentes } },
-            });
-          }
-          if (competenciasAntigas.length > 0) {
-            await tx.leaseCharge.deleteMany({
-              where: {
-                leaseId: lease.id,
-                competence: { in: competenciasAntigas },
-                chargeType: "RENT",
-                status: "PENDING",
-              },
             });
           }
           return true;

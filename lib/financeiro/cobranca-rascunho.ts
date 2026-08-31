@@ -24,3 +24,12 @@ export function obterCompetenciaDaCobranca(metadata: unknown) {
     ? competence
     : null;
 }
+
+export function filtrarRascunhosReutilizaveisDaCompetencia<
+  T extends CobrancaCandidataRascunho,
+>(cobrancas: T[], competencia: string) {
+  return cobrancas.filter(cobranca => (
+    cobrancaEhRascunhoReutilizavel(cobranca)
+    && obterCompetenciaDaCobranca(cobranca.metadata) === competencia
+  ));
+}
