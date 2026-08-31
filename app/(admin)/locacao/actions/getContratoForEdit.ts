@@ -52,7 +52,6 @@ export async function getContratoForEdit(
       charges: true,
       transacoes: {
         orderBy: { createdAt: 'desc' },
-        take: 20,
       },
       guarantee: true,
       clauses: true,
@@ -66,6 +65,21 @@ export async function getContratoForEdit(
   if (!lease) {
     return null
   }
+
+  const legacyTransactions = lease.legacyCode
+    ? await prisma.transacaoFinanceira.findMany({
+        where: {
+          contratoId: lease.legacyCode,
+          contrato: { imobId: context.tenantId },
+          categoria: 'ALUGUEL',
+          tipo: 'RECEITA',
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    : []
+  const allTransactions = Array.from(new Map(
+    [...lease.transacoes, ...legacyTransactions].map(transaction => [transaction.id, transaction]),
+  ).values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
   const startDateStr = lease.startDate ? lease.startDate.toISOString().slice(0, 10) : ''
   const endDateStr = lease.endDate ? lease.endDate.toISOString().slice(0, 10) : ''
@@ -92,7 +106,7 @@ export async function getContratoForEdit(
     migratedAt: lease.migratedAt?.toISOString() ?? null,
     reviewedAt: lease.reviewedAt?.toISOString() ?? null,
     billingStartDate: lease.billingStartDate ? lease.billingStartDate.toISOString().slice(0, 10) : '',
-    transacoes: lease.transacoes.map(transaction => ({
+    transacoes: allTransactions.map(transaction => ({
       id: transaction.id,
       descricao: transaction.descricao,
       valor: transaction.valor,

@@ -167,7 +167,14 @@ export default async function EditContratoPage({
                         />
                     </section>
 
-                    <CobrancasAcordosHistory transactions={contrato.transacoes} />
+                    <CobrancasAcordosHistory
+                        transactions={contrato.transacoes}
+                        contractReference={{
+                            kind: "LEASE",
+                            id: contrato.id,
+                            editUrl: `/locacao/contratos/${contrato.id}/editar`,
+                        }}
+                    />
                 </div>
 
                 {/* Sidebar de Etapas do Cadastro */}

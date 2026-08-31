@@ -1,5 +1,6 @@
 import { CalendarClock, CircleDollarSign, FileText } from "lucide-react"
 import { AgreementActions } from "@/components/locacao/AgreementActions"
+import { ContractChargesModal } from "@/components/locacao/ContractChargesModal"
 
 export type HistoryTransaction = {
   id: string
@@ -116,7 +117,17 @@ function HistoryList({
   )
 }
 
-export function CobrancasAcordosHistory({ transactions }: { transactions: HistoryTransaction[] }) {
+export function CobrancasAcordosHistory({
+  transactions,
+  contractReference,
+}: {
+  transactions: HistoryTransaction[]
+  contractReference: {
+    kind: "LEASE" | "LEGACY"
+    id: string
+    editUrl: string
+  }
+}) {
   const sorted = [...transactions].sort((a, b) => (
     new Date(b.createdAt || b.dataVencimento).getTime() - new Date(a.createdAt || a.dataVencimento).getTime()
   ))
@@ -125,9 +136,12 @@ export function CobrancasAcordosHistory({ transactions }: { transactions: Histor
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" data-slot="financial-history">
-      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-        <CircleDollarSign className="h-4 w-4 text-[#004777]" aria-hidden="true" />
-        <h2 className="text-sm font-bold text-gray-900">Acordos e cobranças recentes</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+        <div className="flex items-center gap-2">
+          <CircleDollarSign className="h-4 w-4 text-[#004777]" aria-hidden="true" />
+          <h2 className="text-sm font-bold text-gray-900">Acordos e cobranças recentes</h2>
+        </div>
+        <ContractChargesModal reference={contractReference} transactions={transactions} />
       </div>
 
       <div className="mt-5 grid gap-6 lg:grid-cols-2">

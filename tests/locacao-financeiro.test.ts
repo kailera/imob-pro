@@ -13,6 +13,7 @@ import {
   criarDataVencimento,
   parseNumeroFlexivel,
   resolverPeriodoEfetivoDaCobranca,
+  resolverVigenciaCobrancaPorCompetencia,
   resolverVigenciaCobrancaMensal,
   substituirCompetenciaNaDescricao,
 } from "../lib/locacao/financeiro";
@@ -180,6 +181,23 @@ test("usa o dia e o valor da vigência atual mesmo com termos principais desatua
   assert.equal(resultado?.periodo?.id, "reajuste");
   assert.equal(resultado?.periodo?.rentAmount, 1150);
   assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-08-20");
+});
+
+test("mantém a competência escolhida quando o vencimento ocorre no mês seguinte", () => {
+  const resultado = resolverVigenciaCobrancaPorCompetencia({
+    periodos: [{
+      id: "periodo",
+      effectiveFrom: new Date("2026-01-21T00:00:00.000Z"),
+      effectiveTo: null,
+      paymentDueDay: 26,
+    }],
+    competencia: "2026-09",
+    diaVencimentoPadrao: 26,
+    fimPeriodo: "Dia 20",
+  });
+
+  assert.equal(resultado?.competencia, "2026-09");
+  assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-10-26");
 });
 
 test("converte a cláusula entre percentual e meses sem alterar a equivalência", () => {

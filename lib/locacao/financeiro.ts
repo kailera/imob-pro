@@ -287,6 +287,41 @@ export function resolverVigenciaCobrancaMensal<T extends {
   return resultado;
 }
 
+export function resolverVigenciaCobrancaPorCompetencia<T extends {
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
+  paymentDueDay: number;
+}>(input: {
+  periodos: T[];
+  competencia: string;
+  diaVencimentoPadrao: number;
+  primeiroVencimento?: string | Date | null;
+  fimPeriodo?: string | null;
+}) {
+  const referencia = calcularInicioCompetencia(input.competencia);
+
+  // Em ciclos não-calendário, a competência pode vencer no mês seguinte.
+  // Testar os dois meses mantém a competência escolhida como fonte da verdade.
+  for (const deslocamento of [0, 1]) {
+    const vencimentoReferencia = new Date(Date.UTC(
+      referencia.getUTCFullYear(),
+      referencia.getUTCMonth() + deslocamento,
+      1,
+    ));
+    const resultado = resolverVigenciaCobrancaMensal({
+      periodos: input.periodos,
+      ano: vencimentoReferencia.getUTCFullYear(),
+      mes: vencimentoReferencia.getUTCMonth() + 1,
+      diaVencimentoPadrao: input.diaVencimentoPadrao,
+      primeiroVencimento: input.primeiroVencimento,
+      fimPeriodo: input.fimPeriodo,
+    });
+    if (resultado?.competencia === input.competencia) return resultado;
+  }
+
+  return null;
+}
+
 export function substituirCompetenciaNaDescricao(
   descricao: string,
   competencia: string,

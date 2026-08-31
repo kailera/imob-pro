@@ -288,7 +288,14 @@ function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
                         <p className="mt-4 text-xs text-gray-500">Controle locatício ainda não preenchido.</p>
                     )}
                 </section>
-                <CobrancasAcordosHistory transactions={contrato.transacoes} />
+                <CobrancasAcordosHistory
+                    transactions={contrato.transacoes}
+                    contractReference={{
+                        kind: "LEASE",
+                        id: contrato.id,
+                        editUrl: `/locacao/contratos/${contrato.id}/editar`,
+                    }}
+                />
             </div>
         </main>
     )
@@ -832,7 +839,14 @@ export default async function ViewLocacao({
 
                 </div>
 
-                <CobrancasAcordosHistory transactions={transacaoFinanceiras} />
+                <CobrancasAcordosHistory
+                    transactions={transacaoFinanceiras}
+                    contractReference={{
+                        kind: "LEGACY",
+                        id: contrato.id,
+                        editUrl: `/locacao/view-locacao/${contrato.id}?edit=true`,
+                    }}
+                />
 
             </div>
         </div>
