@@ -79,7 +79,7 @@ export async function createInterBatchTask(input: {
 }) {
   try {
     const result = await prisma.$transaction(async tx => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`inter-batch:${input.tenantId}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`inter-batch:${input.tenantId}`}))`;
 
       const activeTask = await tx.interBatchTask.findFirst({
         where: {
