@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   CategoriaTransacao,
+  Prisma,
   StatusTransacao,
   TipoTransacao,
-  type Prisma,
 } from '@/generated/prisma';
 import { requireUserContext } from '@/lib/auth';
 import {
   getCalendarDayStartInTimeZone,
   getFinanceMetricMonthRange,
 } from '@/lib/financeiro/period-metrics';
+import { normalizarBuscaSemAcentos } from '@/lib/financeiro/search-normalization';
+
+const SEARCH_ACCENTED_CHARACTERS = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
+const SEARCH_ASCII_CHARACTERS = 'aaaaaeeeeiiiiooooouuuucn';
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,18 +45,6 @@ export async function GET(req: NextRequest) {
     };
     const searchTerm = search?.trim();
     const searchDocumentDigits = searchTerm?.replace(/\D/g, '') || '';
-    const searchDocumentVariants = new Set(
-      [
-        searchTerm,
-        searchDocumentDigits,
-        searchDocumentDigits.length === 11
-          ? searchDocumentDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-          : '',
-        searchDocumentDigits.length === 14
-          ? searchDocumentDigits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-          : '',
-      ].filter((value): value is string => Boolean(value))
-    );
     const referenceMonthRange = referenceMonth
       ? getFinanceMetricMonthRange(referenceMonth)
       : null;
@@ -113,26 +105,42 @@ export async function GET(req: NextRequest) {
     }
 
     if (searchTerm) {
-      const documentSearch: Prisma.LocatarioWhereInput[] = Array.from(searchDocumentVariants).map((document) => ({
-        cpfCnpj: { contains: document, mode: 'insensitive' },
-      }));
+      const normalizedPattern = `%${normalizarBuscaSemAcentos(searchTerm)}%`;
+      const documentPattern = searchDocumentDigits ? `%${searchDocumentDigits}%` : null;
+      const matchingTransactions = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT DISTINCT financial_transaction.id
+        FROM "transacao_financeira" AS financial_transaction
+        LEFT JOIN "contrato_imovel_locacao" AS legacy_contract
+          ON legacy_contract.id = financial_transaction."contratoId"
+        LEFT JOIN "Locatario" AS legacy_tenant
+          ON legacy_tenant."contratoId" = legacy_contract.id
+        LEFT JOIN "lease" AS current_lease
+          ON current_lease.id = financial_transaction."leaseId"
+        LEFT JOIN "lease_party" AS current_party
+          ON current_party."leaseId" = current_lease.id
+          AND current_party.role::text = 'TENANT'
+        LEFT JOIN "person" AS current_tenant
+          ON current_tenant.id = current_party."personId"
+        LEFT JOIN "imovel" AS transaction_property
+          ON transaction_property.id = financial_transaction."imovelId"
+        WHERE (
+          legacy_contract."imobId" = ${tenantId}
+          OR current_lease."tenantId" = ${tenantId}
+          OR transaction_property."imobId" = ${tenantId}
+          OR financial_transaction.metadata->>'imobId' = ${tenantId}
+        )
+        AND (
+          translate(lower(COALESCE(financial_transaction.descricao, '')), ${SEARCH_ACCENTED_CHARACTERS}, ${SEARCH_ASCII_CHARACTERS}) LIKE ${normalizedPattern}
+          OR translate(lower(COALESCE(legacy_tenant.nome, '')), ${SEARCH_ACCENTED_CHARACTERS}, ${SEARCH_ASCII_CHARACTERS}) LIKE ${normalizedPattern}
+          OR translate(lower(COALESCE(current_tenant.name, '')), ${SEARCH_ACCENTED_CHARACTERS}, ${SEARCH_ASCII_CHARACTERS}) LIKE ${normalizedPattern}
+          OR (${documentPattern}::text IS NOT NULL AND regexp_replace(COALESCE(legacy_tenant."cpfCnpj", ''), '\\D', '', 'g') LIKE ${documentPattern})
+          OR (${documentPattern}::text IS NOT NULL AND regexp_replace(COALESCE(current_tenant."cpfCnpj", ''), '\\D', '', 'g') LIKE ${documentPattern})
+        )
+      `);
 
-      where.OR = [
-        { descricao: { contains: searchTerm, mode: 'insensitive' } },
-        {
-          contrato: {
-            is: {
-              locatarios: {
-                some: {
-                  OR: [
-                    { nome: { contains: searchTerm, mode: 'insensitive' } },
-                    ...documentSearch,
-                  ],
-                },
-              },
-            },
-          },
-        },
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { id: { in: matchingTransactions.map(transaction => transaction.id) } },
       ];
     }
 
