@@ -26,17 +26,6 @@ async function requireInterTransactionAccess(transacaoId: string) {
   if (!transaction) throw new Error("Cobrança não encontrada ou sem permissão de acesso.");
 }
 
-async function getOrCreateDefaultImobId() {
-  const imob = await prisma.imob.findFirst();
-  if (imob) return imob.id;
-  const newImob = await prisma.imob.create({
-    data: {
-      orgId: "org_default"
-    }
-  });
-  return newImob.id;
-}
-
 async function requireInterAdmin() {
   const { userId, orgRole } = await auth();
   if (!userId) throw new Error("Não autenticado.");
@@ -76,9 +65,9 @@ function logInterActionError(operation: string, error: unknown) {
 
 export async function getInterConfigAction() {
   try {
-    const imobId = await getOrCreateDefaultImobId();
+    await requireUserContext();
     const config = await prisma.configuracaoInter.findUnique({
-      where: { imobId },
+      where: { singletonKey: "global" },
     });
 
     if (!config) {
@@ -107,7 +96,6 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
       return { success: false, error: "Apenas corretores/administradores podem alterar as configurações do Banco Inter." };
     }
 
-    const imobId = await getOrCreateDefaultImobId();
     const clientId = formData.get("clientId") as string;
     const clientSecret = formData.get("clientSecret") as string;
     const sandbox = formData.get("sandbox") === "on";
@@ -121,12 +109,12 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
 
     // Carrega dados atuais para preservar se não forem enviados novos arquivos
     const currentConfig = await prisma.configuracaoInter.findUnique({
-      where: { imobId },
+      where: { singletonKey: "global" },
     });
 
     let certPem = currentConfig?.certPem || "";
     let keyPem = currentConfig?.keyPem || "";
-    let finalClientSecret = clientSecret || currentConfig?.clientSecret || "";
+    const finalClientSecret = clientSecret || currentConfig?.clientSecret || "";
 
     if (!finalClientSecret) {
       return { success: false, error: "O Client Secret é obrigatório para a primeira configuração." };
@@ -144,7 +132,7 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
     }
 
     await prisma.configuracaoInter.upsert({
-      where: { imobId },
+      where: { singletonKey: "global" },
       update: {
         clientId,
         clientSecret: finalClientSecret,
@@ -153,7 +141,7 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
         sandbox,
       },
       create: {
-        imobId,
+        singletonKey: "global",
         clientId,
         clientSecret: finalClientSecret,
         certPem,
@@ -174,11 +162,10 @@ export async function saveInterConfigAction(prevState: any, formData: FormData) 
 export async function configureInterWebhookAction() {
   try {
     await requireInterAdmin();
-    const imobId = await getOrCreateDefaultImobId();
     const webhookUrl = process.env.INTER_WEBHOOK_URL
       || "https://inter-webhook.euatendo.online/api/webhooks/inter";
     const { configureInterWebhook } = await import("@/lib/inter");
-    const registration = await configureInterWebhook(imobId, webhookUrl);
+    const registration = await configureInterWebhook(webhookUrl);
     return {
       success: true as const,
       registration,
@@ -193,9 +180,8 @@ export async function configureInterWebhookAction() {
 export async function retrieveInterWebhookAction() {
   try {
     await requireInterAdmin();
-    const imobId = await getOrCreateDefaultImobId();
     const { retrieveInterWebhook } = await import("@/lib/inter");
-    const registration = await retrieveInterWebhook(imobId);
+    const registration = await retrieveInterWebhook();
     return { success: true as const, registration };
   } catch (error) {
     logInterActionError("consultar webhook", error);
@@ -239,21 +225,37 @@ export async function gerarBolePixWrapperAction(transacaoId: string) {
 }
 
 export async function reemitirBolePixWrapperAction(transacaoId: string) {
-  const { reemitirBolePixAction } = await import("@/lib/inter");
-  const result = await reemitirBolePixAction(transacaoId);
-  revalidatePath("/cobrancas");
-  revalidatePath("/financeiro");
-  revalidatePath("/locacao");
-  return result;
+  try {
+    await requireInterTransactionAccess(transacaoId);
+    const { reemitirBolePixAction } = await import("@/lib/inter");
+    const result = await reemitirBolePixAction(transacaoId);
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+    revalidatePath("/locacao");
+    return result;
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível reemitir o boleto.",
+    };
+  }
 }
 
 export async function cancelarBolePixWrapperAction(transacaoId: string) {
-  const { cancelarBolePixAction } = await import("@/lib/inter");
-  const result = await cancelarBolePixAction(transacaoId);
-  revalidatePath("/cobrancas");
-  revalidatePath("/financeiro");
-  revalidatePath("/locacao");
-  return result;
+  try {
+    await requireInterTransactionAccess(transacaoId);
+    const { cancelarBolePixAction } = await import("@/lib/inter");
+    const result = await cancelarBolePixAction(transacaoId);
+    revalidatePath("/cobrancas");
+    revalidatePath("/financeiro");
+    revalidatePath("/locacao");
+    return result;
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Não foi possível cancelar o boleto.",
+    };
+  }
 }
 
 export async function consultarBolePixWrapperAction(transacaoId: string) {

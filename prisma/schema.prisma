@@ -36,7 +36,6 @@ model Imob {
   users                  Users[]
   imovels                Imovel[]
   contratoImovelLocacaos ContratoImovelLocacao[]
-  configuracaoInter      ConfiguracaoInter?
   prestadorServicos      PrestadorServico[]
   manutencoes            Manutencao[]
   persons                Person[]
@@ -1491,8 +1490,7 @@ enum InterWebhookEventStatus {
 
 model ConfiguracaoInter {
   id           String   @id @default(uuid())
-  imobId       String   @unique
-  imob         Imob     @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  singletonKey String   @unique @default("global")
   clientId     String
   clientSecret String
   certPem      String   @db.Text

@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   cancelarBoletoInter,
   respostaInterIndicaCobrancaCancelada,
 } from "../lib/inter-cobranca";
+
+const readSource = (relativePath: string) => readFileSync(
+  fileURLToPath(new URL(relativePath, import.meta.url)),
+  "utf8",
+);
 
 test("envia o cancelamento no endpoint V3 com o payload documentado", async () => {
   const calls: Array<{ url: string; data: unknown; config: unknown }> = [];
@@ -58,4 +65,45 @@ test("não ignora outros erros de cancelamento do Inter", () => {
     title: "Requisição inválida",
     detail: "A cobrança já foi recebida.",
   }), false);
+});
+
+test("integração Inter é global e não depende do imobId da cobrança", () => {
+  const schema = readSource("../prisma/schema.prisma");
+  const interService = readSource("../lib/inter.ts");
+  const migration = readSource(
+    "../prisma/migrations/20260831183000_make_inter_config_global/migration.sql",
+  );
+  const configModel = schema.slice(
+    schema.indexOf("model ConfiguracaoInter"),
+    schema.indexOf("enum TipoNegocioComissao"),
+  );
+
+  assert.match(configModel, /singletonKey\s+String\s+@unique\s+@default\("global"\)/);
+  assert.doesNotMatch(configModel, /imobId/);
+  assert.match(interService, /where: \{ singletonKey: "global" \}/);
+  assert.match(interService, /export async function getInterCredentials\(\)/);
+  assert.match(migration, /ORDER BY "updatedAt" DESC/);
+  assert.match(migration, /DROP COLUMN "imobId"/);
+});
+
+test("cancelamento valida acesso e só então chama o serviço do Inter", () => {
+  const actions = readSource("../app/actions/interActions.ts");
+  const wrapper = actions.slice(
+    actions.indexOf("export async function cancelarBolePixWrapperAction"),
+    actions.indexOf("export async function consultarBolePixWrapperAction"),
+  );
+  const interService = readSource("../lib/inter.ts");
+  const cancellation = interService.slice(
+    interService.indexOf("export async function cancelarBolePixAction"),
+    interService.indexOf("export async function reemitirBolePixAction"),
+  );
+
+  assert.ok(
+    wrapper.indexOf("requireInterTransactionAccess")
+      < wrapper.indexOf("cancelarBolePixAction(transacaoId)"),
+  );
+  assert.ok(
+    cancellation.indexOf("await cancelarBoletoInter")
+      < cancellation.indexOf("interStatus: \"CANCELADO\""),
+  );
 });

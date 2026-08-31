@@ -39,6 +39,7 @@ import { isValidCpfCnpj } from "@/lib/document-validation";
 
 // Interface para estruturar o retorno das chamadas do Inter
 export interface InterAuthCredentials {
+  cacheKey: string;
   clientId: string;
   clientSecret: string;
   certPem: string;
@@ -56,11 +57,11 @@ export function formatMensagemInter(descricao: string): Record<string, string> {
 }
 
 /**
- * Obtém as credenciais de integração com o Banco Inter da imobiliária a partir do banco de dados.
+ * Obtém a configuração global da integração com o Banco Inter.
  */
-export async function getInterCredentials(imobId: string): Promise<InterAuthCredentials> {
+export async function getInterCredentials(): Promise<InterAuthCredentials> {
   const config = await prisma.configuracaoInter.findUnique({
-    where: { imobId },
+    where: { singletonKey: "global" },
   });
 
   if (!config) {
@@ -68,6 +69,7 @@ export async function getInterCredentials(imobId: string): Promise<InterAuthCred
   }
 
   return {
+    cacheKey: `${config.id}:${config.updatedAt.toISOString()}`,
     clientId: config.clientId,
     clientSecret: config.clientSecret,
     certPem: config.certPem,
@@ -100,12 +102,11 @@ function validateWebhookUrl(webhookUrl: string): string {
 
 /** Cadastra ou atualiza o webhook da API Cobrança V3 no ambiente configurado. */
 export async function configureInterWebhook(
-  imobId: string,
   webhookUrl: string,
 ): Promise<InterWebhookRegistration> {
   const normalizedUrl = validateWebhookUrl(webhookUrl);
-  const credentials = await getInterCredentials(imobId);
-  const token = await getInterAccessToken(imobId);
+  const credentials = await getInterCredentials();
+  const token = await getInterAccessToken();
   const baseUrl = getInterBaseUrl(credentials.sandbox);
   const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
 
@@ -128,9 +129,9 @@ export async function configureInterWebhook(
 }
 
 /** Consulta o webhook cadastrado no ambiente atual da integração. */
-export async function retrieveInterWebhook(imobId: string): Promise<InterWebhookRegistration> {
-  const credentials = await getInterCredentials(imobId);
-  const token = await getInterAccessToken(imobId);
+export async function retrieveInterWebhook(): Promise<InterWebhookRegistration> {
+  const credentials = await getInterCredentials();
+  const token = await getInterAccessToken();
   const baseUrl = getInterBaseUrl(credentials.sandbox);
   const httpsAgent = createHttpsAgent(credentials.certPem, credentials.keyPem, credentials.sandbox);
   const response = await axios.get(`${baseUrl}/cobranca/v3/cobrancas/webhook`, {
@@ -162,11 +163,11 @@ function createHttpsAgent(certPem: string, keyPem: string, sandbox: boolean): ht
 /**
  * Solicita o token de acesso OAuth v3 via mTLS para a API do Banco Inter.
  */
-export async function getInterAccessToken(imobId: string): Promise<string> {
-  const creds = await getInterCredentials(imobId);
+export async function getInterAccessToken(): Promise<string> {
+  const creds = await getInterCredentials();
   const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
   const baseUrl = getInterBaseUrl(creds.sandbox);
-  const cacheKey = `${imobId}:${creds.sandbox ? "sandbox" : "production"}:${creds.clientId}`;
+  const cacheKey = `${creds.cacheKey}:${creds.sandbox ? "sandbox" : "production"}:${creds.clientId}`;
 
   return interTokenCache.get(cacheKey, async () => {
     const params = new URLSearchParams();
@@ -412,8 +413,8 @@ export async function gerarBolePixAction(
     }
 
     // 2. Resolve credenciais do Inter
-    const creds = await getInterCredentials(finalImobId);
-    token = await getInterAccessToken(finalImobId);
+    const creds = await getInterCredentials();
+    token = await getInterAccessToken();
     httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     baseUrl = getInterBaseUrl(creds.sandbox);
 
@@ -928,8 +929,8 @@ export async function consultarBolePixAction(transacaoId: string): Promise<{
     }
 
     // Resolve credenciais do Inter
-    const creds = await getInterCredentials(imobId);
-    const token = await getInterAccessToken(imobId);
+    const creds = await getInterCredentials();
+    const token = await getInterAccessToken();
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
@@ -1095,9 +1096,6 @@ export async function simularPagamentoBolePixAction(transacaoId: string): Promis
   try {
     const transacao = await prisma.transacaoFinanceira.findUnique({
       where: { id: transacaoId },
-      include: {
-        contrato: true,
-      },
     });
 
     if (!transacao) {
@@ -1108,18 +1106,12 @@ export async function simularPagamentoBolePixAction(transacaoId: string): Promis
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter associada." };
     }
 
-    let imobId = transacao.contrato?.imobId;
-    if (!imobId) {
-      const firstImob = await prisma.imob.findFirst();
-      imobId = firstImob?.id || "default";
-    }
-
-    const creds = await getInterCredentials(imobId);
+    const creds = await getInterCredentials();
     if (!creds.sandbox) {
       return { success: false, error: "A simulação de pagamento só é permitida no ambiente Sandbox." };
     }
 
-    const token = await getInterAccessToken(imobId);
+    const token = await getInterAccessToken();
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
@@ -1159,9 +1151,6 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
   try {
     const transacao = await prisma.transacaoFinanceira.findUnique({
       where: { id: transacaoId },
-      include: {
-        contrato: true,
-      },
     });
 
     if (!transacao) {
@@ -1172,14 +1161,8 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
       return { success: false, error: "Esta transação não possui uma cobrança do Banco Inter ativa." };
     }
 
-    let imobId = transacao.contrato?.imobId;
-    if (!imobId) {
-      const firstImob = await prisma.imob.findFirst();
-      imobId = firstImob?.id || "default";
-    }
-
-    const creds = await getInterCredentials(imobId);
-    const token = await getInterAccessToken(imobId);
+    const creds = await getInterCredentials();
+    const token = await getInterAccessToken();
     const httpsAgent = createHttpsAgent(creds.certPem, creds.keyPem, creds.sandbox);
     const baseUrl = getInterBaseUrl(creds.sandbox);
 
@@ -1216,7 +1199,10 @@ export async function cancelarBolePixAction(transacaoId: string): Promise<{
     console.error("Erro ao cancelar BolePix no Banco Inter:", err.response?.data || err.message);
     return {
       success: false,
-      error: err.response?.data?.title || err.response?.data?.message || err.message || "Erro inesperado ao cancelar boleto.",
+      error: extrairMensagemErroInter(err.response?.data)
+        || err.response?.data?.message
+        || err.message
+        || "Erro inesperado ao cancelar boleto.",
     };
   }
 }

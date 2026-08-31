@@ -391,27 +391,33 @@ export async function processNextInterBatchItem(workerId: string = randomUUID())
 }
 
 export async function enqueueScheduledInterSyncTasks() {
-  const configurations = await prisma.configuracaoInter.findMany({
-    select: { imobId: true },
+  const configuration = await prisma.configuracaoInter.findUnique({
+    where: { singletonKey: "global" },
+    select: { id: true },
+  });
+  if (!configuration) return [];
+
+  const tenants = await prisma.imob.findMany({
+    select: { id: true },
   });
   const results = [];
-  for (const configuration of configurations) {
+  for (const tenant of tenants) {
     try {
       const result = await createInterBatchTask({
-        tenantId: configuration.imobId,
+        tenantId: tenant.id,
         createdByUserId: null,
         operation: "SYNC",
         isScheduled: true,
       });
       results.push({
-        tenantId: configuration.imobId,
+        tenantId: tenant.id,
         taskId: result.task.id,
         created: result.created,
         total: result.task.total,
       });
     } catch (error) {
       results.push({
-        tenantId: configuration.imobId,
+        tenantId: tenant.id,
         error: sanitizeTaskError(error),
       });
     }
