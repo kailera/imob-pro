@@ -434,6 +434,8 @@ export function criarEstadoParaNovaEmissaoInter() {
     interOrigemRecebimento: null,
     interDataRecebimento: null,
     interValorRecebido: null,
+    interEmissionLockId: null,
+    interEmissionLockedAt: null,
     // A mensagem pertence ao boleto cancelado. Mantê-la durante a reemissão
     // faz a tela misturar a composição nova com desconto/multa antigos.
     interMensagem: {},

@@ -88,6 +88,8 @@ export default function FinancialFilterBar({ filters, onChange, onApply }: Filte
             <option value="Liquidado">Liquidado</option>
             <option value="Cancelado">Cancelado</option>
             <option value="Recepcionado">Recepcionado</option>
+            <option value="Sem boleto">Sem boleto</option>
+            <option value="Em atraso">Em atraso</option>
           </select>
         </div>
 

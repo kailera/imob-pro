@@ -5,41 +5,21 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { requireUserContext } from "@/lib/auth";
 import { isValidCpfCnpj } from "@/lib/document-validation";
-import type { Prisma } from "@/generated/prisma";
+import {
+  interBatchIntervalMs,
+  interTransactionTenantScope,
+  listInterBatchCandidates,
+} from "@/lib/inter-batch-candidates";
+import type { InterBatchOperation } from "@/lib/inter-batch-task-types";
 
-const INTER_BATCH_DEFAULT_SIZE = 50;
-const INTER_BATCH_MAX_SIZE = 100;
-const INTER_BATCH_DEFAULT_INTERVAL_MS = 6_500;
-
-export type InterBatchOperation = "EMIT" | "SYNC";
-
-function readBoundedPositiveInteger(
-  value: string | undefined,
-  fallback: number,
-  maximum: number,
-) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
-  return Math.min(parsed, maximum);
-}
-
-function transactionTenantScope(tenantId: string): Prisma.TransacaoFinanceiraWhereInput {
-  return {
-    OR: [
-      { contrato: { imobId: tenantId } },
-      { lease: { tenantId } },
-      { imovel: { imobId: tenantId } },
-      { metadata: { path: ["imobId"], equals: tenantId } },
-    ],
-  };
-}
+export type { InterBatchOperation } from "@/lib/inter-batch-task-types";
 
 async function requireInterTransactionAccess(transacaoId: string) {
   const context = await requireUserContext();
   const transaction = await prisma.transacaoFinanceira.findFirst({
     where: {
       id: transacaoId,
-      ...transactionTenantScope(context.tenantId),
+      ...interTransactionTenantScope(context.tenantId),
     },
     select: { id: true },
   });
@@ -226,65 +206,13 @@ export async function retrieveInterWebhookAction() {
 export async function listInterBatchCandidatesAction(operation: InterBatchOperation) {
   try {
     const context = await requireUserContext();
-    const batchSize = readBoundedPositiveInteger(
-      process.env.INTER_BATCH_SIZE,
-      INTER_BATCH_DEFAULT_SIZE,
-      INTER_BATCH_MAX_SIZE,
-    );
-    const intervalMs = readBoundedPositiveInteger(
-      process.env.INTER_BATCH_INTERVAL_MS,
-      INTER_BATCH_DEFAULT_INTERVAL_MS,
-      60_000,
-    );
-    const operationFilter: Prisma.TransacaoFinanceiraWhereInput = operation === "SYNC"
-      ? {
-          interCodigoSolicitacao: { not: null },
-          OR: [
-            { interStatus: null },
-            {
-              interStatus: {
-                notIn: [
-                  "RECEBIDO",
-                  "PAGO",
-                  "CANCELADO",
-                  "EXPIRADO",
-                  "FALHA_EMISSAO",
-                  "MARCADO_RECEBIDO",
-                ],
-              },
-            },
-          ],
-        }
-      : {
-          interCodigoSolicitacao: null,
-          interNossoNumero: null,
-          interTxId: null,
-          interBarcode: null,
-        };
-
-    const transactions = await prisma.transacaoFinanceira.findMany({
-      where: {
-        AND: [
-          transactionTenantScope(context.tenantId),
-          operationFilter,
-        ],
-        tipo: "RECEITA",
-        categoria: "ALUGUEL",
-        status: "PENDENTE",
-      },
-      orderBy: [{ dataVencimento: "asc" }, { createdAt: "asc" }],
-      take: batchSize,
-      select: { id: true, descricao: true },
-    });
+    const transactions = await listInterBatchCandidates(context.tenantId, operation);
 
     return {
       success: true as const,
-      intervalMs,
-      limitedTo: batchSize,
-      transactions: transactions.map(transaction => ({
-        id: transaction.id,
-        label: transaction.descricao.replace("Aluguel - ", ""),
-      })),
+      intervalMs: interBatchIntervalMs(),
+      limitedTo: transactions.length,
+      transactions,
     };
   } catch (error) {
     return {

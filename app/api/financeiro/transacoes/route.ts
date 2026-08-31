@@ -7,6 +7,10 @@ import {
   type Prisma,
 } from '@/generated/prisma';
 import { requireUserContext } from '@/lib/auth';
+import {
+  getCalendarDayStartInTimeZone,
+  getFinanceMetricMonthRange,
+} from '@/lib/financeiro/period-metrics';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,6 +23,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate');
     const dateField = searchParams.get('dateField') || 'vencimento';
     const search = searchParams.get('search');
+    const referenceMonth = searchParams.get('referenceMonth')?.trim();
     const nome = searchParams.get('nome')?.trim();
     const cpf = searchParams.get('cpf')?.trim();
     const page = searchParams.get('page');
@@ -48,6 +53,16 @@ export async function GET(req: NextRequest) {
           : '',
       ].filter((value): value is string => Boolean(value))
     );
+    const referenceMonthRange = referenceMonth
+      ? getFinanceMetricMonthRange(referenceMonth)
+      : null;
+
+    if (referenceMonth && !referenceMonthRange) {
+      return NextResponse.json(
+        { error: 'Mês de referência inválido. Use o formato AAAA-MM.' },
+        { status: 400 },
+      );
+    }
 
     if (tipo && Object.values(TipoTransacao).includes(tipo as TipoTransacao)) {
       where.tipo = tipo as TipoTransacao;
@@ -65,6 +80,33 @@ export async function GET(req: NextRequest) {
         where.status = 'LIQUIDADO';
       } else if (status === 'Cancelado') {
         where.status = 'CANCELADO';
+      } else if (status === 'Sem boleto') {
+        where.status = 'PENDENTE';
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : []),
+          {
+            interCodigoSolicitacao: null,
+            interNossoNumero: null,
+            interSeuNumero: null,
+            interTxId: null,
+            interBarcode: null,
+          },
+        ];
+      } else if (status === 'Em atraso') {
+        where.status = 'PENDENTE';
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : []),
+          {
+            OR: [
+              { interCodigoSolicitacao: { not: null } },
+              { interNossoNumero: { not: null } },
+              { interSeuNumero: { not: null } },
+              { interTxId: { not: null } },
+              { interBarcode: { not: null } },
+            ],
+          },
+          { dataVencimento: { lt: getCalendarDayStartInTimeZone() } },
+        ];
       } else if (Object.values(StatusTransacao).includes(status as StatusTransacao)) {
         where.status = status as StatusTransacao;
       }
@@ -138,7 +180,12 @@ export async function GET(req: NextRequest) {
     };
     const dbField = fieldMap[dateField] || 'dataVencimento';
 
-    if (!searchTerm && (startDate || endDate)) {
+    if (referenceMonthRange) {
+      where.dataVencimento = {
+        gte: referenceMonthRange.start,
+        lt: referenceMonthRange.endExclusive,
+      };
+    } else if (!searchTerm && (startDate || endDate)) {
       const dateRange: Prisma.DateTimeFilter = {};
       if (startDate) dateRange.gte = new Date(startDate);
       if (endDate) dateRange.lte = new Date(endDate);

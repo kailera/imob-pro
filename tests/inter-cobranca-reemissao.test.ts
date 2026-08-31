@@ -19,6 +19,8 @@ test("limpa todos os identificadores do Inter antes de uma nova emissão", () =>
     interOrigemRecebimento: null,
     interDataRecebimento: null,
     interValorRecebido: null,
+    interEmissionLockId: null,
+    interEmissionLockedAt: null,
     interMensagem: {},
     status: "PENDENTE",
   });

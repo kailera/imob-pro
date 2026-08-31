@@ -42,6 +42,7 @@ model Imob {
   persons                Person[]
   leases                 Lease[]
   residenciais           Residencial[]
+  interBatchTasks        InterBatchTask[]
 
   @@map("imob")
 }
@@ -61,6 +62,7 @@ model Users {
   vistoriadorVistorias Vistoria[]            @relation(name: "VistoriaVistoriador")
   transacoes           TransacaoFinanceira[]
   comissoes            Comissao[]
+  interBatchTasks      InterBatchTask[]      @relation("InterBatchTaskCreator")
 
   @@map("users")
 }
@@ -1315,6 +1317,26 @@ enum StatusTransacao {
   CANCELADO
 }
 
+enum InterBatchOperation {
+  EMIT
+  SYNC
+}
+
+enum InterBatchTaskStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+enum InterBatchItemStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 model TransacaoFinanceira {
   id             String             @id @default(uuid())
   descricao      String
@@ -1360,11 +1382,64 @@ model TransacaoFinanceira {
   interDataRecebimento   DateTime?
   interValorRecebido     Decimal?             @db.Decimal(15, 2) // para confronto
   interMensagem          Json?
+  interEmissionLockId    String?
+  interEmissionLockedAt  DateTime?
   itensCobranca          BoletoChargeItem[]
   descontosManutencao    DescontoManutencao[]
 
   @@index([leaseId])
   @@map("transacao_financeira")
+}
+
+model InterBatchTask {
+  id              String               @id @default(uuid())
+  imobId          String
+  imob            Imob                 @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  createdByUserId String?
+  createdBy       Users?               @relation("InterBatchTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  operation       InterBatchOperation
+  isScheduled     Boolean              @default(false)
+  status          InterBatchTaskStatus @default(QUEUED)
+  total           Int                  @default(0)
+  processed       Int                  @default(0)
+  succeeded       Int                  @default(0)
+  failed          Int                  @default(0)
+  intervalMs      Int                  @default(6500)
+  nextProcessAt   DateTime             @default(now())
+  summaryMessage  String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  dismissedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  items           InterBatchTaskItem[]
+
+  @@index([imobId, status, createdAt])
+  @@index([status, nextProcessAt])
+  @@map("inter_batch_task")
+}
+
+model InterBatchTaskItem {
+  id             String               @id @default(uuid())
+  taskId         String
+  task           InterBatchTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  transacaoId    String
+  label          String
+  status         InterBatchItemStatus @default(PENDING)
+  attempts       Int                  @default(0)
+  nextAttemptAt  DateTime             @default(now())
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  lastError      String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([taskId, transacaoId])
+  @@index([status, nextAttemptAt])
+  @@index([leaseExpiresAt])
+  @@map("inter_batch_task_item")
 }
 
 model BoletoChargeItem {

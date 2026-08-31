@@ -1,14 +1,11 @@
-import {
-  InterStatusSyncAlreadyRunningError,
-  synchronizePendingInterCharges,
-} from "@/lib/inter-status-sync";
+import { enqueueScheduledInterSyncTasks } from "@/lib/inter-batch-tasks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET|POST /api/inter/cobrancas/sync
- * Reconcilia as cobranças pendentes com a API Cobrança V3 do Banco Inter.
+ * Enfileira a reconciliação das cobranças pendentes de cada imobiliária.
  * Autenticação: Authorization: Bearer <CRON_SECRET>
  */
 async function handleSynchronization(request: Request) {
@@ -24,16 +21,15 @@ async function handleSynchronization(request: Request) {
   }
 
   try {
-    const report = await synchronizePendingInterCharges();
-    return Response.json(
-      { success: report.failed === 0, report },
-      { status: report.failed === 0 ? 200 : 207 },
-    );
+    const tasks = await enqueueScheduledInterSyncTasks();
+    const failures = tasks.filter(task => "error" in task);
+    return Response.json({
+      success: failures.length === 0,
+      queued: tasks.filter(task => "created" in task && task.created).length,
+      tasks,
+    }, { status: failures.length === 0 ? 202 : 207 });
   } catch (error) {
-    if (error instanceof InterStatusSyncAlreadyRunningError) {
-      return Response.json({ success: false, error: error.message }, { status: 409 });
-    }
-    console.error("[inter-status-cron] Falha na sincronização:", error);
+    console.error("[inter-status-cron] Falha ao enfileirar sincronização:", error);
     return Response.json(
       { success: false, error: "Falha interna ao sincronizar cobranças do Banco Inter." },
       { status: 500 },

@@ -81,14 +81,18 @@ test("cron aceita GET e POST autenticados e consulta o tenant da lease", () => {
   assert.match(inter, /resolveInterTransactionTenantId\(transacao\)/);
 });
 
-test("tela oferece os dois lotes com intervalo seguro e seleção autenticada", () => {
+test("tela enfileira os dois lotes com intervalo seguro e seleção autenticada", () => {
   const page = readSource("../app/(admin)/cobrancas/page.tsx");
   const actions = readSource("../app/actions/interActions.ts");
+  const candidates = readSource("../lib/inter-batch-candidates.ts");
+  const tasks = readSource("../lib/inter-batch-tasks.ts");
 
   assert.match(page, /Atualizar status dos boletos/);
   assert.match(page, /Gerar boletos automaticamente/);
-  assert.match(page, /await sleep\(candidates\.intervalMs\)/);
-  assert.match(actions, /INTER_BATCH_DEFAULT_INTERVAL_MS = 6_500/);
+  assert.match(page, /startTask\('SYNC'\)/);
+  assert.match(page, /startTask\('EMIT'\)/);
+  assert.match(candidates, /DEFAULT_INTERVAL_MS = 6_500/);
+  assert.match(tasks, /listInterBatchCandidates/);
   assert.match(actions, /requireInterTransactionAccess\(transacaoId\)/);
-  assert.match(actions, /transactionTenantScope\(context\.tenantId\)/);
+  assert.match(actions, /interTransactionTenantScope\(context\.tenantId\)/);
 });

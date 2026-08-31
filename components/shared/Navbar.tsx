@@ -2,10 +2,11 @@
 
 import { Home, ClipboardCheck, Building, Key, Menu, X, Bell, LayoutDashboard, Scale, Coins, Settings, Download, Wrench, ChevronDown, Archive } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { UserButton, OrganizationSwitcher, SignInButton, SignUpButton, Show } from "@clerk/nextjs";
 import { usePWA } from "@/components/shared/PWAProvider";
+import { getNewSiteLeadsCount } from "@/app/actions/leadActions";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: Home },
@@ -26,14 +27,63 @@ const navItems = [
   { name: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
-export function Navbar() {
+type NavbarProps = {
+  initialNewSiteLeadsCount?: number;
+};
+
+function LeadAlertBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm"
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+export function Navbar({ initialNewSiteLeadsCount = 0 }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [newSiteLeadsCount, setNewSiteLeadsCount] = useState(initialNewSiteLeadsCount);
   const pathname = usePathname();
   const { isStandalone, isMobile, isSecureConnection, promptInstall, deferredPrompt, isIOS } = usePWA();
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshNewLeadsCount = async () => {
+      try {
+        const count = await getNewSiteLeadsCount();
+        if (isMounted) setNewSiteLeadsCount(count);
+      } catch (error) {
+        console.error("Não foi possível atualizar o alerta de novos leads:", error);
+      }
+    };
+
+    void refreshNewLeadsCount();
+    const intervalId = window.setInterval(refreshNewLeadsCount, 30_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshNewLeadsCount();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [pathname]);
+
   return (
     <nav className="fixed top-0 left-0 right-0 h-20 bg-[#FFFFFF] shadow-sm z-50 transition-all duration-300 w-full max-w-full overflow-x-clip">
-      <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 w-full">
+      <span className="sr-only" aria-live="polite">
+        {newSiteLeadsCount > 0
+          ? `${newSiteLeadsCount} ${newSiteLeadsCount === 1 ? "novo lead recebido" : "novos leads recebidos"} pelo site.`
+          : "Nenhum novo lead recebido pelo site."}
+      </span>
+      <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
 
         {/* Left Side: Brand and Desktop Nav */}
         <div className="flex items-center gap-4 xl:gap-6 h-full min-w-0">
@@ -41,8 +91,8 @@ export function Navbar() {
             <h1 className="text-xl font-bold text-[#004777]">Imob Pro</h1>
           </Link>
 
-          {/* Desktop Nav Items - shown on xl screens to fit 10 items without overflow */}
-          <div className="hidden xl:flex items-center space-x-1 2xl:space-x-4 h-full min-w-0">
+          {/* Desktop Nav Items - shown only when all items and the profile fit safely */}
+          <div className="hidden min-[1440px]:flex items-center space-x-1 2xl:space-x-4 h-full min-w-0">
             {navItems.map((item) => {
               const isActive = item.href === "/admin"
                 ? pathname === "/admin"
@@ -93,6 +143,7 @@ export function Navbar() {
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
                   <span>{item.name}</span>
+                  {item.href === "/crm" && <LeadAlertBadge count={newSiteLeadsCount} />}
                 </Link>
               );
             })}
@@ -103,10 +154,20 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
 
           {/* Notification Bell */}
-          <button className="p-2 text-[#280003]/60 hover:text-[#004777] hover:bg-[#EEEEF3] rounded-lg transition-colors relative">
+          <Link
+            href="/crm"
+            className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#280003]/60 transition-colors hover:bg-[#EEEEF3] hover:text-[#004777] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]/30"
+            aria-label={newSiteLeadsCount > 0
+              ? `Abrir CRM: ${newSiteLeadsCount} ${newSiteLeadsCount === 1 ? "novo lead" : "novos leads"} do site`
+              : "Abrir CRM"}
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#004777] rounded-full"></span>
-          </button>
+            {newSiteLeadsCount > 0 && (
+              <span className="absolute -right-1 top-1" aria-hidden="true">
+                <LeadAlertBadge count={newSiteLeadsCount} />
+              </span>
+            )}
+          </Link>
 
           {/* User Profile & Organization switcher */}
           <div className="flex items-center gap-2 sm:gap-4 pl-2 sm:pl-4 border-l border-[#EEEEF3]">
@@ -139,11 +200,12 @@ export function Navbar() {
             </Show>
           </div>
 
-          {/* Mobile/Tablet Menu Button (shown on < xl screens) */}
+          {/* Mobile/Tablet Menu Button (shown while the full menu would not fit) */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="xl:hidden p-2 text-[#280003]/80 hover:text-[#004777] rounded-lg hover:bg-[#EEEEF3] transition-colors"
-            aria-label="Toggle menu"
+            className="min-[1440px]:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#280003]/80 transition-colors hover:bg-[#EEEEF3] hover:text-[#004777] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]/30"
+            aria-label={isOpen ? "Fechar menu principal" : "Abrir menu principal"}
+            aria-expanded={isOpen}
           >
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -154,10 +216,10 @@ export function Navbar() {
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 bg-[#280003]/25 z-40 xl:hidden"
+            className="fixed inset-0 bg-[#280003]/25 z-40 min-[1440px]:hidden"
             onClick={() => setIsOpen(false)}
           />
-          <div className="fixed top-20 left-0 right-0 bg-[#FFFFFF] shadow-lg border-t border-[#EEEEF3] p-4 sm:p-6 space-y-2 z-50 xl:hidden flex flex-col max-h-[calc(100vh-5rem)] overflow-y-auto">
+          <div className="fixed top-20 left-0 right-0 bg-[#FFFFFF] shadow-lg border-t border-[#EEEEF3] p-4 sm:p-6 space-y-2 z-50 min-[1440px]:hidden flex flex-col max-h-[calc(100vh-5rem)] overflow-y-auto">
             {navItems.map((item) => {
               const isActive = item.href === "/admin"
                 ? pathname === "/admin"
@@ -174,6 +236,7 @@ export function Navbar() {
                   >
                     <item.icon className="w-5 h-5" />
                     <span>{item.name}</span>
+                    {item.href === "/crm" && <LeadAlertBadge count={newSiteLeadsCount} />}
                   </Link>
                   {item.children && (
                     <div className="ml-6 mt-1 space-y-1 border-l border-[#004777]/15 pl-3">

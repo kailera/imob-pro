@@ -48,6 +48,12 @@ export function findCompleteLeaseForLegacyContract(
   legacy: LegacyContractForDeduplication,
   leases: CanonicalLeaseForDeduplication[],
 ) {
+  // O vínculo gravado pela migração é a identidade mais forte disponível.
+  // Mesmo que o contrato canônico ainda esteja incompleto, o legado não pode
+  // voltar a ser fonte de cobrança para o mesmo contrato.
+  const directMatch = leases.find((lease) => lease.legacyCode === legacy.id);
+  if (directMatch) return directMatch;
+
   const legacyCpfs = new Set(
     (legacy.locatarios ?? [])
       .map((tenant) => digits(tenant.cpfCnpj))

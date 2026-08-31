@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireUserContext } from "@/lib/auth";
 import { criarEstadoParaNovaEmissaoInter } from "@/lib/inter-cobranca";
 import { revalidatePath } from "next/cache";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
@@ -18,19 +19,25 @@ import {
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 import { sincronizarPeriodoInicialLease } from "@/lib/locacao/sincronizarPeriodoInicialLease";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
-import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
+import {
+  findCompleteLeaseForLegacyContract,
+  removeLegacyDuplicatesWithCompleteLease,
+} from "@/lib/locacao/contract-deduplication";
 import { removerRascunhosFuturosDeContratoInativo } from "@/lib/locacao/cobrancas-inativos";
 
 export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
   try {
+    const { tenantId } = await requireUserContext();
     const competence = `${ano}-${String(mes).padStart(2, '0')}`;
+    const inicioMes = new Date(Date.UTC(ano, mes - 1, 1));
+    const fimMes = new Date(Date.UTC(ano, mes, 0, 23, 59, 59, 999));
 
     // Repara contratos que já haviam sido inativados antes de a limpeza de
     // cobranças futuras existir. Boletos emitidos e competências atuais/vencidas
     // são preservados pela própria função de limpeza.
     await prisma.$transaction(async tx => {
       const inactiveLeases = await tx.lease.findMany({
-        where: { status: "SUSPENDED" },
+        where: { tenantId, status: "SUSPENDED" },
         select: { id: true },
       });
       for (const inactiveLease of inactiveLeases) {
@@ -38,9 +45,33 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       }
     });
 
+    // A lista de origens só pode ser decidida depois que contratos atuais sem
+    // período inicial forem reparados. Isso evita gerar pelo legado e pelo
+    // canônico na mesma execução.
+    const leasesSemPeriodo = await prisma.lease.findMany({
+      where: {
+        tenantId,
+        status: "ACTIVE",
+        termsPeriods: { none: {} },
+      },
+      select: { id: true },
+    });
+    for (const lease of leasesSemPeriodo) {
+      await sincronizarPeriodoInicialLease(lease.id);
+    }
+
     // 1. Buscar contratos de locação ativos
     const [contratosLegados, leasesCanonicos] = await Promise.all([
       prisma.contratoImovelLocacao.findMany({
+        where: {
+          imobId: tenantId,
+          imovelLocacao: {
+            is: {
+              dataInicio: { lte: fimMes },
+              dataFim: { gte: inicioMes },
+            },
+          },
+        },
         include: {
           imovelLocacao: {
             include: {
@@ -53,7 +84,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         },
       }),
       prisma.lease.findMany({
-        where: { status: { in: ["ACTIVE", "SUSPENDED"] } },
+        where: { tenantId },
         select: {
           id: true,
           code: true,
@@ -254,23 +285,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       }
     }
 
-    // Repara contratos criados enquanto a edição de períodos estava indisponível.
-    // A sincronização só cria o período quando vigência, aluguel e controle
-    // locatício estiverem preenchidos.
-    const leasesSemPeriodo = await prisma.lease.findMany({
-      where: {
-        status: "ACTIVE",
-        termsPeriods: { none: {} },
-      },
-      select: { id: true },
-    });
-    for (const lease of leasesSemPeriodo) {
-      await sincronizarPeriodoInicialLease(lease.id);
-    }
-
     // 3. Contratos cadastrados no novo fluxo de locação.
     const leases = await prisma.lease.findMany({
       where: {
+        tenantId,
         status: "ACTIVE",
         startDate: { lte: new Date(Date.UTC(ano, mes, 0, 23, 59, 59)) },
         endDate: { gte: new Date(Date.UTC(ano, mes - 2, 1)) },
@@ -409,9 +427,19 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           residentialExpenses: metadata.residentialExpenses,
         }, metadata.billingConditions);
 
+        const legacyContractIds = contratosLegados
+          .filter(legacy => (
+            findCompleteLeaseForLegacyContract(legacy, [lease])?.id === lease.id
+          ))
+          .map(legacy => legacy.id);
         const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
           where: {
-            leaseId: lease.id,
+            OR: [
+              { leaseId: lease.id },
+              ...(legacyContractIds.length > 0
+                ? [{ contratoId: { in: legacyContractIds } }]
+                : []),
+            ],
             categoria: "ALUGUEL",
             tipo: "RECEITA",
           },
@@ -491,6 +519,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
                 valor: totalAmount,
                 dataVencimento,
                 leaseId: lease.id,
+                contratoId: null,
                 imovelId: lease.propertyId,
                 metadata,
               },

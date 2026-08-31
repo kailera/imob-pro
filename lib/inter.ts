@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "node:crypto";
 import https from "https";
 import axios from "axios";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -58,13 +59,9 @@ export function formatMensagemInter(descricao: string): Record<string, string> {
  * Obtém as credenciais de integração com o Banco Inter da imobiliária a partir do banco de dados.
  */
 export async function getInterCredentials(imobId: string): Promise<InterAuthCredentials> {
-  let config = await prisma.configuracaoInter.findUnique({
+  const config = await prisma.configuracaoInter.findUnique({
     where: { imobId },
   });
-
-  if (!config) {
-    config = await prisma.configuracaoInter.findFirst();
-  }
 
   if (!config) {
     throw new Error(`Configurações do Banco Inter não encontradas no sistema. Por favor, configure a integração no painel.`);
@@ -213,7 +210,10 @@ export async function getInterAccessToken(imobId: string): Promise<string> {
 /**
  * Gera um BolePix (Cobrança v3) no Banco Inter para uma transação financeira existente.
  */
-export async function gerarBolePixAction(transacaoId: string): Promise<{
+export async function gerarBolePixAction(
+  transacaoId: string,
+  options: { expectedTenantId?: string; emissionOwner?: string } = {},
+): Promise<{
   success: boolean;
   processing?: boolean;
   nossoNumero?: string;
@@ -226,6 +226,8 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
   let httpsAgent: any = null;
   let baseUrl = "";
   let seuNumeroGerado = transacaoId.replace(/-/g, "").substring(0, 15);
+  const emissionOwner = options.emissionOwner ?? `direct:${randomUUID()}`;
+  let emissionLockAcquired = false;
   try {
     const reconciliation = await reconciliarCobrancaAntesDaEmissao(transacaoId);
     if (reconciliation.error) {
@@ -282,6 +284,34 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       };
     }
 
+    const lockExpiredBefore = new Date(Date.now() - 15 * 60 * 1_000);
+    const reservation = await prisma.transacaoFinanceira.updateMany({
+      where: {
+        id: transacaoId,
+        interCodigoSolicitacao: null,
+        interNossoNumero: null,
+        interTxId: null,
+        interBarcode: null,
+        OR: [
+          { interEmissionLockId: null },
+          { interEmissionLockId: emissionOwner },
+          { interEmissionLockedAt: { lt: lockExpiredBefore } },
+        ],
+      },
+      data: {
+        interEmissionLockId: emissionOwner,
+        interEmissionLockedAt: new Date(),
+        interSeuNumero: seuNumeroGerado,
+      },
+    });
+    if (reservation.count !== 1) {
+      return {
+        success: false,
+        error: "Esta cobrança já está sendo emitida em outra tarefa.",
+      };
+    }
+    emissionLockAcquired = true;
+
     const primeiroVencimento = transacao.lease?.terms?.firstPeriodDueDate;
     if (
       primeiroVencimento
@@ -296,7 +326,15 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
       };
     }
 
-    let finalImobId = transacao.contrato?.imobId ?? transacao.lease?.tenantId;
+    const relatedImobId = transacao.contrato?.imobId ?? transacao.lease?.tenantId;
+    if (
+      options.expectedTenantId
+      && relatedImobId
+      && relatedImobId !== options.expectedTenantId
+    ) {
+      return { success: false, error: "A cobrança não pertence à imobiliária da tarefa." };
+    }
+    let finalImobId = options.expectedTenantId ?? relatedImobId;
     if (!finalImobId) {
       const firstImob = await prisma.imob.findFirst();
       if (!firstImob) {
@@ -624,7 +662,13 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
     });
 
     console.log("[gerarBolePixAction] Enviando POST para:", `${baseUrl}/cobranca/v3/cobrancas`);
-    console.log("[gerarBolePixAction] Payload:", JSON.stringify(payload, null, 2));
+    console.log("[gerarBolePixAction] Enviando cobrança:", {
+      transacaoId,
+      imobId: finalImobId,
+      seuNumero: payload.seuNumero,
+      vencimento: payload.dataVencimento,
+      valorNominal: payload.valorNominal,
+    });
 
     // 4. Cria a cobrança no Inter
     const response = await axios.post(`${baseUrl}/cobranca/v3/cobrancas`, payload, {
@@ -831,6 +875,20 @@ export async function gerarBolePixAction(transacaoId: string): Promise<{
         || err.message
         || "Erro inesperado ao gerar BolePix.",
     };
+  } finally {
+    if (emissionLockAcquired) {
+      try {
+        await prisma.transacaoFinanceira.updateMany({
+          where: { id: transacaoId, interEmissionLockId: emissionOwner },
+          data: { interEmissionLockId: null, interEmissionLockedAt: null },
+        });
+      } catch (unlockError) {
+        console.error("[gerarBolePixAction] Falha ao liberar reserva de emissão:", {
+          transacaoId,
+          message: unlockError instanceof Error ? unlockError.message : "Erro desconhecido",
+        });
+      }
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { LeadStatus, TipoImovel } from "@/generated/prisma";
 import { sendMatchingImoveisEmail, MailProperty } from "@/lib/mail";
+import { auth } from "@clerk/nextjs/server";
 
 export async function createLead(data: {
   nome: string;
@@ -56,6 +57,20 @@ export async function getLeads() {
   } catch (error) {
     console.error("Error fetching leads:", error);
     return [];
+  }
+}
+
+export async function getNewSiteLeadsCount() {
+  try {
+    const { userId } = await auth();
+    if (!userId) return 0;
+
+    return await prisma.lead.count({
+      where: { status: "NOVO" },
+    });
+  } catch (error) {
+    console.error("Error counting new site leads:", error);
+    return 0;
   }
 }
 
@@ -381,4 +396,3 @@ async function triggerAutomaticEmailSend(leadId: string) {
     console.error("Erro no envio de e-mail automático:", error);
   }
 }
-

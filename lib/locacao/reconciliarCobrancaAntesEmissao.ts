@@ -340,7 +340,61 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
   return { handled: true as const, updated: true as const, rentValue: values.rentValue, total, dueDate: vigencia.dataVencimento };
 }
 
+async function vincularRascunhoLegadoAoContratoCanonico(transacaoId: string) {
+  const transaction = await prisma.transacaoFinanceira.findUnique({
+    where: { id: transacaoId },
+    select: {
+      id: true,
+      contratoId: true,
+      leaseId: true,
+      categoria: true,
+      tipo: true,
+      status: true,
+      metadata: true,
+      interCodigoSolicitacao: true,
+      interNossoNumero: true,
+      interTxId: true,
+      interBarcode: true,
+      contrato: { select: { imobId: true } },
+    },
+  });
+  if (
+    !transaction?.contratoId
+    || transaction.leaseId
+    || transaction.categoria !== "ALUGUEL"
+    || transaction.tipo !== "RECEITA"
+    || transaction.status !== "PENDENTE"
+    || transaction.interCodigoSolicitacao
+    || transaction.interNossoNumero
+    || transaction.interTxId
+    || transaction.interBarcode
+    || composicaoFoiEditadaManualmente(transaction.metadata)
+  ) {
+    return false;
+  }
+
+  const canonicalLease = await prisma.lease.findFirst({
+    where: {
+      tenantId: transaction.contrato?.imobId,
+      legacyCode: transaction.contratoId,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+  if (!canonicalLease) return false;
+
+  await prisma.transacaoFinanceira.update({
+    where: { id: transaction.id },
+    data: {
+      leaseId: canonicalLease.id,
+      contratoId: null,
+    },
+  });
+  return true;
+}
+
 export async function reconciliarCobrancaAntesDaEmissao(transacaoId: string) {
+  await vincularRascunhoLegadoAoContratoCanonico(transacaoId);
   const canonical = await reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId);
   if (canonical.handled) return canonical;
   return reconciliarCobrancaLegadaAntesDaEmissao(transacaoId);

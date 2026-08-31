@@ -3,30 +3,11 @@ import type { Prisma } from "@/generated/prisma";
 import { requireUserContext } from "@/lib/auth";
 import {
   contractOverlapsFinancePeriod,
+  getCalendarDayStartInTimeZone,
   getFinanceMetricMonthRange,
-  normalizedContractDocument,
 } from "@/lib/financeiro/period-metrics";
 import { prisma } from "@/lib/prisma";
-
-function canonicalMatchesLegacy(
-  legacy: { id: string; imovelId: string; locatarios: Array<{ cpfCnpj: string }> },
-  lease: {
-    legacyCode: string | null;
-    propertyId: string | null;
-    parties: Array<{ person: { cpfCnpj: string } }>;
-  },
-) {
-  if (lease.legacyCode === legacy.id) return true;
-  if (lease.propertyId !== legacy.imovelId) return false;
-  const legacyDocuments = new Set(
-    legacy.locatarios
-      .map((tenant) => normalizedContractDocument(tenant.cpfCnpj))
-      .filter(Boolean),
-  );
-  return lease.parties.some((party) =>
-    legacyDocuments.has(normalizedContractDocument(party.person.cpfCnpj)),
-  );
-}
+import { removeLegacyDuplicatesWithCompleteLease } from "@/lib/locacao/contract-deduplication";
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,15 +32,32 @@ export async function GET(request: NextRequest) {
         { interCodigoSolicitacao: { not: null } },
         { interNossoNumero: { not: null } },
         { interSeuNumero: { not: null } },
+        { interTxId: { not: null } },
+        { interBarcode: { not: null } },
       ],
     };
+    const boletoNaoEmitido: Prisma.TransacaoFinanceiraWhereInput = {
+      interCodigoSolicitacao: null,
+      interNossoNumero: null,
+      interSeuNumero: null,
+      interTxId: null,
+      interBarcode: null,
+    };
+    const inicioHoje = getCalendarDayStartInTimeZone();
 
-    const [leases, legacyContracts, contractCharges, generatedBills, settledBills] =
+    const [
+      leases,
+      legacyContracts,
+      contractCharges,
+      generatedBills,
+      settledBills,
+      chargesWithoutBill,
+      overdueBills,
+    ] =
       await Promise.all([
         prisma.lease.findMany({
           where: {
             tenantId: context.tenantId,
-            status: { in: ["ACTIVE", "SUSPENDED"] },
           },
           select: {
             id: true,
@@ -68,9 +66,10 @@ export async function GET(request: NextRequest) {
             propertyId: true,
             startDate: true,
             endDate: true,
+            termsPeriods: { select: { reviewStatus: true } },
             parties: {
               where: { role: "TENANT" },
-              select: { person: { select: { cpfCnpj: true } } },
+              select: { role: true, person: { select: { cpfCnpj: true } } },
             },
           },
         }),
@@ -94,7 +93,7 @@ export async function GET(request: NextRequest) {
           where: {
             AND: [
               tenantScope,
-              { tipo: "RECEITA" },
+              { tipo: "RECEITA", categoria: "ALUGUEL" },
               { status: { not: "CANCELADO" } },
               {
                 dataVencimento: {
@@ -110,7 +109,7 @@ export async function GET(request: NextRequest) {
             AND: [
               tenantScope,
               boletoEmitido,
-              { tipo: "RECEITA" },
+              { tipo: "RECEITA", categoria: "ALUGUEL" },
               {
                 dataVencimento: {
                   gte: range.start,
@@ -125,7 +124,7 @@ export async function GET(request: NextRequest) {
             AND: [
               tenantScope,
               boletoEmitido,
-              { tipo: "RECEITA", status: "LIQUIDADO" },
+              { tipo: "RECEITA", categoria: "ALUGUEL", status: "LIQUIDADO" },
               {
                 OR: [
                   {
@@ -145,6 +144,31 @@ export async function GET(request: NextRequest) {
             ],
           },
         }),
+        prisma.transacaoFinanceira.count({
+          where: {
+            AND: [
+              tenantScope,
+              boletoNaoEmitido,
+              { tipo: "RECEITA", categoria: "ALUGUEL", status: "PENDENTE" },
+              { dataVencimento: { gte: range.start, lt: range.endExclusive } },
+            ],
+          },
+        }),
+        prisma.transacaoFinanceira.count({
+          where: {
+            AND: [
+              tenantScope,
+              boletoEmitido,
+              { tipo: "RECEITA", categoria: "ALUGUEL", status: "PENDENTE" },
+              {
+                dataVencimento: {
+                  gte: range.start,
+                  lt: range.endExclusive < inicioHoje ? range.endExclusive : inicioHoje,
+                },
+              },
+            ],
+          },
+        }),
       ]);
 
     const activeCanonicalLeases = leases.filter(
@@ -152,8 +176,9 @@ export async function GET(request: NextRequest) {
         lease.status === "ACTIVE" &&
         contractOverlapsFinancePeriod(lease.startDate, lease.endDate, range),
     );
-    const activeLegacyContracts = legacyContracts.filter(
-      (legacy) => !leases.some((lease) => canonicalMatchesLegacy(legacy, lease)),
+    const activeLegacyContracts = removeLegacyDuplicatesWithCompleteLease(
+      legacyContracts,
+      leases,
     );
 
     return NextResponse.json({
@@ -162,6 +187,8 @@ export async function GET(request: NextRequest) {
       contractCharges,
       generatedBills,
       settledBills,
+      chargesWithoutBill,
+      overdueBills,
     });
   } catch (error) {
     console.error("[financeiro-metricas] Erro:", error);

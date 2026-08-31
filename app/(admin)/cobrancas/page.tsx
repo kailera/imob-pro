@@ -6,18 +6,17 @@ import FinancialTable, { BilletData } from '@/components/cobrancas/FinancialTabl
 import FinancialSummary from '@/components/cobrancas/FinancialSummary';
 import {
   FinancialPeriodMetrics,
+  type FinancialMetricNavigationTarget,
   type FinancialPeriodMetricsData,
 } from '@/components/financeiro/FinancialPeriodMetrics';
-import {
-  consultarBolePixWrapperAction,
-  gerarBolePixWrapperAction,
-  listInterBatchCandidatesAction,
-  type InterBatchOperation,
-} from '@/app/actions/interActions';
 import { gerarCobrançasMensaisAction } from '@/app/actions/financeiroActions';
 import { Zap, X, CheckCircle, AlertTriangle, Loader2, Calendar, RefreshCw } from 'lucide-react';
 import { resolverSituacaoVisualBoleto } from '@/lib/financeiro/situacao-boleto';
 import { formatarDataLocalISO } from '@/lib/locacao/financeiro';
+import {
+  INTER_BATCH_TASK_FINISHED_EVENT,
+  useInterBatchTasks,
+} from '@/components/cobrancas/InterBatchTaskProvider';
 
 interface ApiTransaction {
   id: string;
@@ -48,6 +47,8 @@ const EMPTY_PERIOD_METRICS: FinancialPeriodMetricsData = {
   contractCharges: 0,
   generatedBills: 0,
   settledBills: 0,
+  chargesWithoutBill: 0,
+  overdueBills: 0,
 };
 
 const currentMonth = () => {
@@ -57,12 +58,22 @@ const currentMonth = () => {
 
 export default function CobrancasPage() {
   const loadDataRef = useRef<(silent?: boolean) => Promise<void>>(async () => undefined);
+  const loadRequestIdRef = useRef(0);
+  const currentPageRef = useRef(1);
+  const automaticFiltersReadyRef = useRef(false);
+  const [metricNavigationVersion, setMetricNavigationVersion] = useState(0);
   const [cobrancas, setCobrancas] = useState<BilletData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
   const [periodMetrics, setPeriodMetrics] = useState<FinancialPeriodMetricsData>(EMPTY_PERIOD_METRICS);
   const [periodMetricsLoading, setPeriodMetricsLoading] = useState(true);
   const [periodMetricsError, setPeriodMetricsError] = useState('');
+  const {
+    tasks: interBatchTasks,
+    hasActiveTask,
+    startingOperation,
+    startTask,
+  } = useInterBatchTasks();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,15 +91,7 @@ export default function CobrancasPage() {
     mesReferencia: 'TODOS',
     search: ''
   });
-
-  // Estados do processamento em lote
-  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
-  const [batchTotal, setBatchTotal] = useState(0);
-  const [batchCurrent, setBatchCurrent] = useState(0);
-  const [batchSuccessCount, setBatchSuccessCount] = useState(0);
-  const [batchErrors, setBatchErrors] = useState<{ sacado: string; error: string }[]>([]);
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [batchOperation, setBatchOperation] = useState<InterBatchOperation>('EMIT');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   // Estados de Geração de Cobranças Mensais
   const [showGenModal, setShowGenModal] = useState(false);
@@ -157,6 +160,7 @@ export default function CobrancasPage() {
   };
 
   async function loadData(silent = false) {
+    const requestId = ++loadRequestIdRef.current;
     if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -167,8 +171,11 @@ export default function CobrancasPage() {
         status: filters.status,
         startDate: filters.startDate,
         endDate: filters.endDate,
-        search: filters.search
+        search: appliedSearch
       });
+      if (filters.mesReferencia !== 'TODOS') {
+        params.set('referenceMonth', filters.mesReferencia);
+      }
 
       const res = await fetch(`/api/financeiro/transacoes?${params.toString()}`);
       if (!res.ok) throw new Error();
@@ -178,6 +185,7 @@ export default function CobrancasPage() {
         totalPages?: number;
         totals?: { registrado: number; liquidado: number; baixado: number; recepcionado: number; cancelado: number };
       };
+      if (requestId !== loadRequestIdRef.current) return;
       
       const rawData = responseData.data || [];
       const total = responseData.total || 0;
@@ -248,32 +256,88 @@ export default function CobrancasPage() {
       });
       setCobrancas(mapped);
     } catch (err) {
+      if (requestId !== loadRequestIdRef.current) return;
       console.error(err);
       if (silent) return;
       setCobrancas([]);
       setTotals({ registrado: 0, liquidado: 0, baixado: 0, recepcionado: 0, cancelado: 0 });
     } finally {
-      if (!silent) setLoading(false);
+      if (requestId === loadRequestIdRef.current) setLoading(false);
     }
   }
 
   loadDataRef.current = loadData;
+  currentPageRef.current = currentPage;
 
-  const handleApplyFilters = () => {
-    if (currentPage === 1) {
-      loadData();
+  const refreshFromFirstPage = useCallback(() => {
+    if (currentPageRef.current === 1) {
+      void loadDataRef.current();
     } else {
       setCurrentPage(1);
     }
+  }, []);
+
+  const handleApplyFilters = () => {
+    if (filters.search !== appliedSearch) {
+      setAppliedSearch(filters.search);
+      return;
+    }
+    refreshFromFirstPage();
   };
+
+  const handleMetricNavigation = useCallback((target: FinancialMetricNavigationTarget) => {
+    setFilters(previous => ({
+      ...previous,
+      dateField: 'vencimento',
+      status: target === 'WITHOUT_BILL' ? 'Sem boleto' : 'Em atraso',
+      mesReferencia: metricsMonth,
+      startDate: '',
+      endDate: '',
+      search: '',
+    }));
+    setAppliedSearch('');
+    setCurrentPage(1);
+    setMetricNavigationVersion(version => version + 1);
+    window.setTimeout(() => {
+      document.getElementById('lista-cobrancas')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
+  }, [metricsMonth]);
 
   useEffect(() => {
     void loadDataRef.current();
-  }, [currentPage]);
+  }, [currentPage, metricNavigationVersion]);
 
   useEffect(() => {
-    void loadPeriodMetrics();
+    const initialMetricsLoad = window.setTimeout(() => void loadPeriodMetrics(), 0);
+    return () => window.clearTimeout(initialMetricsLoad);
   }, [loadPeriodMetrics]);
+
+  useEffect(() => {
+    const refreshAfterBatch = () => {
+      void loadDataRef.current(true);
+      void loadPeriodMetrics();
+    };
+    window.addEventListener(INTER_BATCH_TASK_FINISHED_EVENT, refreshAfterBatch);
+    return () => window.removeEventListener(INTER_BATCH_TASK_FINISHED_EVENT, refreshAfterBatch);
+  }, [loadPeriodMetrics]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setAppliedSearch(filters.search);
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [filters.search]);
+
+  useEffect(() => {
+    if (!automaticFiltersReadyRef.current) {
+      automaticFiltersReadyRef.current = true;
+      return;
+    }
+    refreshFromFirstPage();
+  }, [appliedSearch, filters.mesReferencia, refreshFromFirstPage]);
 
   useEffect(() => {
     const refreshVisiblePage = () => {
@@ -287,57 +351,11 @@ export default function CobrancasPage() {
     };
   }, []);
 
-  const handleInterBatch = async (operation: InterBatchOperation) => {
-    setBatchOperation(operation);
-    setIsBatchProcessing(true);
-    setBatchTotal(0);
-    setBatchCurrent(0);
-    setBatchSuccessCount(0);
-    setBatchErrors([]);
-    setShowBatchModal(true);
-
-    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const candidates = await listInterBatchCandidatesAction(operation);
-    if (!candidates.success) {
-      setBatchErrors([{ sacado: 'Lote', error: candidates.error }]);
-      setIsBatchProcessing(false);
-      return;
-    }
-
-    setBatchTotal(candidates.transactions.length);
-
-    for (let i = 0; i < candidates.transactions.length; i++) {
-      const transacao = candidates.transactions[i];
-      setBatchCurrent(i + 1);
-
-      try {
-        const res = operation === 'SYNC'
-          ? await consultarBolePixWrapperAction(transacao.id)
-          : await gerarBolePixWrapperAction(transacao.id);
-        if (res.success) {
-          setBatchSuccessCount(prev => prev + 1);
-        } else {
-          setBatchErrors(prev => [...prev, { sacado: transacao.label, error: res.error || 'Erro na API.' }]);
-        }
-      } catch (err: unknown) {
-        setBatchErrors(prev => [...prev, { sacado: transacao.label, error: errorMessage(err) }]);
-      }
-
-      if (i < candidates.transactions.length - 1) {
-        await sleep(candidates.intervalMs);
-      }
-    }
-
-    setIsBatchProcessing(false);
-    await loadData();
-    void loadPeriodMetrics();
-  };
-
-  const handleBatchGenerate = () => handleInterBatch('EMIT');
-  const handleBatchStatusSync = () => handleInterBatch('SYNC');
-
-
-  const percentProgress = batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0;
+  const handleBatchGenerate = () => void startTask('EMIT');
+  const handleBatchStatusSync = () => void startTask('SYNC');
+  const activeBatchOperation = interBatchTasks.find(task => (
+    task.status === 'QUEUED' || task.status === 'RUNNING'
+  ))?.operation;
 
   return (
     <div className="min-h-screen bg-[#EEEEF3] p-6 lg:p-8">
@@ -365,17 +383,17 @@ export default function CobrancasPage() {
             <button
               type="button"
               onClick={handleBatchStatusSync}
-              disabled={isBatchProcessing}
+              disabled={hasActiveTask || startingOperation !== null}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#004777]/20 bg-white px-4 text-sm font-semibold text-[#004777] shadow-sm transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004777] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${isBatchProcessing && batchOperation === 'SYNC' ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
+              <RefreshCw className={`h-4 w-4 ${startingOperation === 'SYNC' || activeBatchOperation === 'SYNC' ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
               <span>Atualizar status dos boletos</span>
             </button>
 
             <button
               type="button"
               onClick={handleBatchGenerate}
-              disabled={isBatchProcessing}
+              disabled={hasActiveTask || startingOperation !== null}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#280003] px-4 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#280003]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#280003] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Zap className="h-4 w-4 text-amber-400" aria-hidden="true" />
@@ -395,11 +413,13 @@ export default function CobrancasPage() {
           loading={periodMetricsLoading}
           error={periodMetricsError}
           layout="grid"
+          onNavigate={handleMetricNavigation}
         />
-        {loading ? (
-          <div className="text-center py-12 text-[#280003] font-semibold">Carregando cobranças...</div>
-        ) : (
-          <>
+        <div id="lista-cobrancas" className="scroll-mt-6">
+          {loading ? (
+            <div className="text-center py-12 text-[#280003] font-semibold">Carregando cobranças...</div>
+          ) : (
+            <>
             <FinancialSummary totals={totals} />
             <FinancialTable 
               data={cobrancas} 
@@ -409,114 +429,10 @@ export default function CobrancasPage() {
               totalItems={totalItems}
               onPageChange={setCurrentPage}
             />
-          </>
-        )}
-      </div>
-
-      {/* MODAL DE PROGRESSO DO LOTE */}
-      {showBatchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-            
-            {/* Header */}
-            <div className="bg-[#280003] text-white p-6 flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-lg">
-                  {batchOperation === 'SYNC' ? 'Atualização de Status em Lote' : 'Emissão de Boletos em Lote'}
-                </h3>
-                <p className="text-xs text-white/70 mt-0.5">
-                  {isBatchProcessing ? 'Processando fila...' : 'Lote Concluído'}
-                </p>
-              </div>
-              {!isBatchProcessing && (
-                <button 
-                  onClick={() => setShowBatchModal(false)}
-                  aria-label="Fechar resultado do lote"
-                  className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {!isBatchProcessing && batchTotal === 0 && batchErrors.length === 0 && (
-                <p className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center text-sm font-semibold text-emerald-800" role="status">
-                  {batchOperation === 'SYNC'
-                    ? 'Todos os boletos já estão com o status atualizado.'
-                    : 'Não há cobranças pendentes disponíveis para emissão.'}
-                </p>
-              )}
-              
-              {/* Progress Indicator */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm font-bold text-gray-700">
-                  <span>Progresso Geral</span>
-                  <span>{batchCurrent} de {batchTotal} ({percentProgress}%)</span>
-                </div>
-                
-                {/* Progress Bar Container */}
-                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#280003] transition-all duration-300 rounded-full"
-                    style={{ width: `${percentProgress}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Status Box */}
-              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div className="text-center border-r border-gray-200/60">
-                  <span className="text-2xl font-black text-emerald-600 block">{batchSuccessCount}</span>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sucesso</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-2xl font-black text-red-500 block">{batchErrors.length}</span>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Falhas</span>
-                </div>
-              </div>
-
-              {/* Logs / Errors Area */}
-              {batchErrors.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-red-700 block uppercase tracking-wider flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
-                    Lista de Falhas ({batchErrors.length})
-                  </label>
-                  <div className="max-h-36 overflow-y-auto border border-red-100 bg-red-50/30 rounded-2xl p-3 space-y-2.5 divide-y divide-red-100/40">
-                    {batchErrors.map((err, idx) => (
-                      <div key={idx} className="text-xs pt-2 first:pt-0">
-                        <span className="font-bold text-gray-800 block">{err.sacado}</span>
-                        <span className="text-red-600 font-medium block mt-0.5">{err.error}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Footer action */}
-              {!isBatchProcessing && (
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={() => setShowBatchModal(false)}
-                    className="min-h-11 cursor-pointer rounded-xl bg-[#280003] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#280003]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#280003]"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              )}
-
-              {isBatchProcessing && (
-                <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#280003]" />
-                  Processamento sequencial com intervalo de segurança do Banco Inter...
-                </div>
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {/* MODAL DE GERAÇÃO DE COBRANÇAS MENSAIS */}
       {showGenModal && (

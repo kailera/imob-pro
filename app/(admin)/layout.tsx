@@ -5,6 +5,8 @@ import { Metadata, Viewport } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getNewSiteLeadsCount } from "@/app/actions/leadActions";
+import { InterBatchTaskProvider } from "@/components/cobrancas/InterBatchTaskProvider";
 
 export const metadata: Metadata = {
   manifest: "/manifest.json",
@@ -42,19 +44,23 @@ export default async function AdminLayout({
     notFound();
   }
 
+  const newSiteLeadsCount = await getNewSiteLeadsCount();
+
   return (
     <PWAProvider>
-      <div className="min-h-screen flex flex-col">
-        <OfflineSyncInit />
-        <Navbar />
+      <InterBatchTaskProvider>
+        <div className="min-h-screen flex flex-col">
+          <OfflineSyncInit />
+          <Navbar initialNewSiteLeadsCount={newSiteLeadsCount} />
 
-        {/* Main content area */}
-        <main className="min-w-0 flex-1 pt-20 transition-all">
-          <div className="max-w-7xl mx-auto p-6 md:p-8 w-full">
-            {children}
-          </div>
-        </main>
-      </div>
+          {/* Main content area */}
+          <main className="min-w-0 flex-1 pt-20 transition-all">
+            <div className="max-w-7xl mx-auto p-6 md:p-8 w-full">
+              {children}
+            </div>
+          </main>
+        </div>
+      </InterBatchTaskProvider>
     </PWAProvider>
   );
 }

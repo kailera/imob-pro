@@ -59,15 +59,16 @@ curl -X POST https://SEU_DOMINIO/api/inter/cobrancas/sync \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-A rotina seleciona apenas transações pendentes com `interCodigoSolicitacao`,
-consulta `GET /cobranca/v3/cobrancas/{codigoSolicitacao}` e atualiza status,
-data, valor e origem do recebimento. Por padrão, processa 50 cobranças por
-execução, com intervalo de 6,5 segundos para respeitar também o limite do
-sandbox. Os valores podem ser ajustados com `INTER_STATUS_SYNC_BATCH_SIZE` e
-`INTER_STATUS_SYNC_INTERVAL_MS`.
+A rota enfileira uma tarefa persistente por imobiliária. O serviço
+`inter-batch-worker` consome a fila, consulta ou emite um boleto por vez e grava
+o progresso no PostgreSQL. Assim, o processamento continua mesmo quando o
+usuário navega, recarrega ou fecha a tela. Por padrão, cada lote possui até 50
+cobranças e respeita intervalo de 6,5 segundos. Os valores podem ser ajustados
+com `INTER_BATCH_SIZE` e `INTER_BATCH_INTERVAL_MS`.
 
-Depois de alterar `CRON_SECRET` ou este agendamento, recrie o serviço
-`inter-status-cron` para que o Portainer/Docker carregue a configuração nova.
+Depois de alterar `CRON_SECRET`, os limites ou o agendamento, recrie os serviços
+`app`, `inter-status-cron` e `inter-batch-worker` para que o Portainer/Docker
+carregue a configuração nova.
 
 O webhook do Inter permanece como atualização principal em tempo real; o cron
 serve como reconciliação para callbacks atrasados ou perdidos. A tela de

@@ -48,6 +48,26 @@ test("remove da listagem somente o legado coberto por contrato completo", () => 
   );
 });
 
+test("o vínculo explícito da migração prevalece mesmo com contrato atual incompleto", () => {
+  const incompleteLinkedLease = {
+    ...completeLease,
+    id: "lease-linked",
+    legacyCode: legacy.id,
+    propertyId: null,
+    termsPeriods: [],
+    parties: [],
+  };
+
+  assert.equal(
+    findCompleteLeaseForLegacyContract(legacy, [incompleteLinkedLease])?.id,
+    "lease-linked",
+  );
+  assert.deepEqual(
+    removeLegacyDuplicatesWithCompleteLease([legacy], [incompleteLinkedLease]),
+    [],
+  );
+});
+
 test("mantém o legado oculto quando o contrato canônico foi inativado", () => {
   const suspendedLease = {
     ...completeLease,

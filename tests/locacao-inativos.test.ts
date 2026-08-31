@@ -54,13 +54,20 @@ test('limpeza preserva cobranças emitidas e remove somente rascunhos futuros', 
 test('gerador mensal remove registros legados cobertos por contrato canônico', () => {
   const source = readSource('../app/actions/financeiroActions.ts')
   assert.match(source, /removeLegacyDuplicatesWithCompleteLease/)
-  assert.match(source, /status: \{ in: \["ACTIVE", "SUSPENDED"\] \}/)
-  assert.match(source, /where:\s*\{\s*status: "ACTIVE"/)
+  assert.match(source, /const \{ tenantId \} = await requireUserContext\(\)/)
+  assert.match(source, /imobId: tenantId/)
+  assert.match(source, /tenantId,\s*status: "ACTIVE"/)
+  assert.match(source, /\{ leaseId: lease\.id \}/)
+  assert.match(source, /\{ contratoId: \{ in: legacyContractIds \} \}/)
+  assert.ok(
+    source.indexOf('const leasesSemPeriodo') < source.indexOf('const [contratosLegados, leasesCanonicos]'),
+    'o reparo de períodos deve acontecer antes da escolha entre legado e canônico',
+  )
 })
 
 test('gerador mensal limpa inativos antigos e revalida o status antes de gravar', () => {
   const source = readSource('../app/actions/financeiroActions.ts')
-  assert.match(source, /where: \{ status: "SUSPENDED" \}/)
+  assert.match(source, /where: \{ tenantId, status: "SUSPENDED" \}/)
   assert.match(source, /removerRascunhosFuturosDeContratoInativo/)
   assert.match(source, /currentLease\?\.status !== "ACTIVE"/)
   assert.match(source, /if \(!persisted\) continue/)
