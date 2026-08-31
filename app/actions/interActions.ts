@@ -11,6 +11,7 @@ import {
   listInterBatchCandidates,
 } from "@/lib/inter-batch-candidates";
 import type { InterBatchOperation } from "@/lib/inter-batch-task-types";
+import { marcarEmissaoInterComoPendente } from "@/lib/inter-emission-pending";
 
 export type { InterBatchOperation } from "@/lib/inter-batch-task-types";
 
@@ -213,6 +214,9 @@ export async function gerarBolePixWrapperAction(transacaoId: string) {
     await requireInterTransactionAccess(transacaoId);
     const { gerarBolePixAction } = await import("@/lib/inter");
     const result = await gerarBolePixAction(transacaoId);
+    if (!result.success) {
+      await marcarEmissaoInterComoPendente(transacaoId);
+    }
     revalidatePath("/cobrancas");
     revalidatePath("/locacao");
     return result;
@@ -229,6 +233,9 @@ export async function reemitirBolePixWrapperAction(transacaoId: string) {
     await requireInterTransactionAccess(transacaoId);
     const { reemitirBolePixAction } = await import("@/lib/inter");
     const result = await reemitirBolePixAction(transacaoId);
+    if (!result.success) {
+      await marcarEmissaoInterComoPendente(transacaoId);
+    }
     revalidatePath("/cobrancas");
     revalidatePath("/financeiro");
     revalidatePath("/locacao");

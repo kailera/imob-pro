@@ -29,6 +29,8 @@ test("fila persiste, serializa por tenant e recupera leases expiradas", () => {
   assert.match(service, /leaseExpiresAt: \{ lt: now \}/);
   assert.match(service, /status: "PENDING"/);
   assert.match(service, /expectedTenantId: item\.tenantId/);
+  assert.match(service, /marcarEmissaoInterComoPendente/);
+  assert.match(service, /boleto\(s\) emitido\(s\).*pendente\(s\)/);
   assert.match(migration, /CREATE UNIQUE INDEX "inter_batch_task_one_active_per_imob_idx"/);
   assert.match(migration, /WHERE "status" IN \('QUEUED', 'RUNNING'\)/);
 });
@@ -57,6 +59,7 @@ test("painel global substitui a modal e o Docker executa o worker", () => {
   assert.doesNotMatch(page, /showBatchModal/);
   assert.match(provider, /fixed left-4 top-24/);
   assert.match(provider, /role="progressbar"/);
+  assert.match(provider, /Concluída com boletos pendentes/);
   assert.match(compose, /inter-batch-worker:/);
   assert.match(compose, /api\/internal\/inter\/tasks\/process/);
 });

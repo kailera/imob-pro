@@ -15,6 +15,7 @@ import {
   type InterBatchTaskDto,
 } from "@/lib/inter-batch-task-types";
 import { cobrancaEstaRegistradaNoInter } from "@/lib/inter-cobranca";
+import { marcarEmissaoInterComoPendente } from "@/lib/inter-emission-pending";
 import { consultarBolePixAction, gerarBolePixAction } from "@/lib/inter";
 
 const ACTIVE_STATUSES = ["QUEUED", "RUNNING"] as const;
@@ -313,6 +314,7 @@ async function executeClaimedItem(item: ClaimedItem) {
     if (afterAttempt && cobrancaEstaRegistradaNoInter(afterAttempt)) {
       return { success: true };
     }
+    await marcarEmissaoInterComoPendente(item.transacaoId);
   }
 
   return {
@@ -363,7 +365,9 @@ async function finishClaimedItem(
         finishedAt: now,
         summaryMessage: task.failed === 0
           ? `${task.succeeded} cobrança(s) processada(s) com sucesso.`
-          : `${task.succeeded} sucesso(s) e ${task.failed} falha(s).`,
+          : item.operation === "EMIT"
+            ? `${task.succeeded} boleto(s) emitido(s) e ${task.failed} pendente(s).`
+            : `${task.succeeded} sucesso(s) e ${task.failed} falha(s).`,
       },
     });
   });

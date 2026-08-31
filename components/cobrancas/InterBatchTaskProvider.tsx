@@ -226,15 +226,18 @@ function InterBatchTaskCard({
   const active = isActive(task);
   const partial = task.status === "PARTIAL";
   const failed = task.status === "FAILED";
+  const emissionWithPending = task.operation === "EMIT" && (partial || failed);
   const statusLabel = task.status === "QUEUED"
     ? "Aguardando processamento"
     : task.status === "RUNNING"
       ? "Tarefa em andamento"
       : task.status === "SUCCEEDED"
         ? "Tarefa concluída"
-        : partial
-          ? "Concluída com falhas"
-          : "Tarefa não concluída";
+        : emissionWithPending
+          ? "Concluída com boletos pendentes"
+          : partial
+            ? "Concluída com falhas"
+            : "Tarefa não concluída";
 
   return (
     <section
@@ -247,9 +250,9 @@ function InterBatchTaskCard({
         <div className="mt-0.5 shrink-0">
           {active ? (
             <Loader2 className="h-5 w-5 motion-safe:animate-spin text-[#004777]" aria-hidden="true" />
-          ) : failed ? (
+          ) : failed && !emissionWithPending ? (
             <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />
-          ) : partial ? (
+          ) : partial || emissionWithPending ? (
             <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" />
           ) : (
             <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
@@ -285,7 +288,7 @@ function InterBatchTaskCard({
           aria-valuenow={task.progress}
         >
           <div
-            className={`h-full rounded-full transition-[width] duration-300 ${failed ? "bg-red-600" : partial ? "bg-amber-500" : "bg-[#004777]"}`}
+            className={`h-full rounded-full transition-[width] duration-300 ${failed && !emissionWithPending ? "bg-red-600" : partial || emissionWithPending ? "bg-amber-500" : "bg-[#004777]"}`}
             style={{ width: `${task.progress}%` }}
           />
         </div>
@@ -295,8 +298,8 @@ function InterBatchTaskCard({
         <span className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">
           {task.succeeded} sucesso(s)
         </span>
-        <span className="rounded-xl bg-red-50 px-3 py-2 text-red-700">
-          {task.failed} falha(s)
+        <span className={`rounded-xl px-3 py-2 ${task.operation === "EMIT" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
+          {task.failed} {task.operation === "EMIT" ? "pendente(s)" : "falha(s)"}
         </span>
       </div>
       {task.summaryMessage && (

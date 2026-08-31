@@ -234,15 +234,18 @@ export default function FinancialTable({
   const handleGerarBoleto = async (transacaoId: string) => {
     setActionLoading(transacaoId);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
       const res = await gerarBolePixWrapperAction(transacaoId);
       if (res.success) {
         if (onRefresh) onRefresh();
       } else {
-        setErrorMessage(res.error || "Falha ao gerar boleto no Banco Inter.");
+        setInfoMessage("Boleto pendente. A emissão poderá ser tentada novamente.");
+        if (onRefresh) await onRefresh();
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Erro inesperado.");
+    } catch {
+      setInfoMessage("Boleto pendente. A emissão poderá ser tentada novamente.");
+      if (onRefresh) await onRefresh();
     } finally {
       setActionLoading(null);
     }
@@ -256,16 +259,19 @@ export default function FinancialTable({
 
     setActionLoading(transacaoId);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
       const res = await reemitirBolePixWrapperAction(transacaoId);
       if (res.success) {
         setSelectedBillet(null);
         if (onRefresh) onRefresh();
       } else {
-        setErrorMessage(res.error || "Falha ao cancelar e gerar novamente o boleto.");
+        setInfoMessage("Boleto pendente. A nova emissão poderá ser tentada novamente.");
+        if (onRefresh) await onRefresh();
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Erro inesperado ao gerar novamente o boleto.");
+    } catch {
+      setInfoMessage("Boleto pendente. A nova emissão poderá ser tentada novamente.");
+      if (onRefresh) await onRefresh();
     } finally {
       setActionLoading(null);
     }

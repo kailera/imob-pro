@@ -14,6 +14,16 @@ test("identifica cobrança sem boleto emitido", () => {
   assert.equal(estado.interStatusLabel, "Não gerado");
 });
 
+test("apresenta como pendente quando a tentativa de emissão não foi concluída", () => {
+  const estado = resolverSituacaoVisualBoleto({
+    ...base,
+    interStatus: "PENDENTE",
+  });
+  assert.equal(estado.situacao, "Pendente");
+  assert.equal(estado.interStatusLabel, "Boleto pendente");
+  assert.equal(estado.possuiBoleto, false);
+});
+
 test("marca boleto vencido ativo como não pago e informa os encargos", () => {
   const estado = resolverSituacaoVisualBoleto({
     ...base,

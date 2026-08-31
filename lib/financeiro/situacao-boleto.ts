@@ -3,6 +3,7 @@ import { asMetadataRecord, numeroSeguro } from "./boleto-composicao";
 export type SituacaoVisualBoleto =
   | "Liquidado"
   | "Não gerado"
+  | "Pendente"
   | "Recepcionado"
   | "Não pago"
   | "Cancelado"
@@ -43,9 +44,12 @@ export function resolverSituacaoVisualBoleto(input: {
     return { situacao: "Liquidado" as const, interStatusLabel: "Liquidado", possuiBoleto, boletoAtivo: false, podeCorrigirEReemitir: false };
   }
   if (!possuiBoleto) {
+    const emissaoPendente = interStatus === "PENDENTE";
     return {
-      situacao: encerrado ? "Cancelado" as const : "Não gerado" as const,
-      interStatusLabel: "Não gerado",
+      situacao: encerrado
+        ? "Cancelado" as const
+        : emissaoPendente ? "Pendente" as const : "Não gerado" as const,
+      interStatusLabel: emissaoPendente ? "Boleto pendente" : "Não gerado",
       possuiBoleto,
       boletoAtivo: false,
       podeCorrigirEReemitir: false,
