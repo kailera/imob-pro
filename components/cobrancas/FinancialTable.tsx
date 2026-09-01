@@ -514,9 +514,13 @@ export default function FinancialTable({
                           <RefreshCw className={`w-3.5 h-3.5 ${actionLoading === item.id ? "animate-spin" : ""}`} />
                         </button>
                         <button
-                          onClick={() => handleReemitirBoleto(item.id)}
+                          onClick={() => item.situacao === 'Não pago'
+                            ? setCompositionTransactionId(item.id)
+                            : handleReemitirBoleto(item.id)}
                           disabled={actionLoading !== null}
-                          title="Cancelar o boleto atual e gerar novamente"
+                          title={item.situacao === 'Não pago'
+                            ? "Calcular multa e juros antes de reemitir"
+                            : "Cancelar o boleto atual e gerar novamente"}
                           className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 transition-all cursor-pointer disabled:opacity-50"
                         >
                           <Zap className="w-3.5 h-3.5" />

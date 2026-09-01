@@ -123,10 +123,15 @@ export default function BoletoCompositionModal({
     setForm(current => ({ ...current, [key]: value }));
   };
 
-  const handleCalculateOverdueReissue = () => {
+  const calculateOverdueReissueForDate = (calculationDate: string) => {
     if (!composition?.canCalculateOverdueReissue) return;
+    if (calculationDate < composition.suggestedReissueDate) {
+      const minimumDate = new Date(`${composition.suggestedReissueDate}T00:00:00.000Z`)
+        .toLocaleDateString("pt-BR", { timeZone: "UTC" });
+      setError(`Escolha um novo vencimento a partir de ${minimumDate}.`);
+      return;
+    }
     const originalDueDate = composition.dueDate.slice(0, 10);
-    const calculationDate = composition.suggestedReissueDate;
     const baseAmount = composition.nominalTotal
       - composition.lateFeeAmount
       - composition.lateInterestAmount;
@@ -160,6 +165,19 @@ export default function BoletoCompositionModal({
     setError(null);
     setSuccess(null);
     setEditing(true);
+  };
+
+  const handleCalculateOverdueReissue = () => {
+    if (!composition) return;
+    calculateOverdueReissueForDate(composition.suggestedReissueDate);
+  };
+
+  const handleDueDateChange = (dueDate: string) => {
+    if (overdueReissue) {
+      calculateOverdueReissueForDate(dueDate);
+      return;
+    }
+    setField("dueDate", dueDate);
   };
 
   const handleCancelEditing = () => {
@@ -261,16 +279,21 @@ export default function BoletoCompositionModal({
                   {editing ? (
                     <label className="mt-2 block">
                       <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                        Data de vencimento
+                        {overdueReissue ? "Novo vencimento" : "Data de vencimento"}
                       </span>
                       <input
                         type="date"
                         required
                         value={form.dueDate ?? ""}
-                        onChange={event => setField("dueDate", event.target.value)}
-                        disabled={Boolean(overdueReissue)}
-                        className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-[#280003] disabled:bg-gray-100 disabled:text-gray-500"
+                        min={overdueReissue ? composition.suggestedReissueDate : undefined}
+                        onChange={event => handleDueDateChange(event.target.value)}
+                        className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-[#280003] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]"
                       />
+                      {overdueReissue && (
+                        <span className="mt-1 block text-[11px] text-amber-800">
+                          Altere a data para recalcular automaticamente os dias, a multa e os juros.
+                        </span>
+                      )}
                     </label>
                   ) : (
                     <p className="text-xs text-gray-500">
@@ -383,7 +406,22 @@ export default function BoletoCompositionModal({
                 </Field>
               </div>
 
-              {(overdueReissue || parsed("lateFeeAmount") > 0 || parsed("lateInterestAmount") > 0) && (
+              {overdueReissue ? (
+                <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Base sem desconto">
+                    {money.format(overdueReissue.baseAmount)}
+                  </Field>
+                  <Field label="Dias em atraso">
+                    {overdueReissue.daysLate} dia(s)
+                  </Field>
+                  <Field label={`Multa única (${overdueReissue.lateFeePercentage.toLocaleString("pt-BR")}%)`}>
+                    {money.format(parsed("lateFeeAmount"))}
+                  </Field>
+                  <Field label={`Juros (${overdueReissue.lateInterestMonthly.toLocaleString("pt-BR")}% a.m. × ${overdueReissue.daysLate}/30)`}>
+                    {money.format(parsed("lateInterestAmount"))}
+                  </Field>
+                </div>
+              ) : (parsed("lateFeeAmount") > 0 || parsed("lateInterestAmount") > 0) ? (
                 <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:grid-cols-2">
                   <Field label="Multa acumulada">
                     {money.format(parsed("lateFeeAmount"))}
@@ -392,7 +430,7 @@ export default function BoletoCompositionModal({
                     {money.format(parsed("lateInterestAmount"))}
                   </Field>
                 </div>
-              )}
+              ) : null}
 
               {composition.iptuValue > 0 && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-[#004777]">

@@ -272,9 +272,16 @@ export async function getBoletoCompositionAction(transactionId: string) {
     });
     const suggestedReissueDate = dataSugeridaReemissaoEmSaoPaulo();
     const originalDueDate = transaction.dataVencimento.toISOString().slice(0, 10);
-    const canCalculateOverdueReissue = podeEditarCobranca(transaction)
-      && transaction.status === "CANCELADO"
+    const canReplaceOverdueBoleto = (
+      transaction.status === "PENDENTE"
+      && registeredAtInter
+      && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+    ) || (
+      transaction.status === "CANCELADO"
       && inactiveInterStatuses.has(transaction.interStatus ?? "")
+    );
+    const canCalculateOverdueReissue = podeEditarCobranca(transaction)
+      && canReplaceOverdueBoleto
       && originalDueDate < suggestedReissueDate
       && lateFeeAmount === 0
       && lateInterestAmount === 0;
@@ -380,6 +387,9 @@ export async function updateBoletoCompositionAction(
         "Somente cobranças pendentes ou canceladas no Inter podem ser editadas.",
       );
     }
+    const registeredAtInter = Boolean(
+      transaction.interNossoNumero || transaction.interCodigoSolicitacao,
+    );
 
     if (input.overdueReissue) {
       const originalDueDate = transaction.dataVencimento.toISOString().slice(0, 10);
@@ -396,8 +406,15 @@ export async function updateBoletoCompositionAction(
         lateFeePercentage: conditions.lateFeePercentage,
         lateInterestMonthly: conditions.lateInterestMonthly,
       });
-      const isCancelledOverdue = transaction.status === "CANCELADO"
+      const isReplaceableOverdue = (
+        transaction.status === "PENDENTE"
+        && registeredAtInter
+        && !inactiveInterStatuses.has(transaction.interStatus ?? "")
+      ) || (
+        transaction.status === "CANCELADO"
         && inactiveInterStatuses.has(transaction.interStatus ?? "")
+      );
+      const isValidOverdueReissue = isReplaceableOverdue
         && originalDueDate < input.dueDate
         && input.dueDate >= dataSugeridaReemissaoEmSaoPaulo();
       const matchesCalculation = input.overdueReissue.originalDueDate === originalDueDate
@@ -408,7 +425,7 @@ export async function updateBoletoCompositionAction(
         && Math.abs(input.overdueReissue.lateInterestMonthly - conditions.lateInterestMonthly) < 0.0001
         && Math.abs((input.lateFeeAmount ?? 0) - expected.lateFeeAmount) < 0.01
         && Math.abs((input.lateInterestAmount ?? 0) - expected.lateInterestAmount) < 0.01;
-      if (!isCancelledOverdue || !matchesCalculation) {
+      if (!isValidOverdueReissue || !matchesCalculation) {
         throw new Error(
           "Os encargos da reemissão estão desatualizados. Reabra a composição e calcule novamente.",
         );
@@ -425,9 +442,6 @@ export async function updateBoletoCompositionAction(
       }
     }
 
-    const registeredAtInter = Boolean(
-      transaction.interNossoNumero || transaction.interCodigoSolicitacao,
-    );
     if (
       transaction.interCodigoSolicitacao
       && !inactiveInterStatuses.has(transaction.interStatus ?? "")

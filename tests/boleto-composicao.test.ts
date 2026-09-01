@@ -9,6 +9,8 @@ import {
   criarItensCobranca,
   lerCondicoesBoletoMetadata,
 } from "../lib/financeiro/boleto-composicao";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 test("soma todos os componentes que formam o valor nominal enviado ao Inter", () => {
   assert.equal(calcularTotalNominal({
@@ -109,6 +111,36 @@ test("não aplica encargos quando a data de cálculo não passou do vencimento",
     lateInterestAmount: 0,
     updatedTotal: 1_000,
   });
+});
+
+test("boleto vencido ativo abre o cálculo antes da reemissão", () => {
+  const action = readFileSync(
+    fileURLToPath(new URL("../app/actions/boletoCompositionActions.ts", import.meta.url)),
+    "utf8",
+  );
+  const table = readFileSync(
+    fileURLToPath(new URL("../components/cobrancas/FinancialTable.tsx", import.meta.url)),
+    "utf8",
+  );
+
+  assert.match(action, /transaction\.status === "PENDENTE"[\s\S]*registeredAtInter/);
+  assert.match(action, /canCalculateOverdueReissue/);
+  assert.match(table, /item\.situacao === 'Não pago'[\s\S]*setCompositionTransactionId\(item\.id\)/);
+  assert.match(table, /Calcular multa e juros antes de reemitir/);
+});
+
+test("recalcula e discrimina os encargos ao escolher o novo vencimento", () => {
+  const modal = readFileSync(
+    fileURLToPath(new URL("../components/cobrancas/BoletoCompositionModal.tsx", import.meta.url)),
+    "utf8",
+  );
+
+  assert.match(modal, /calculateOverdueReissueForDate\(dueDate\)/);
+  assert.match(modal, /min=\{overdueReissue \? composition\.suggestedReissueDate : undefined\}/);
+  assert.match(modal, /Base sem desconto/);
+  assert.match(modal, /Dias em atraso/);
+  assert.match(modal, /Multa única/);
+  assert.match(modal, /Juros \(.*% a\.m\. × .*\/30\)/s);
 });
 
 test("salva e recupera a fotografia das condições do boleto, inclusive valores zero", () => {
