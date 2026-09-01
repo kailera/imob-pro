@@ -1,8 +1,8 @@
 "use server";
 
 import { CreateBucketCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { requireUserContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bucketName, s3Client } from "@/lib/storage";
 import type { Prisma } from "@/generated/prisma";
@@ -25,18 +25,8 @@ const ALLOWED_DOCUMENT_TYPES = new Set([
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
 
 async function getActiveImobId(): Promise<string> {
-  const { userId, orgId } = await auth();
-  if (!userId) throw new Error("Usuário não autenticado.");
-
-  const imob = orgId
-    ? await prisma.imob.findUnique({ where: { orgId }, select: { id: true } })
-    : await prisma.imob.findFirst({
-        where: { orgId: "org_default" },
-        select: { id: true },
-      });
-
-  if (!imob) throw new Error("Imobiliária ativa não encontrada.");
-  return imob.id;
+  const context = await requireUserContext();
+  return context.tenantId;
 }
 
 function asErrorMessage(error: unknown, fallback: string) {

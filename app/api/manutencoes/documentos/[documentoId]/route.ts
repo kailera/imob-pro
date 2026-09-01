@@ -1,19 +1,20 @@
-import { auth } from "@clerk/nextjs/server";
+import { requireUserContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, context: { params: Promise<{ documentoId: string }> }) {
-  const { userId, orgId } = await auth();
-  if (!userId) return new Response("Não autorizado.", { status: 401 });
-  const imob = orgId
-    ? await prisma.imob.findUnique({ where: { orgId }, select: { id: true } })
-    : await prisma.imob.findFirst({ where: { orgId: "org_default" }, select: { id: true } });
-  if (!imob) return new Response("Imobiliária não encontrada.", { status: 404 });
+  let imobId: string;
+  try {
+    const userContext = await requireUserContext();
+    imobId = userContext.tenantId;
+  } catch {
+    return new Response("Não autorizado.", { status: 401 });
+  }
 
   const { documentoId } = await context.params;
   const documento = await prisma.documentoManutencao.findFirst({
-    where: { id: documentoId, manutencao: { imobId: imob.id } },
+    where: { id: documentoId, manutencao: { imobId } },
     select: { url: true, mimeType: true, nomeOriginal: true },
   });
   if (!documento) return new Response("Documento não encontrado.", { status: 404 });
