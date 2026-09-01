@@ -65,6 +65,15 @@ const manutencaoInclude = {
       imovelLocacao: { include: { locadors: { orderBy: { nome: "asc" as const }, take: 1 } } },
     },
   },
+  lease: {
+    include: {
+      parties: {
+        where: { role: { in: ["TENANT" as const, "CO_TENANT" as const, "LANDLORD" as const] } },
+        include: { person: true },
+        orderBy: [{ isPrimary: "desc" as const }, { createdAt: "asc" as const }],
+      },
+    },
+  },
   prestador: true,
   documentos: { orderBy: { createdAt: "asc" as const } },
   descontos: { orderBy: { competencia: "asc" as const } },
@@ -75,10 +84,14 @@ type ManutencaoWithRelations = Prisma.ManutencaoGetPayload<{
 }>;
 
 function serializeManutencao(item: ManutencaoWithRelations): ManutencaoView {
-  const locacao = item.contrato.imovelLocacao;
+  const locacao = item.contrato?.imovelLocacao;
+  const tenant = item.lease?.parties.find((party) =>
+    party.role === "TENANT" || party.role === "CO_TENANT"
+  );
+  const landlord = item.lease?.parties.find((party) => party.role === "LANDLORD");
   return {
     id: item.id,
-    contratoId: item.contratoId,
+    contratoId: item.leaseId || item.contratoId || "",
     imovelId: item.imovelId,
     prestadorId: item.prestadorId,
     descricao: item.descricao,
@@ -92,8 +105,8 @@ function serializeManutencao(item: ManutencaoWithRelations): ManutencaoView {
       titulo: item.imovel.titulo,
       endereco: buildAddress(item.imovel),
     },
-    locatario: item.contrato.locatarios[0]?.nome || "Não informado",
-    locador: locacao?.locadors[0]?.nome || "Não informado",
+    locatario: tenant?.person.name || item.contrato?.locatarios[0]?.nome || "Não informado",
+    locador: landlord?.person.name || locacao?.locadors[0]?.nome || "Não informado",
     prestador: item.prestador
       ? { id: item.prestador.id, nome: item.prestador.nome, area: item.prestador.area }
       : null,
@@ -134,7 +147,20 @@ export async function getManutencaoFormOptions(): Promise<
 > {
   try {
     const imobId = await getActiveImobId();
-    const [contratos, prestadores] = await Promise.all([
+    const [leases, contratos, prestadores] = await Promise.all([
+      prisma.lease.findMany({
+        where: { tenantId: imobId, status: "ACTIVE", propertyId: { not: null } },
+        include: {
+          property: true,
+          terms: true,
+          parties: {
+            where: { role: { in: ["TENANT", "CO_TENANT", "LANDLORD"] } },
+            include: { person: true },
+            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          },
+        },
+        orderBy: { code: "asc" },
+      }),
       prisma.contratoImovelLocacao.findMany({
         where: { imobId },
         include: {
@@ -153,26 +179,55 @@ export async function getManutencaoFormOptions(): Promise<
         select: { id: true, nome: true, area: true },
       }),
     ]);
+    const legacyContractIds = new Set(contratos.map((contrato) => contrato.id));
 
     return {
       success: true,
       data: {
-        contratos: contratos.map((contrato) => ({
-          id: contrato.id,
-          imovelId: contrato.imovelId,
-          codigoImovel: contrato.imovel.codigo,
-          tituloImovel: contrato.imovel.titulo,
-          endereco: buildAddress(contrato.imovel),
-          locatario: contrato.locatarios[0]?.nome || "Não informado",
-          locador: contrato.imovelLocacao?.locadors[0]?.nome || "Não informado",
-          dataInicio: toDateInput(contrato.imovelLocacao?.dataInicio),
-          dataFim: toDateInput(contrato.imovelLocacao?.dataFim),
-          valorAluguel: contrato.imovelLocacao?.valorAluguel ?? null,
-          situacao: getContractSituation(
-            contrato.imovelLocacao?.dataInicio,
-            contrato.imovelLocacao?.dataFim,
-          ),
-        })),
+        contratos: [
+          ...contratos.map((contrato) => ({
+            id: contrato.id,
+            imovelId: contrato.imovelId,
+            codigoImovel: contrato.imovel.codigo,
+            tituloImovel: contrato.imovel.titulo,
+            endereco: buildAddress(contrato.imovel),
+            locatario: contrato.locatarios[0]?.nome || "Não informado",
+            locador: contrato.imovelLocacao?.locadors[0]?.nome || "Não informado",
+            dataInicio: toDateInput(contrato.imovelLocacao?.dataInicio),
+            dataFim: toDateInput(contrato.imovelLocacao?.dataFim),
+            valorAluguel: contrato.imovelLocacao?.valorAluguel ?? null,
+            situacao: getContractSituation(
+              contrato.imovelLocacao?.dataInicio,
+              contrato.imovelLocacao?.dataFim,
+            ),
+          })),
+          ...leases.flatMap((lease) => {
+            // Se o espelho legado existe, mantemos a opção antiga para não
+            // duplicar o contrato e preservar a edição das manutenções atuais.
+            if (lease.legacyCode && legacyContractIds.has(lease.legacyCode)) {
+              return [];
+            }
+            if (!lease.property) return [];
+
+            const tenant = lease.parties.find((party) =>
+              party.role === "TENANT" || party.role === "CO_TENANT"
+            );
+            const landlord = lease.parties.find((party) => party.role === "LANDLORD");
+            return [{
+              id: lease.id,
+              imovelId: lease.property.id,
+              codigoImovel: lease.property.codigo,
+              tituloImovel: lease.property.titulo,
+              endereco: buildAddress(lease.property),
+              locatario: tenant?.person.name || "Não informado",
+              locador: landlord?.person.name || "Não informado",
+              dataInicio: toDateInput(lease.startDate),
+              dataFim: toDateInput(lease.endDate),
+              valorAluguel: lease.terms ? Number(lease.terms.rentValue) : null,
+              situacao: "ATIVO" as const,
+            }];
+          }),
+        ],
         prestadores,
       },
     };
@@ -217,11 +272,26 @@ export async function createOrUpdateManutencoes(
     const validationError = validateInput(input);
     if (validationError) return { success: false, error: validationError };
 
-    const contrato = await prisma.contratoImovelLocacao.findFirst({
-      where: { id: input.contratoId, imobId },
-      select: { id: true, imovelId: true },
-    });
-    if (!contrato) return { success: false, error: "Contrato não encontrado nesta imobiliária." };
+    const [lease, contrato] = await Promise.all([
+      prisma.lease.findFirst({
+        where: { id: input.contratoId, tenantId: imobId, status: "ACTIVE" },
+        select: { id: true, propertyId: true },
+      }),
+      prisma.contratoImovelLocacao.findFirst({
+        where: { id: input.contratoId, imobId },
+        select: { id: true, imovelId: true },
+      }),
+    ]);
+    if (!lease && !contrato) {
+      return { success: false, error: "Contrato não encontrado nesta imobiliária." };
+    }
+    if (lease && !lease.propertyId) {
+      return { success: false, error: "O contrato selecionado não possui imóvel vinculado." };
+    }
+
+    const selectedContract = lease
+      ? { contratoId: null, leaseId: lease.id, imovelId: lease.propertyId! }
+      : { contratoId: contrato!.id, leaseId: null, imovelId: contrato!.imovelId };
 
     if (input.prestadorId) {
       const prestador = await prisma.prestadorServico.findFirst({
@@ -233,8 +303,7 @@ export async function createOrUpdateManutencoes(
 
     const shouldDiscount = input.status === "FINALIZADA" && input.repassarProprietario;
     const data = {
-      contratoId: contrato.id,
-      imovelId: contrato.imovelId,
+      ...selectedContract,
       imobId,
       prestadorId: input.prestadorId || null,
       descricao: input.descricao.trim(),

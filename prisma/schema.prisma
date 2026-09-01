@@ -528,6 +528,7 @@ model Lease {
   iptu         LeaseIptu?
   utilities    LeaseUtility[]
   condominium  LeaseCondominium?
+  manutencoes  Manutencao[]
 
   @@unique([tenantId, legacySystem, legacyCode])
   @@index([tenantId, status])
@@ -1236,7 +1237,8 @@ enum StatusDescontoManutencao {
 model Manutencao {
   id                   String           @id @default(uuid())
   imobId               String
-  contratoId           String
+  contratoId           String?
+  leaseId              String?
   imovelId             String
   prestadorId          String?
   descricao            String           @db.Text
@@ -1247,15 +1249,17 @@ model Manutencao {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  imob       Imob                  @relation(fields: [imobId], references: [id], onDelete: Cascade)
-  imovel     Imovel                @relation(fields: [imovelId], references: [id], onDelete: Restrict)
-  contrato   ContratoImovelLocacao @relation(fields: [contratoId], references: [id], onDelete: Restrict)
-  prestador  PrestadorServico?     @relation(fields: [prestadorId], references: [id], onDelete: SetNull)
+  imob       Imob                   @relation(fields: [imobId], references: [id], onDelete: Cascade)
+  imovel     Imovel                 @relation(fields: [imovelId], references: [id], onDelete: Restrict)
+  contrato   ContratoImovelLocacao? @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  lease      Lease?                 @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  prestador  PrestadorServico?      @relation(fields: [prestadorId], references: [id], onDelete: SetNull)
   documentos DocumentoManutencao[]
   descontos  DescontoManutencao[]
 
   @@index([imobId])
   @@index([contratoId])
+  @@index([leaseId])
   @@index([imovelId])
   @@index([prestadorId])
   @@map("manutencao")
