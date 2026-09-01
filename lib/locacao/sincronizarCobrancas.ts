@@ -1,5 +1,9 @@
 import type { Prisma } from "@/generated/prisma";
-import { calcularInicioCompetencia } from "./financeiro";
+import {
+  calcularAluguelProporcionalCompetencia,
+  calcularInicioCompetencia,
+} from "./financeiro";
+import { adicionarDiasUTC } from "./periodos";
 
 type DbClient = Prisma.TransactionClient;
 
@@ -15,8 +19,11 @@ export interface PeriodoParaCobranca {
   diaVencimento: number | null;
 }
 
-export function calcularComposicaoPeriodo(periodo: PeriodoParaCobranca) {
-  const aluguel = periodo.valorAluguel;
+export function calcularComposicaoPeriodo(
+  periodo: PeriodoParaCobranca,
+  aluguelCalculado = periodo.valorAluguel,
+) {
+  const aluguel = aluguelCalculado;
   const condominio = periodo.hasCondominio ? periodo.valorCondominio || 0 : 0;
   const iptu = periodo.hasIPTU ? periodo.valorIPTU || 0 : 0;
 
@@ -58,6 +65,7 @@ export async function sincronizarCobrancasPendentesDoPeriodo(
   input: {
     contratoIds: string[];
     periodo: PeriodoParaCobranca;
+    periodos?: PeriodoParaCobranca[];
   },
 ) {
   if (input.contratoIds.length === 0) return { atualizadas: 0 };
@@ -83,7 +91,6 @@ export async function sincronizarCobrancasPendentesDoPeriodo(
       },
     },
   });
-  const composicao = calcularComposicaoPeriodo(input.periodo);
   let atualizadas = 0;
 
   for (const cobranca of cobrancas) {
@@ -105,10 +112,32 @@ export async function sincronizarCobrancasPendentesDoPeriodo(
     ) {
       continue;
     }
+    const rateioAluguel = input.periodos?.length
+      ? calcularAluguelProporcionalCompetencia(
+          input.periodos.map(periodo => ({
+            id: periodo.id,
+            effectiveFrom: periodo.dataInicio,
+            effectiveTo: adicionarDiasUTC(periodo.dataFim, 1),
+            rentAmount: periodo.valorAluguel,
+          })),
+          competencia,
+        )
+      : null;
+    if (input.periodos?.length && !rateioAluguel) continue;
+    const composicao = calcularComposicaoPeriodo(
+      input.periodo,
+      rateioAluguel?.valor ?? input.periodo.valorAluguel,
+    );
     const metadata = {
       ...metadataAtual,
       competence: competencia,
       rentValue: composicao.aluguel,
+      rentProration: rateioAluguel?.rateado ? {
+        startDate: rateioAluguel.inicio.toISOString(),
+        endDate: rateioAluguel.fim.toISOString(),
+        totalDays: rateioAluguel.diasTotais,
+        portions: rateioAluguel.parcelas,
+      } : null,
       condominiumValue: composicao.condominio,
       iptuValue: composicao.iptu,
       dueDay: input.periodo.diaVencimento ?? cobranca.dataVencimento.getUTCDate(),

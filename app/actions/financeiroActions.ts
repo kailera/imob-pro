@@ -6,10 +6,12 @@ import { criarEstadoParaNovaEmissaoInter } from "@/lib/inter-cobranca";
 import { revalidatePath } from "next/cache";
 import { createPendingRepasseForRent } from "@/lib/financeiro/repasse";
 import {
+  calcularAluguelProporcionalCompetencia,
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaMensal,
 } from "@/lib/locacao/financeiro";
+import { adicionarDiasUTC } from "@/lib/locacao/periodos";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
 import {
@@ -39,7 +41,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
     // são preservados pela própria função de limpeza.
     await prisma.$transaction(async tx => {
       const inactiveLeases = await tx.lease.findMany({
-        where: { tenantId, status: "SUSPENDED" },
+        where: {
+          tenantId,
+          status: { in: ["SUSPENDED", "TERMINATED", "CANCELLED"] },
+        },
         select: { id: true },
       });
       for (const inactiveLease of inactiveLeases) {
@@ -133,7 +138,22 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           return targetDate >= start && targetDate <= end;
         });
 
-        const valorAluguel = periodoAtivo ? periodoAtivo.valorAluguel : (locacao.valorAluguel || 0);
+        const rateioAluguel = locacao.periodos.length > 0
+          ? calcularAluguelProporcionalCompetencia(
+              locacao.periodos.map(periodo => ({
+                id: periodo.id,
+                effectiveFrom: periodo.dataInicio,
+                effectiveTo: adicionarDiasUTC(periodo.dataFim, 1),
+                rentAmount: periodo.valorAluguel,
+              })),
+              competence,
+            )
+          : null;
+        if (locacao.periodos.length > 0 && !rateioAluguel) {
+          throw new Error(`A competência ${competence} possui uma lacuna entre vigências do aluguel.`);
+        }
+        const valorAluguel = rateioAluguel?.valor
+          ?? (periodoAtivo ? periodoAtivo.valorAluguel : (locacao.valorAluguel || 0));
         const hasCondominio = periodoAtivo ? periodoAtivo.hasCondominio : locacao.hasCondominio;
         const valorCondominio = periodoAtivo ? (periodoAtivo.valorCondominio || 0) : 0;
         const hasIPTU = periodoAtivo ? periodoAtivo.hasIPTU : locacao.hasIPTU;
@@ -177,6 +197,12 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         const metadata = {
           competence,
           rentValue: valorAluguel,
+          rentProration: rateioAluguel?.rateado ? {
+            startDate: rateioAluguel.inicio.toISOString(),
+            endDate: rateioAluguel.fim.toISOString(),
+            totalDays: rateioAluguel.diasTotais,
+            portions: rateioAluguel.parcelas,
+          } : null,
           condominiumValue: hasCondominio ? valorCondominio : 0,
           iptuValue: hasIPTU ? valorIPTU : 0,
           waterValue: 0,
@@ -304,7 +330,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         tenantId,
         status: "ACTIVE",
         startDate: { lte: new Date(Date.UTC(ano, mes, 0, 23, 59, 59)) },
-        endDate: { gte: new Date(Date.UTC(ano, mes - 2, 1)) },
+        endDate: { gte: inicioMes },
       },
       include: {
         property: { include: { residencial: { include: { despesas: true } } } },
@@ -361,7 +387,20 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         });
 
         const tenantName = lease.parties[0]?.person.name || "Inquilino";
-        const rentAmount = Number(periodoAtivo.rentAmount);
+        const rateioAluguel = calcularAluguelProporcionalCompetencia(
+          lease.termsPeriods.map(periodo => ({
+            id: periodo.id,
+            effectiveFrom: periodo.effectiveFrom,
+            effectiveTo: periodo.effectiveTo,
+            rentAmount: Number(periodo.rentAmount),
+          })),
+          leaseCompetence,
+          lease.terms?.firstPeriodEndDay,
+        );
+        if (!rateioAluguel) {
+          throw new Error(`A competência ${leaseCompetence} possui uma lacuna entre vigências do aluguel.`);
+        }
+        const rentAmount = rateioAluguel.valor;
         const iptu = calcularIptuDaCobranca(lease.iptu, dataVencimento, {
           legacySystem: lease.legacySystem,
         });
@@ -395,6 +434,12 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           leaseId: lease.id,
           termsPeriodId: periodoAtivo.id,
           rentValue: rentAmount,
+          rentProration: rateioAluguel.rateado ? {
+            startDate: rateioAluguel.inicio.toISOString(),
+            endDate: rateioAluguel.fim.toISOString(),
+            totalDays: rateioAluguel.diasTotais,
+            portions: rateioAluguel.parcelas,
+          } : null,
           condominiumValue,
           iptuValue: iptu.valor,
           waterValue,
@@ -493,9 +538,13 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           // conferência dentro da transação impede a gravação nessa janela.
           const currentLease = await tx.lease.findUnique({
             where: { id: lease.id },
-            select: { status: true },
+            select: { status: true, startDate: true, endDate: true },
           });
-          if (currentLease?.status !== "ACTIVE") return false;
+          if (
+            currentLease?.status !== "ACTIVE"
+            || (currentLease.startDate && currentLease.startDate > fimMes)
+            || (currentLease.endDate && currentLease.endDate < inicioMes)
+          ) return false;
 
           await tx.leaseCharge.upsert({
             where: {

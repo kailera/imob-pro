@@ -193,6 +193,91 @@ export function calcularInicioCompetencia(
     : primeiroDia;
 }
 
+export interface PeriodoAluguelCompetencia {
+  id: string;
+  effectiveFrom: string | Date;
+  effectiveTo: string | Date | null;
+  rentAmount: number | string;
+}
+
+export interface ParcelaAluguelProporcional {
+  periodoId: string;
+  dias: number;
+  valorMensal: number;
+  subtotal: number;
+}
+
+/**
+ * Rateia o aluguel quando uma mesma competência atravessa duas vigências.
+ *
+ * O divisor é a quantidade real de dias da competência contratual. Assim, uma
+ * competência civil de agosto usa 31 dias; um ciclo de 11/08 a 10/09 também
+ * usa os dias efetivamente contidos nesse ciclo. Se a mudança de valor coincide
+ * com o início do ciclo, o resultado é o aluguel mensal integral, sem rateio.
+ */
+export function calcularAluguelProporcionalCompetencia(
+  periodos: PeriodoAluguelCompetencia[],
+  competencia: string,
+  fimPeriodo?: string | null,
+) {
+  const inicio = calcularInicioCompetencia(competencia, fimPeriodo);
+  const [ano, mes] = competencia.split("-").map(Number);
+  const proximaCompetencia = new Date(Date.UTC(ano, mes, 1));
+  const chaveProxima = `${proximaCompetencia.getUTCFullYear()}-${String(
+    proximaCompetencia.getUTCMonth() + 1,
+  ).padStart(2, "0")}`;
+  const fimExclusivo = calcularInicioCompetencia(chaveProxima, fimPeriodo);
+  const milissegundosPorDia = 24 * 60 * 60 * 1000;
+  const diasTotais = Math.round((fimExclusivo.getTime() - inicio.getTime()) / milissegundosPorDia);
+  if (diasTotais <= 0) throw new Error(`Competência inválida para rateio: ${competencia}.`);
+
+  const normalizados = periodos.map((periodo) => ({
+    ...periodo,
+    effectiveFrom: normalizarDataUTC(periodo.effectiveFrom),
+    effectiveTo: periodo.effectiveTo ? normalizarDataUTC(periodo.effectiveTo) : null,
+    rentAmount: Number(periodo.rentAmount),
+  }));
+  const parcelas = new Map<string, ParcelaAluguelProporcional>();
+  let acumulado = 0;
+
+  for (let dia = 0; dia < diasTotais; dia += 1) {
+    const referencia = adicionarDiasUTC(inicio, dia);
+    const periodo = normalizados.find((item) => (
+      referencia >= item.effectiveFrom
+      && (!item.effectiveTo || referencia < item.effectiveTo)
+    ));
+    if (!periodo || !Number.isFinite(periodo.rentAmount) || periodo.rentAmount <= 0) {
+      return null;
+    }
+
+    const valorDiario = periodo.rentAmount / diasTotais;
+    acumulado += valorDiario;
+    const parcela = parcelas.get(periodo.id) ?? {
+      periodoId: periodo.id,
+      dias: 0,
+      valorMensal: periodo.rentAmount,
+      subtotal: 0,
+    };
+    parcela.dias += 1;
+    parcela.subtotal += valorDiario;
+    parcelas.set(periodo.id, parcela);
+  }
+
+  const detalhamento = [...parcelas.values()].map((parcela) => ({
+    ...parcela,
+    subtotal: arredondarMoeda(parcela.subtotal),
+  }));
+
+  return {
+    valor: arredondarMoeda(acumulado),
+    inicio,
+    fim: adicionarDiasUTC(fimExclusivo, -1),
+    diasTotais,
+    rateado: detalhamento.length > 1,
+    parcelas: detalhamento,
+  };
+}
+
 export function calcularCompetenciaPorVencimento(
   dataVencimento: string | Date,
   fimPeriodo: string | null | undefined,
@@ -299,27 +384,37 @@ export function resolverVigenciaCobrancaPorCompetencia<T extends {
   fimPeriodo?: string | null;
 }) {
   const referencia = calcularInicioCompetencia(input.competencia);
+  let diaVencimento = input.diaVencimentoPadrao;
+  let resultado: { dataVencimento: Date; competencia: string; periodo: T } | null = null;
 
-  // Em ciclos não-calendário, a competência pode vencer no mês seguinte.
-  // Testar os dois meses mantém a competência escolhida como fonte da verdade.
-  for (const deslocamento of [0, 1]) {
-    const vencimentoReferencia = new Date(Date.UTC(
+  // Na geração manual, o mês escolhido pelo usuário é também o mês do
+  // vencimento. O ciclo contratual continua definindo a vigência e o valor,
+  // mas não pode deslocar uma cobrança de setembro para outubro.
+  for (let tentativa = 0; tentativa < 3; tentativa += 1) {
+    const dataVencimento = calcularVencimentoMensal(
       referencia.getUTCFullYear(),
-      referencia.getUTCMonth() + deslocamento,
-      1,
-    ));
-    const resultado = resolverVigenciaCobrancaMensal({
-      periodos: input.periodos,
-      ano: vencimentoReferencia.getUTCFullYear(),
-      mes: vencimentoReferencia.getUTCMonth() + 1,
-      diaVencimentoPadrao: input.diaVencimentoPadrao,
-      primeiroVencimento: input.primeiroVencimento,
-      fimPeriodo: input.fimPeriodo,
-    });
-    if (resultado?.competencia === input.competencia) return resultado;
+      referencia.getUTCMonth() + 1,
+      diaVencimento,
+      input.primeiroVencimento,
+    );
+    if (!dataVencimento) return null;
+
+    const periodo = resolverPeriodoEfetivoDaCobranca(
+      input.periodos,
+      input.competencia,
+      dataVencimento,
+      input.fimPeriodo,
+    );
+    if (!periodo) {
+      return { dataVencimento, competencia: input.competencia, periodo: null };
+    }
+
+    resultado = { dataVencimento, competencia: input.competencia, periodo };
+    if (periodo.paymentDueDay === diaVencimento) return resultado;
+    diaVencimento = periodo.paymentDueDay;
   }
 
-  return null;
+  return resultado;
 }
 
 export function substituirCompetenciaNaDescricao(

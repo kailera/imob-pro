@@ -3,7 +3,9 @@ export const INDICES_REAJUSTE = [
   { codigo: "IGP-DI", nome: "IGP-DI", serieBcb: 190 },
   { codigo: "INPC", nome: "INPC", serieBcb: 188 },
   { codigo: "IPC-FIPE", nome: "IPC-Fipe", serieBcb: 193 },
-  { codigo: "IPC-DI", nome: "IPC-DI", serieBcb: 191 },
+  // O código interno IPC-DI é mantido para não invalidar contratos legados.
+  // A série 191 do SGS é oficialmente o IPC-Br (FGV).
+  { codigo: "IPC-DI", nome: "IPC-Br (FGV)", serieBcb: 191 },
   { codigo: "IPCA", nome: "IPCA", serieBcb: 433 },
 ] as const;
 
@@ -19,6 +21,8 @@ const ALIASES: Record<string, CodigoIndiceReajuste> = {
   IPCFIPE: "IPC-FIPE",
   "IPC-DI": "IPC-DI",
   IPCDI: "IPC-DI",
+  "IPC-BR": "IPC-DI",
+  IPCBR: "IPC-DI",
   IPCA: "IPCA",
 };
 

@@ -10,11 +10,12 @@ import {
 import { calcularCondominioDaCobranca } from "./condominio";
 import { calcularIptuDaCobranca } from "./iptu";
 import {
+  calcularAluguelProporcionalCompetencia,
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaMensal,
 } from "./financeiro";
-import { normalizarDataUTC } from "./periodos";
+import { adicionarDiasUTC, normalizarDataUTC } from "./periodos";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
 
 type LegacyPeriodForEmission = {
@@ -106,6 +107,21 @@ export async function reconciliarCobrancaLegadaAntesDaEmissao(transacaoId: strin
 
   const metadataAtual = asMetadataRecord(transaction.metadata);
   const competence = competenciaDaCobranca(transaction.metadata, transaction.dataVencimento);
+  const rateioAluguel = calcularAluguelProporcionalCompetencia(
+    locacao.periodos.map(item => ({
+      id: item.id,
+      effectiveFrom: item.dataInicio,
+      effectiveTo: adicionarDiasUTC(item.dataFim, 1),
+      rentAmount: item.valorAluguel,
+    })),
+    competence,
+  );
+  if (!rateioAluguel) {
+    return {
+      updated: false as const,
+      error: "A competência possui uma lacuna entre vigências do aluguel.",
+    };
+  }
   const [year, month] = competence.split("-").map(Number);
   const dueDay = period.diaVencimento
     ?? locacao.diaVencimento
@@ -126,7 +142,7 @@ export async function reconciliarCobrancaLegadaAntesDaEmissao(transacaoId: strin
       })
     : [];
   const values: BoletoCompositionValues = {
-    rentValue: period.valorAluguel,
+    rentValue: rateioAluguel.valor,
     condominiumValue: period.hasCondominio ? numeroSeguro(period.valorCondominio) : 0,
     iptuValue: period.hasIPTU ? numeroSeguro(period.valorIPTU) : 0,
     waterValue: numeroSeguro(metadataAtual.waterValue),
@@ -151,6 +167,12 @@ export async function reconciliarCobrancaLegadaAntesDaEmissao(transacaoId: strin
     competence,
     periodId: period.id,
     rentValue: values.rentValue,
+    rentProration: rateioAluguel.rateado ? {
+      startDate: rateioAluguel.inicio.toISOString(),
+      endDate: rateioAluguel.fim.toISOString(),
+      totalDays: rateioAluguel.diasTotais,
+      portions: rateioAluguel.parcelas,
+    } : null,
     condominiumValue: values.condominiumValue,
     iptuValue: values.iptuValue,
     dueDay,
@@ -258,8 +280,25 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     leaseGasValue,
   );
   const metadataAtual = asMetadataRecord(transaction.metadata);
+  const rateioAluguel = calcularAluguelProporcionalCompetencia(
+    lease.termsPeriods.map(item => ({
+      id: item.id,
+      effectiveFrom: item.effectiveFrom,
+      effectiveTo: item.effectiveTo,
+      rentAmount: Number(item.rentAmount),
+    })),
+    vigencia.competencia,
+    lease.terms?.firstPeriodEndDay,
+  );
+  if (!rateioAluguel) {
+    return {
+      handled: true as const,
+      updated: false as const,
+      error: "A competência possui uma lacuna entre vigências do aluguel.",
+    };
+  }
   const values: BoletoCompositionValues = {
-    rentValue: Number(period.rentAmount),
+    rentValue: rateioAluguel.valor,
     condominiumValue,
     iptuValue: iptu.valor,
     waterValue,
@@ -283,6 +322,12 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     leaseId: lease.id,
     termsPeriodId: period.id,
     rentValue: values.rentValue,
+    rentProration: rateioAluguel.rateado ? {
+      startDate: rateioAluguel.inicio.toISOString(),
+      endDate: rateioAluguel.fim.toISOString(),
+      totalDays: rateioAluguel.diasTotais,
+      portions: rateioAluguel.parcelas,
+    } : null,
     condominiumValue,
     iptuValue: iptu.valor,
     waterValue,

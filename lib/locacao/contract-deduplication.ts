@@ -35,7 +35,9 @@ export function isCompleteCanonicalLease(
 
   // Um contrato inativado deve continuar sendo a referência canônica mesmo
   // sem histórico revisado, para o legado não reaparecer nem voltar a cobrar.
-  if (lease.status === "SUSPENDED") return true;
+  if (["SUSPENDED", "TERMINATED", "CANCELLED"].includes(lease.status ?? "")) {
+    return true;
+  }
 
   return lease.status === "ACTIVE"
     && Boolean(lease.termsPeriods?.length)

@@ -12,10 +12,12 @@ import {
 } from "@/lib/financeiro/cobranca-rascunho";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
 import {
+  calcularAluguelProporcionalCompetencia,
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaPorCompetencia,
 } from "@/lib/locacao/financeiro";
+import { adicionarDiasUTC } from "@/lib/locacao/periodos";
 import { listarPendenciasInter, type InterReadinessIssue } from "@/lib/locacao/inter-readiness";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
@@ -245,7 +247,24 @@ async function gerarCobrancaCanonica(
     };
   }
 
-  const rentValue = Number(period.rentAmount);
+  const rateioAluguel = calcularAluguelProporcionalCompetencia(
+    lease.termsPeriods.map(item => ({
+      id: item.id,
+      effectiveFrom: item.effectiveFrom,
+      effectiveTo: item.effectiveTo,
+      rentAmount: Number(item.rentAmount),
+    })),
+    competence,
+    terms.firstPeriodEndDay,
+  );
+  if (!rateioAluguel) {
+    return {
+      success: false,
+      error: "A competência possui uma lacuna entre vigências do aluguel.",
+      issues: [issue("PERIOD_GAP", `Revise os períodos contratuais da competência ${competence}.`)],
+    };
+  }
+  const rentValue = rateioAluguel.valor;
   const iptu = calcularIptuDaCobranca(lease.iptu, vigencia.dataVencimento, {
     legacySystem: lease.legacySystem,
   });
@@ -278,6 +297,12 @@ async function gerarCobrancaCanonica(
     leaseId: lease.id,
     termsPeriodId: period.id,
     rentValue,
+    rentProration: rateioAluguel.rateado ? {
+      startDate: rateioAluguel.inicio.toISOString(),
+      endDate: rateioAluguel.fim.toISOString(),
+      totalDays: rateioAluguel.diasTotais,
+      portions: rateioAluguel.parcelas,
+    } : null,
     condominiumValue,
     iptuValue: iptu.valor,
     waterValue,
@@ -479,7 +504,26 @@ async function gerarCobrancaLegada(
   }
   const [year, month] = competence.split("-").map(Number);
   const dueDate = criarDataVencimento(year, month, dueDay);
-  const rentValue = Number(period?.valorAluguel ?? rental!.valorAluguel ?? 0);
+  const rateioAluguel = rental!.periodos.length > 0
+    ? calcularAluguelProporcionalCompetencia(
+        rental!.periodos.map(item => ({
+          id: item.id,
+          effectiveFrom: item.dataInicio,
+          effectiveTo: adicionarDiasUTC(item.dataFim, 1),
+          rentAmount: item.valorAluguel,
+        })),
+        competence,
+      )
+    : null;
+  if (rental!.periodos.length > 0 && !rateioAluguel) {
+    return {
+      success: false,
+      error: "A competência possui uma lacuna entre vigências do aluguel.",
+      issues: [issue("PERIOD_GAP", `Revise os períodos contratuais da competência ${competence}.`)],
+    };
+  }
+  const rentValue = rateioAluguel?.valor
+    ?? Number(period?.valorAluguel ?? rental!.valorAluguel ?? 0);
   const condominiumValue = period?.hasCondominio ? Number(period.valorCondominio ?? 0) : 0;
   const iptuValue = period?.hasIPTU ? Number(period.valorIPTU ?? 0) : 0;
   const residentialExpenses = resolverDespesasResidencial(
@@ -499,6 +543,12 @@ async function gerarCobrancaLegada(
   const metadata = {
     competence,
     rentValue,
+    rentProration: rateioAluguel?.rateado ? {
+      startDate: rateioAluguel.inicio.toISOString(),
+      endDate: rateioAluguel.fim.toISOString(),
+      totalDays: rateioAluguel.diasTotais,
+      portions: rateioAluguel.parcelas,
+    } : null,
     condominiumValue,
     iptuValue,
     waterValue: 0,

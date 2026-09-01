@@ -80,11 +80,114 @@ async function sincronizarHistoricoLocacao(tx: PrismaTransaction, imovelLocacaoI
             },
         });
         const contratoIds = locacao.contratoImovelLocacaos.map((contrato) => contrato.id);
+
+        // Contratos migrados continuam vinculados ao registro legado. Sempre
+        // que o histórico legado recebe um reajuste, refletimos as mesmas
+        // vigências no modelo canônico, que é a fonte usada pelas cobranças.
+        const leasesVinculados = contratoIds.length > 0
+            ? await tx.lease.findMany({
+                where: { legacyCode: { in: contratoIds }, status: "ACTIVE" },
+                include: {
+                    terms: true,
+                    termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+                },
+            })
+            : [];
+        const periodosConfirmados = periodos.filter(
+            (periodo) => periodo.origemPeriodo !== "SICADI_PROVISORIO",
+        );
+        for (const lease of leasesVinculados) {
+            for (const periodo of periodosConfirmados) {
+                const inicioPeriodo = normalizarDataUTC(periodo.dataInicio);
+                const fimExclusivoPeriodo = adicionarDiasUTC(periodo.dataFim, 1);
+                const existente = lease.termsPeriods.find(
+                    (item) => normalizarDataUTC(item.effectiveFrom).getTime() === inicioPeriodo.getTime(),
+                );
+                const modelo = existente
+                    ?? [...lease.termsPeriods]
+                        .filter((item) => normalizarDataUTC(item.effectiveFrom) <= inicioPeriodo)
+                        .sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime())[0]
+                    ?? lease.termsPeriods.at(-1);
+                const paymentDueDay = periodo.diaVencimento
+                    ?? modelo?.paymentDueDay
+                    ?? lease.terms?.paymentDueDay;
+                if (!paymentDueDay) {
+                    throw new Error(`Contrato ${lease.code}: dia de vencimento não configurado.`);
+                }
+
+                const dadosCanonicos = {
+                    effectiveFrom: inicioPeriodo,
+                    effectiveTo: fimExclusivoPeriodo,
+                    rentAmount: periodo.valorAluguel,
+                    paymentDueDay,
+                    adjustmentIndex: periodo.indiceReajuste ?? modelo?.adjustmentIndex ?? lease.terms?.readjustmentIndex,
+                    adjustmentPercentage: periodo.percentualReajuste,
+                    previousRentAmount: periodo.valorAluguelAnterior,
+                    earlyPaymentDiscount: periodo.descontoPontualidade
+                        ?? modelo?.earlyPaymentDiscount
+                        ?? lease.terms?.earlyPaymentDiscount,
+                    discountType: periodo.tipoDesconto ?? modelo?.discountType ?? lease.terms?.discountType,
+                    discountDaysBefore: periodo.diasAntecedenciaDesc
+                        ?? modelo?.discountDaysBefore
+                        ?? lease.terms?.discountDaysBefore,
+                    lateFeePercentage: periodo.multaAtrasoPercentual
+                        ?? modelo?.lateFeePercentage
+                        ?? lease.terms?.lateFeePercentage,
+                    lateFeeDays: periodo.diasCarenciaMulta ?? modelo?.lateFeeDays ?? lease.terms?.lateFeeDays,
+                    lateInterestMonthly: periodo.jurosAtrasoPercentual
+                        ?? modelo?.lateInterestMonthly
+                        ?? lease.terms?.lateInterestMonthly,
+                    lateInterestDays: periodo.diasCarenciaJuros
+                        ?? modelo?.lateInterestDays
+                        ?? lease.terms?.lateInterestDays,
+                    lawyerFeePercentage: modelo?.lawyerFeePercentage ?? lease.terms?.lawyerFeePercentage,
+                    lawyerFeeGraceDays: modelo?.lawyerFeeGraceDays ?? lease.terms?.lawyerFeeGraceDays,
+                    transferGraceDays: modelo?.transferGraceDays ?? lease.terms?.transferGraceDays,
+                    guaranteedPeriod: modelo?.guaranteedPeriod ?? lease.terms?.guaranteedPeriod,
+                    guaranteeScope: modelo?.guaranteeScope ?? lease.terms?.guaranteeScope,
+                    adminFeePercentage: modelo?.adminFeePercentage ?? lease.terms?.adminFeePercentage,
+                    adminFeeFinesPercentage: modelo?.adminFeeFinesPercentage ?? lease.terms?.adminFeeFinesPercentage,
+                    brokerageFeePercentage: modelo?.brokerageFeePercentage ?? lease.terms?.brokerageFeePercentage,
+                    source: periodo.origemPeriodo === "CALCULO_SISTEMA" ? "CALCULATION" : "LEGACY_SYNC",
+                    reviewStatus: "REVIEWED",
+                    notes: `Sincronizado do período legado ${periodo.id}.`,
+                };
+
+                if (existente) {
+                    await tx.leaseTermsPeriod.update({
+                        where: { id: existente.id },
+                        data: dadosCanonicos,
+                    });
+                } else {
+                    await tx.leaseTermsPeriod.create({
+                        data: {
+                            leaseId: lease.id,
+                            externalId: `LEGACY_PERIOD:${periodo.id}`,
+                            ...dadosCanonicos,
+                        },
+                    });
+                }
+            }
+
+            const ultimoPeriodo = periodosConfirmados.at(-1);
+            if (ultimoPeriodo && lease.terms) {
+                await tx.leaseTerms.update({
+                    where: { leaseId: lease.id },
+                    data: {
+                        rentValue: ultimoPeriodo.valorAluguel,
+                        readjustmentIndex: ultimoPeriodo.indiceReajuste ?? lease.terms.readjustmentIndex,
+                        nextReadjustmentDate: adicionarDiasUTC(ultimoPeriodo.dataFim, 1),
+                    },
+                });
+            }
+        }
+
         for (const periodo of periodos) {
             if (periodo.origemPeriodo === "SICADI_PROVISORIO") continue;
             await sincronizarCobrancasPendentesDoPeriodo(tx, {
                 contratoIds,
                 periodo,
+                periodos,
             });
         }
         return;

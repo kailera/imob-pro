@@ -70,19 +70,20 @@ test("resolve as credenciais do Inter pelo contrato atual, legado ou imóvel", (
   assert.equal(resolveInterTransactionTenantId({}), null);
 });
 
-test("cron aceita GET e POST autenticados e consulta o tenant da lease", () => {
+test("sincronização automática fica desativada e preserva a resolução do tenant", () => {
   const route = readSource("../app/api/inter/cobrancas/sync/route.ts");
   const inter = readSource("../lib/inter.ts");
   const compose = readSource("../docker-compose.yml");
 
   assert.match(route, /export async function GET/);
   assert.match(route, /export async function POST/);
-  assert.match(route, /Authorization: Bearer <CRON_SECRET>/);
+  assert.match(route, /Sincronização automática desativada/);
+  assert.match(route, /status: 410/);
+  assert.doesNotMatch(route, /enqueueScheduledInterSyncTasks/);
   assert.match(inter, /lease: \{ select: \{ tenantId: true \} \}/);
   assert.match(inter, /resolveInterTransactionTenantId\(transacao\)/);
-  assert.match(compose, /- TZ=UTC/);
-  assert.match(compose, /0 11,16 \* \* \*/);
-  assert.doesNotMatch(compose, /\*\/15 \* \* \* \*/);
+  assert.doesNotMatch(compose, /inter-status-cron:/);
+  assert.doesNotMatch(compose, /api\/inter\/cobrancas\/sync/);
 });
 
 test("tela enfileira os dois lotes com intervalo seguro e seleção autenticada", () => {

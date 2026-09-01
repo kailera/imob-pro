@@ -69,16 +69,18 @@ test("o vínculo explícito da migração prevalece mesmo com contrato atual inc
 });
 
 test("mantém o legado oculto quando o contrato canônico foi inativado", () => {
-  const suspendedLease = {
-    ...completeLease,
-    status: "SUSPENDED",
-    termsPeriods: [{ reviewStatus: "PENDING" }],
-  };
+  for (const status of ["SUSPENDED", "TERMINATED", "CANCELLED"]) {
+    const inactiveLease = {
+      ...completeLease,
+      status,
+      termsPeriods: [{ reviewStatus: "PENDING" }],
+    };
 
-  assert.deepEqual(
-    removeLegacyDuplicatesWithCompleteLease([legacy], [suspendedLease]),
-    [],
-  );
+    assert.deepEqual(
+      removeLegacyDuplicatesWithCompleteLease([legacy], [inactiveLease]),
+      [],
+    );
+  }
 });
 
 test("não deduplica contratos de imóvel ou inquilino diferentes", () => {

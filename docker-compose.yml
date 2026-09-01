@@ -104,31 +104,6 @@ services:
 
       - "traefik.docker.network=proxy_network"
 
-  # Reconcilia cobranças pendentes às 08:00 e 13:00 de São Paulo
-  # (11:00 e 16:00 UTC, fuso fixado no contêiner abaixo).
-  inter-status-cron:
-    image: alpine:3.20
-    container_name: imob-pro-inter-status-cron
-    restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_started
-    networks:
-      - imob_internal_network
-    environment:
-      - CRON_SECRET=${CRON_SECRET}
-      - TZ=UTC
-    command:
-      - /bin/sh
-      - -c
-      - |
-        if [ -z "$$CRON_SECRET" ]; then
-          echo "[inter-status-cron] CRON_SECRET não configurado" >&2
-          exit 1
-        fi
-        printf '0 11,16 * * * wget -O- --header="Authorization: Bearer %s" --post-data="" http://app:3000/api/inter/cobrancas/sync 2>&1\n' "$$CRON_SECRET" > /etc/crontabs/root
-        exec crond -f -l 2
-
   # Consome a fila persistente de emissão e sincronização do Banco Inter.
   inter-batch-worker:
     image: alpine:3.20
@@ -159,6 +134,32 @@ services:
           sleep 1
         done
     stop_grace_period: 130s
+
+  # Atualiza mensalmente o cache dos seis índices econômicos pelo SGS/BCB.
+  # Executa no dia 15 às 09:15 UTC (06:15 em São Paulo), quando os índices do
+  # mês anterior já costumam estar publicados. A consulta sob demanda continua
+  # cobrindo publicações que ocorram fora dessa janela.
+  indices-monthly-sync:
+    image: alpine:3.20
+    container_name: imob-pro-indices-monthly-sync
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - imob_internal_network
+    environment:
+      - CRON_SECRET=${CRON_SECRET}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ -z "$$CRON_SECRET" ]; then
+          echo "[indices-monthly-sync] CRON_SECRET não configurado" >&2
+          exit 1
+        fi
+        printf '%s\n' '15 9 15 * * wget -q -T 120 -O - --header="Authorization: Bearer $$CRON_SECRET" --post-data="" http://app:3000/api/indices/sync || echo "[indices-monthly-sync] sincronização falhou" >&2' > /etc/crontabs/root
+        exec crond -f -l 2
 
   # Serviço manual, desativado por padrão. Para rodar uma vez no Portainer,
   # habilite o profile `legacy-migration` e defina MIGRATE_LEGACY_CONFIRM=true.

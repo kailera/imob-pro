@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calcularInicioCompetencia,
+  calcularAluguelProporcionalCompetencia,
   calcularCompetenciaPorVencimento,
   calcularDescontoPontualidade,
   calcularDataLimiteDesconto,
@@ -128,6 +129,53 @@ test("não antecipa reajuste ocorrido no meio da competência mensal", () => {
   );
 });
 
+test("rateia o aluguel quando o reajuste começa no meio do mês civil", () => {
+  const resultado = calcularAluguelProporcionalCompetencia([
+    {
+      id: "base",
+      effectiveFrom: "2025-08-11",
+      effectiveTo: "2026-08-11",
+      rentAmount: 1200,
+    },
+    {
+      id: "reajuste",
+      effectiveFrom: "2026-08-11",
+      effectiveTo: null,
+      rentAmount: 1233.24,
+    },
+  ], "2026-08");
+
+  assert.equal(resultado?.diasTotais, 31);
+  assert.equal(resultado?.rateado, true);
+  assert.deepEqual(resultado?.parcelas, [
+    { periodoId: "base", dias: 10, valorMensal: 1200, subtotal: 387.1 },
+    { periodoId: "reajuste", dias: 21, valorMensal: 1233.24, subtotal: 835.42 },
+  ]);
+  assert.equal(resultado?.valor, 1222.52);
+});
+
+test("não rateia quando o reajuste coincide com o início do ciclo contratual", () => {
+  const resultado = calcularAluguelProporcionalCompetencia([
+    {
+      id: "base",
+      effectiveFrom: "2025-08-11",
+      effectiveTo: "2026-08-11",
+      rentAmount: 1200,
+    },
+    {
+      id: "reajuste",
+      effectiveFrom: "2026-08-11",
+      effectiveTo: null,
+      rentAmount: 1233.24,
+    },
+  ], "2026-08", "Dia 10");
+
+  assert.equal(resultado?.inicio.toISOString().slice(0, 10), "2026-08-11");
+  assert.equal(resultado?.fim.toISOString().slice(0, 10), "2026-09-10");
+  assert.equal(resultado?.rateado, false);
+  assert.equal(resultado?.valor, 1233.24);
+});
+
 test("respeita o início do ciclo não-calendário ao aplicar reajuste", () => {
   const periodos = [
     {
@@ -183,7 +231,7 @@ test("usa o dia e o valor da vigência atual mesmo com termos principais desatua
   assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-08-20");
 });
 
-test("mantém a competência escolhida quando o vencimento ocorre no mês seguinte", () => {
+test("mantém o vencimento no mês da competência escolhida", () => {
   const resultado = resolverVigenciaCobrancaPorCompetencia({
     periodos: [{
       id: "periodo",
@@ -197,7 +245,7 @@ test("mantém a competência escolhida quando o vencimento ocorre no mês seguin
   });
 
   assert.equal(resultado?.competencia, "2026-09");
-  assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-10-26");
+  assert.equal(resultado?.dataVencimento.toISOString().slice(0, 10), "2026-09-26");
 });
 
 test("converte a cláusula entre percentual e meses sem alterar a equivalência", () => {

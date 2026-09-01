@@ -77,3 +77,13 @@ test("geração mensal tem unicidade por contrato e competência", () => {
   assert.match(monthlyAction, /transacaoFinanceira\.upsert\(\{\s*where: \{ billingKey \}/);
   assert.match(contractAction, /transacaoFinanceira\.upsert\(\{\s*where: \{ billingKey \}/);
 });
+
+test("geradores mensal e avulso registram o rateio de aluguel entre vigências", () => {
+  const monthlyAction = readSource("../app/actions/financeiroActions.ts");
+  const contractAction = readSource("../app/actions/contractChargeActions.ts");
+
+  assert.match(monthlyAction, /calcularAluguelProporcionalCompetencia/);
+  assert.match(monthlyAction, /rentProration:/);
+  assert.match(contractAction, /calcularAluguelProporcionalCompetencia/);
+  assert.match(contractAction, /rentProration:/);
+});

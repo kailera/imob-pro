@@ -67,9 +67,10 @@ test('gerador mensal remove registros legados cobertos por contrato canônico', 
 
 test('gerador mensal limpa inativos antigos e revalida o status antes de gravar', () => {
   const source = readSource('../app/actions/financeiroActions.ts')
-  assert.match(source, /where: \{ tenantId, status: "SUSPENDED" \}/)
+  assert.match(source, /status: \{ in: \["SUSPENDED", "TERMINATED", "CANCELLED"\] \}/)
   assert.match(source, /removerRascunhosFuturosDeContratoInativo/)
   assert.match(source, /currentLease\?\.status !== "ACTIVE"/)
+  assert.match(source, /currentLease\.endDate && currentLease\.endDate < inicioMes/)
   assert.match(source, /if \(!persisted\) continue/)
 })
 

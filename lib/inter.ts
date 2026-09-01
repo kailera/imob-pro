@@ -277,6 +277,53 @@ export async function gerarBolePixAction(
     if (!transacao) {
       return { success: false, error: "Transação não encontrada." };
     }
+    if (transacao.lease && transacao.lease.status !== "ACTIVE") {
+      return {
+        success: false,
+        error: "O contrato está inativo. Nenhum boleto pode ser emitido para esta cobrança.",
+      };
+    }
+    if (
+      transacao.lease
+      && (
+        (transacao.lease.startDate && transacao.dataVencimento < transacao.lease.startDate)
+        || (transacao.lease.endDate && transacao.dataVencimento > transacao.lease.endDate)
+      )
+    ) {
+      return {
+        success: false,
+        error: "A cobrança está fora da vigência do contrato. Nenhum boleto foi emitido.",
+      };
+    }
+    if (!transacao.lease && transacao.contratoId && transacao.contrato) {
+      const canonicalLease = await prisma.lease.findFirst({
+        where: {
+          tenantId: transacao.contrato.imobId,
+          legacyCode: transacao.contratoId,
+        },
+        select: { status: true },
+      });
+      if (canonicalLease && canonicalLease.status !== "ACTIVE") {
+        return {
+          success: false,
+          error: "O contrato está inativo. Nenhum boleto pode ser emitido para esta cobrança.",
+        };
+      }
+
+      const vigenciaLegada = transacao.contrato.imovelLocacao;
+      if (
+        vigenciaLegada
+        && (
+          transacao.dataVencimento < vigenciaLegada.dataInicio
+          || transacao.dataVencimento > vigenciaLegada.dataFim
+        )
+      ) {
+        return {
+          success: false,
+          error: "A cobrança está fora da vigência do contrato. Nenhum boleto foi emitido.",
+        };
+      }
+    }
     seuNumeroGerado = criarSeuNumeroInter(transacao.id, transacao.metadata);
     if (cobrancaEstaRegistradaNoInter(transacao)) {
       return {

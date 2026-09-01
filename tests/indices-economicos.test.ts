@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parseDataBcb } from "../lib/indices/bcb";
 import { calcularVariacaoSicadi } from "../lib/indices/calculo";
@@ -13,6 +14,7 @@ test("normaliza nomes legados sem manter índices ambíguos no cadastro", () => 
   assert.equal(normalizarCodigoIndice("IGP"), null);
   assert.equal(normalizarCodigoIndice("IPC"), null);
   assert.equal(normalizarCodigoIndice("IVAR"), null);
+  assert.equal(normalizarCodigoIndice("IPC-Br"), "IPC-DI");
 });
 
 test("mantém o catálogo simples com as seis séries SGS validadas", () => {
@@ -23,6 +25,15 @@ test("mantém o catálogo simples com as seis séries SGS validadas", () => {
   assert.equal(obterConfiguracaoIndice("IGP-DI").serieBcb, 190);
   assert.equal(obterConfiguracaoIndice("IPC-FIPE").serieBcb, 193);
   assert.equal(obterConfiguracaoIndice("IPC-DI").serieBcb, 191);
+  assert.equal(obterConfiguracaoIndice("IPC-DI").nome, "IPC-Br (FGV)");
+});
+
+test("agenda a atualização dos índices uma vez por mês", () => {
+  const compose = readFileSync(new URL("../docker-compose.yml", import.meta.url), "utf8");
+  assert.match(compose, /indices-monthly-sync:/);
+  assert.match(compose, /15 9 15 \* \* wget/);
+  assert.match(compose, /http:\/\/app:3000\/api\/indices\/sync/);
+  assert.match(compose, /Authorization: Bearer \$\$CRON_SECRET/);
 });
 
 test("interpreta explicitamente as datas dd/MM/yyyy do BCB", () => {

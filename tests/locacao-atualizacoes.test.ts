@@ -36,3 +36,13 @@ test("agenda aparece somente na aba de atualizações e mantém histórico separ
   assert.match(agenda, /Histórico corrigido/);
   assert.match(agenda, /eventosVisiveis\.map/);
 });
+
+test("reajuste legado sincroniza a vigência canônica usada pelas cobranças", () => {
+  const actions = readSource("../app/(admin)/locacao/actions/actions.ts");
+
+  assert.match(actions, /legacyCode: \{ in: contratoIds \}/);
+  assert.match(actions, /tx\.leaseTermsPeriod\.update/);
+  assert.match(actions, /tx\.leaseTermsPeriod\.create/);
+  assert.match(actions, /source: periodo\.origemPeriodo === "CALCULO_SISTEMA" \? "CALCULATION" : "LEGACY_SYNC"/);
+  assert.match(actions, /rentValue: ultimoPeriodo\.valorAluguel/);
+});

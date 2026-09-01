@@ -81,12 +81,21 @@ export async function listInterBatchCandidates(
           { interEmissionLockedAt: { lt: lockExpiredBefore } },
         ],
       };
+  const activeContractFilter: Prisma.TransacaoFinanceiraWhereInput = operation === "EMIT"
+    ? {
+        OR: [
+          { lease: { is: { status: "ACTIVE" } } },
+          { leaseId: null },
+        ],
+      }
+    : {};
 
   const transactions = await db.transacaoFinanceira.findMany({
     where: {
       AND: [
         interTransactionTenantScope(tenantId),
         operationFilter,
+        activeContractFilter,
       ],
       tipo: "RECEITA",
       categoria: "ALUGUEL",
