@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { criarItensCobranca } from "@/lib/financeiro/boleto-composicao";
 import {
   cobrancaEhRascunhoReutilizavel,
+  criarChaveCobrancaMensal,
   obterCompetenciaDaCobranca,
 } from "@/lib/financeiro/cobranca-rascunho";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
@@ -197,10 +198,12 @@ async function gerarCobrancaCanonica(
         select: { id: true },
       })
     : [];
+  const billingKey = criarChaveCobrancaMensal({ leaseId: lease.id }, competence);
   const existingTransactions = await prisma.transacaoFinanceira.findMany({
     where: {
       OR: [
         { leaseId: lease.id },
+        { billingKey },
         ...(legacyContracts.length
           ? [{ contratoId: { in: legacyContracts.map(contract => contract.id) } }]
           : []),
@@ -349,6 +352,7 @@ async function gerarCobrancaCanonica(
       await tx.transacaoFinanceira.update({
         where: { id: reusable.id },
         data: {
+          billingKey,
           descricao: description,
           valor: total,
           dataVencimento: vigencia.dataVencimento,
@@ -364,8 +368,10 @@ async function gerarCobrancaCanonica(
       });
       id = reusable.id;
     } else {
-      const created = await tx.transacaoFinanceira.create({
-        data: {
+      const created = await tx.transacaoFinanceira.upsert({
+        where: { billingKey },
+        create: {
+          billingKey,
           descricao: description,
           valor: total,
           tipo: "RECEITA",
@@ -377,6 +383,7 @@ async function gerarCobrancaCanonica(
           metadata: metadata as Prisma.InputJsonValue,
           itensCobranca: { create: items },
         },
+        update: {},
         select: { id: true },
       });
       id = created.id;
@@ -536,6 +543,7 @@ async function gerarCobrancaLegada(
   }
 
   const description = `Aluguel - ${tenant!.nome} - Competência ${String(month).padStart(2, "0")}/${year}`;
+  const billingKey = criarChaveCobrancaMensal({ contratoId: contract.id }, competence);
   const reusable = sameCompetence[0] ?? null;
   const duplicateIds = sameCompetence.slice(1).map(transaction => transaction.id);
   const transactionId = await prisma.$transaction(async tx => {
@@ -544,6 +552,7 @@ async function gerarCobrancaLegada(
       await tx.transacaoFinanceira.update({
         where: { id: reusable.id },
         data: {
+          billingKey,
           descricao: description,
           valor: total,
           dataVencimento: dueDate,
@@ -558,8 +567,10 @@ async function gerarCobrancaLegada(
       });
       id = reusable.id;
     } else {
-      const created = await tx.transacaoFinanceira.create({
-        data: {
+      const created = await tx.transacaoFinanceira.upsert({
+        where: { billingKey },
+        create: {
+          billingKey,
           descricao: description,
           valor: total,
           tipo: "RECEITA",
@@ -571,6 +582,7 @@ async function gerarCobrancaLegada(
           metadata: metadata as Prisma.InputJsonValue,
           itensCobranca: { create: items },
         },
+        update: {},
         select: { id: true },
       });
       id = created.id;

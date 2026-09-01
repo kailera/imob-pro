@@ -2,9 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   cobrancaEhRascunhoReutilizavel,
+  criarChaveCobrancaMensal,
   filtrarRascunhosReutilizaveisDaCompetencia,
   obterCompetenciaDaCobranca,
 } from "../lib/financeiro/cobranca-rascunho";
+
+test("gera uma chave mensal estável por contrato e competência", () => {
+  assert.equal(
+    criarChaveCobrancaMensal({ leaseId: "lease-1" }, "2026-09"),
+    "aluguel:lease:lease-1:2026-09",
+  );
+  assert.equal(
+    criarChaveCobrancaMensal({ contratoId: "legacy-1" }, "2026-09"),
+    "aluguel:legado:legacy-1:2026-09",
+  );
+});
 
 const base = {
   status: "PENDENTE",

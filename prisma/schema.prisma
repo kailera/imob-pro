@@ -1338,6 +1338,7 @@ enum InterBatchItemStatus {
 
 model TransacaoFinanceira {
   id             String             @id @default(uuid())
+  billingKey     String?            @unique
   descricao      String
   valor          Float
   tipo           TipoTransacao

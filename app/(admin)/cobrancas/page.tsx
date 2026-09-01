@@ -339,17 +339,7 @@ export default function CobrancasPage() {
     refreshFromFirstPage();
   }, [appliedSearch, filters.mesReferencia, refreshFromFirstPage]);
 
-  useEffect(() => {
-    const refreshVisiblePage = () => {
-      if (document.visibilityState === 'visible') void loadDataRef.current(true);
-    };
-    const interval = window.setInterval(refreshVisiblePage, 5 * 60 * 1000);
-    window.addEventListener('focus', refreshVisiblePage);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshVisiblePage);
-    };
-  }, []);
+
 
   const handleBatchGenerate = () => void startTask('EMIT');
   const handleBatchStatusSync = () => void startTask('SYNC');

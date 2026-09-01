@@ -14,6 +14,7 @@ import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { calcularCondominioDaCobranca } from "@/lib/locacao/condominio";
 import {
   cobrancaEhRascunhoReutilizavel,
+  criarChaveCobrancaMensal,
   filtrarRascunhosReutilizaveisDaCompetencia,
   obterCompetenciaDaCobranca,
 } from "@/lib/financeiro/cobranca-rascunho";
@@ -119,6 +120,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
       try {
         // Verificar se já existe cobrança de aluguel para esse contrato nessa competência
         const locacao = contrato.imovelLocacao;
+        const billingKey = criarChaveCobrancaMensal(
+          { contratoId: contrato.id },
+          competence,
+        );
         
         // Encontrar período vigente se houver sub-períodos cadastrados
         const targetDate = calcularInicioCompetencia(competence);
@@ -234,6 +239,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             await tx.transacaoFinanceira.update({
               where: { id: rascunhoPrincipal.id },
               data: {
+                billingKey,
                 descricao: `Aluguel - ${inquilinoNome} - Competência ${String(mes).padStart(2, '0')}/${ano}`,
                 valor: valorTotal,
                 dataVencimento,
@@ -265,8 +271,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
           continue;
         }
 
-        await prisma.transacaoFinanceira.create({
-          data: {
+        await prisma.transacaoFinanceira.upsert({
+          where: { billingKey },
+          create: {
+            billingKey,
             descricao: `Aluguel - ${inquilinoNome} - Competência ${String(mes).padStart(2, '0')}/${ano}`,
             valor: valorTotal,
             tipo: "RECEITA",
@@ -280,6 +288,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               create: itensCobranca,
             },
           },
+          update: {},
         });
 
         geradosCount++;
@@ -436,10 +445,15 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             findCompleteLeaseForLegacyContract(legacy, [lease])?.id === lease.id
           ))
           .map(legacy => legacy.id);
+        const billingKey = criarChaveCobrancaMensal(
+          { leaseId: lease.id },
+          leaseCompetence,
+        );
         const cobrancasExistentes = await prisma.transacaoFinanceira.findMany({
           where: {
             OR: [
               { leaseId: lease.id },
+              { billingKey },
               ...(legacyContractIds.length > 0
                 ? [{ contratoId: { in: legacyContractIds } }]
                 : []),
@@ -516,6 +530,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
             await tx.transacaoFinanceira.update({
               where: { id: rascunhoPrincipal.id },
               data: {
+                billingKey,
                 descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
                 valor: totalAmount,
                 dataVencimento,
@@ -538,8 +553,10 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
               })),
             });
           } else {
-            await tx.transacaoFinanceira.create({
-              data: {
+            await tx.transacaoFinanceira.upsert({
+              where: { billingKey },
+              create: {
+                billingKey,
                 descricao: `Aluguel - ${tenantName} - Competência ${String(competenceMonth).padStart(2, "0")}/${competenceYear}`,
                 valor: totalAmount,
                 tipo: "RECEITA",
@@ -553,6 +570,7 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
                   create: itensCobranca,
                 },
               },
+              update: {},
             });
           }
 

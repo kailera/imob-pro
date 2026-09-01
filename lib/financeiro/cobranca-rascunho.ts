@@ -7,6 +7,19 @@ export type CobrancaCandidataRascunho = {
   metadata: unknown;
 };
 
+export function criarChaveCobrancaMensal(
+  referencia: { leaseId?: string | null; contratoId?: string | null },
+  competencia: string,
+) {
+  if (!/^\d{4}-\d{2}$/.test(competencia)) {
+    throw new Error("Competência inválida para a cobrança mensal.");
+  }
+
+  if (referencia.leaseId) return `aluguel:lease:${referencia.leaseId}:${competencia}`;
+  if (referencia.contratoId) return `aluguel:legado:${referencia.contratoId}:${competencia}`;
+  throw new Error("Contrato não informado para a cobrança mensal.");
+}
+
 export function cobrancaEhRascunhoReutilizavel(
   cobranca: CobrancaCandidataRascunho,
 ) {

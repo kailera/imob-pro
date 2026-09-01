@@ -63,3 +63,17 @@ test("ação por contrato é autenticada e preserva outras competências", () =>
   assert.match(contractQuery, /legacyTransactions/);
   assert.match(contractQuery, /\.\.\.lease\.transacoes, \.\.\.legacyTransactions/);
 });
+
+test("geração mensal tem unicidade por contrato e competência", () => {
+  const monthlyAction = readSource("../app/actions/financeiroActions.ts");
+  const contractAction = readSource("../app/actions/contractChargeActions.ts");
+  const schema = readSource("../prisma/schema.prisma");
+  const migration = readSource(
+    "../prisma/migrations/20260831194500_add_monthly_billing_key/migration.sql",
+  );
+
+  assert.match(schema, /billingKey\s+String\?\s+@unique/);
+  assert.match(migration, /CREATE UNIQUE INDEX "transacao_financeira_billingKey_key"/);
+  assert.match(monthlyAction, /transacaoFinanceira\.upsert\(\{\s*where: \{ billingKey \}/);
+  assert.match(contractAction, /transacaoFinanceira\.upsert\(\{\s*where: \{ billingKey \}/);
+});

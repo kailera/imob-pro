@@ -104,7 +104,8 @@ services:
 
       - "traefik.docker.network=proxy_network"
 
-  # Reconcilia cobranças pendentes com o Banco Inter a cada 15 minutos.
+  # Reconcilia cobranças pendentes às 08:00 e 13:00 de São Paulo
+  # (11:00 e 16:00 UTC, fuso fixado no contêiner abaixo).
   inter-status-cron:
     image: alpine:3.20
     container_name: imob-pro-inter-status-cron
@@ -116,6 +117,7 @@ services:
       - imob_internal_network
     environment:
       - CRON_SECRET=${CRON_SECRET}
+      - TZ=UTC
     command:
       - /bin/sh
       - -c
@@ -124,7 +126,7 @@ services:
           echo "[inter-status-cron] CRON_SECRET não configurado" >&2
           exit 1
         fi
-        printf '*/15 * * * * wget -O- --header="Authorization: Bearer %s" --post-data="" http://app:3000/api/inter/cobrancas/sync 2>&1\n' "$$CRON_SECRET" > /etc/crontabs/root
+        printf '0 11,16 * * * wget -O- --header="Authorization: Bearer %s" --post-data="" http://app:3000/api/inter/cobrancas/sync 2>&1\n' "$$CRON_SECRET" > /etc/crontabs/root
         exec crond -f -l 2
 
   # Consome a fila persistente de emissão e sincronização do Banco Inter.
