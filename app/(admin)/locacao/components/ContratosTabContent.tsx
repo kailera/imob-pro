@@ -11,6 +11,7 @@ export interface Contrato {
     id?: string;
     code?: string | null;
     legacyCode?: string | null;
+    createdAt?: string | Date | null;
     recordType?: 'LEASE' | 'LEGACY';
     locatarios?: Array<{ nome?: string | null }>;
     imovel?: (PropertyAddress & { imovelLocacaos?: LocacaoResumo[] }) | null;
@@ -79,6 +80,22 @@ export default function ContratosTabContent({
     title = `Contratos de Locação (${contratos.length})`,
     searchPlaceholder = 'Buscar por contrato, inquilino, imóvel ou status...',
 }: ContratosTabContentProps) {
+    const [creationOrder, setCreationOrder] = React.useState('desc');
+    const sortId = React.useId();
+    const sortedContratos = React.useMemo(() => {
+        const timestamp = (value: Contrato['createdAt']) => {
+            if (!value) return null;
+            const time = new Date(value).getTime();
+            return Number.isFinite(time) ? time : null;
+        };
+        return [...contratos].sort((a, b) => {
+            const first = timestamp(a.createdAt);
+            const second = timestamp(b.createdAt);
+            if (first === null) return second === null ? 0 : 1;
+            if (second === null) return -1;
+            return creationOrder === 'asc' ? first - second : second - first;
+        });
+    }, [contratos, creationOrder]);
 
     const getSearchText = (item: Contrato) => {
         const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
@@ -132,6 +149,20 @@ export default function ContratosTabContent({
             )
         },
         {
+            header: 'Data de criação',
+            accessorKey: 'createdAt',
+            cell: (item: Contrato) => {
+                if (!item.createdAt) return 'Não informado';
+                const date = new Date(item.createdAt);
+                if (!Number.isFinite(date.getTime())) return 'Não informado';
+                return (
+                    <time dateTime={date.toISOString()}>
+                        {date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                    </time>
+                );
+            }
+        },
+        {
             header: 'Inquilino',
             accessorKey: 'locatarios',
             cell: (item: Contrato) => {
@@ -146,9 +177,9 @@ export default function ContratosTabContent({
                 if (!item.imovel) return 'Não informado';
                 const desc = formatPropertyAddress(item.imovel);
                 return (
-                    <div className="max-w-[280px] truncate" title={desc}>
+                    <div className="max-w-[280px] whitespace-normal break-words flex flex-col justify-center items-center text-center mx-aut" title={desc}>
                         {desc}
-                    </div>
+                    </div >
                 );
             }
         },
@@ -272,9 +303,23 @@ export default function ContratosTabContent({
 
     return (
         <div className="animate-fade-in">
+            <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+                <label htmlFor={sortId} className="text-sm font-medium text-[#280003]">
+                    Ordenar por data de criação
+                </label>
+                <select
+                    id={sortId}
+                    value={creationOrder}
+                    onChange={event => setCreationOrder(event.target.value)}
+                    className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#280003] focus:outline-none focus:ring-2 focus:ring-[#004777]"
+                >
+                    <option value="desc">Mais recentes primeiro</option>
+                    <option value="asc">Mais antigos primeiro</option>
+                </select>
+            </div>
             <DataTable
                 title={title}
-                data={contratos}
+                data={sortedContratos}
                 columns={columns}
                 searchText={getSearchText}
                 searchPlaceholder={searchPlaceholder}

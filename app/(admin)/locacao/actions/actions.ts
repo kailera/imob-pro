@@ -1269,6 +1269,7 @@ export const getContratosLocacao = async (options?: { onlyInactive?: boolean }) 
           id: lease.id,
           code: lease.code,
           legacyCode: lease.legacyCode,
+          createdAt: lease.createdAt,
           status: lease.status,
           startDate: lease.startDate,
           endDate: lease.endDate,
