@@ -7,6 +7,8 @@ export interface CachedVistoria {
   status: string;
   data: string;
   proprietario: string;
+  inquilino?: string;
+  vistoriadorName?: string;
   endereco: string;
   observacoes: string;
   reparosNecessarios: string;

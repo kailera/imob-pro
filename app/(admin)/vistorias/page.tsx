@@ -26,6 +26,8 @@ import { db } from "@/lib/db";
 import PWAInstallPrompt from "@/components/shared/PWAInstallPrompt";
 import { formatImovelAddress, getVistoriaAddress } from "@/lib/vistorias/formatters";
 import { formatInspectionDate, getSaoPauloDateInputValue, parseInspectionDate } from "@/lib/vistorias/dates";
+import { getVistoriaTenantNames, matchesVistoriaSearch } from "@/lib/vistorias/search";
+import { normalizarBuscaSemAcentos } from "@/lib/financeiro/search-normalization";
 
 function mapDbVistoriaToUi(v: any): Vistoria {
   const statusLabels: Record<string, string> = {
@@ -59,7 +61,7 @@ function mapDbVistoriaToUi(v: any): Vistoria {
     imovelCodigo: v.imovel ? v.imovel.codigo : "",
     endereco: formatImovelAddress(getVistoriaAddress(v)),
     proprietario: v.proprietario || "Não informado",
-    inquilino: "Não vinculado",
+    inquilino: getVistoriaTenantNames(v),
     tipoImovel: v.imovel ? (v.imovel.tipo === "CASA" ? "Casa" : "Apartamento") : "Outro",
   };
 }
@@ -108,6 +110,8 @@ export default function VistoriasPage() {
               status: v.status,
               data: v.data instanceof Date ? v.data.toISOString() : String(v.data),
               proprietario: v.proprietario || "Não informado",
+              inquilino: getVistoriaTenantNames(v),
+              vistoriadorName: [v.vistoriador?.firstName, v.vistoriador?.lastName].filter(Boolean).join(" "),
               endereco: formatImovelAddress(getVistoriaAddress(v)),
               observacoes: (v as any).observacoes || "",
               reparosNecessarios: (v as any).reparosNecessarios || "",
@@ -138,11 +142,11 @@ export default function VistoriasPage() {
           solicitadaPor: "Sistema (Offline)",
           dataSolicitacao: formatInspectionDate(v.data),
           dataVistoria: formatInspectionDate(v.data),
-          vistoriador: "Vistoriador Responsável",
+          vistoriador: v.vistoriadorName || "Vistoriador Responsável",
           imovelCodigo: v.codigo,
           endereco: v.endereco,
           proprietario: v.proprietario,
-          inquilino: "Não vinculado",
+          inquilino: v.inquilino || "Não vinculado",
           tipoImovel: "Outro"
         }));
       } catch (err) {
@@ -315,11 +319,7 @@ export default function VistoriasPage() {
 
   // Filter vistorias based on search term & status
   const filteredVistorias = vistorias.filter((v) => {
-    const matchesSearch =
-      v.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.endereco.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.inquilino.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.vistoriador.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = matchesVistoriaSearch(v, searchTerm);
 
     const matchesStatus = statusFilter === "todos" || v.status === statusFilter;
 
@@ -328,8 +328,8 @@ export default function VistoriasPage() {
 
   // Filter imoveis based on search input (by code or address)
   const filteredImoveis = imoveis.filter((im) => {
-    const searchString = `${im.codigo} ${formatImovelAddress(im)}`.toLowerCase();
-    return searchString.includes(imovelSearchTerm.toLowerCase());
+    const searchString = normalizarBuscaSemAcentos(`${im.codigo} ${formatImovelAddress(im)}`);
+    return searchString.includes(normalizarBuscaSemAcentos(imovelSearchTerm));
   });
 
   const getStatusRowClass = (status: string) => {

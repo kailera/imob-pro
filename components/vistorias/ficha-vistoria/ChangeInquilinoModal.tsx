@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { normalizarBuscaSemAcentos } from "@/lib/financeiro/search-normalization";
 import { X, Search, Plus, User, Edit3, Loader2, Check, Phone, Mail, FileText } from "lucide-react";
 import {
   getLocatarios,
@@ -55,6 +56,7 @@ export function ChangeInquilinoModal({
       setSelectedInquilinoId(currentLocatarioId);
       setErrorMessage(null);
       setEditingInquilinoId(null);
+      setSearchQuery("");
     }
   }, [isOpen, currentLocatarioId]);
 
@@ -64,9 +66,14 @@ export function ChangeInquilinoModal({
       const res = await getLocatarios();
       if (res.success && res.data) {
         setLocatarios(res.data);
+      } else {
+        setLocatarios([]);
+        setErrorMessage(res.error || "Erro ao carregar inquilinos.");
       }
     } catch (e) {
       console.error("Erro ao carregar inquilinos:", e);
+      setLocatarios([]);
+      setErrorMessage("Erro ao carregar inquilinos. Feche e abra a janela para tentar novamente.");
     } finally {
       setLoading(false);
     }
@@ -186,9 +193,9 @@ export function ChangeInquilinoModal({
 
   // Filtro de busca na lista
   const filteredLocatarios = locatarios.filter((inq) => {
-    const q = searchQuery.toLowerCase().trim();
+    const q = normalizarBuscaSemAcentos(searchQuery);
     if (!q) return true;
-    const nomeMatch = (inq.nome || "").toLowerCase().includes(q);
+    const nomeMatch = normalizarBuscaSemAcentos(inq.nome || "").includes(q);
     const cpfMatch = (inq.cpfCnpj || "").toLowerCase().includes(q);
     const emailMatch = (inq.email || "").toLowerCase().includes(q);
     const telMatch = formatPhone(inq.telefone).toLowerCase().includes(q);

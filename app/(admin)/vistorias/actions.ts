@@ -15,6 +15,8 @@ import { auth } from "@clerk/nextjs/server";
 import { normalizeVistoriaAddress, snapshotVistoriaAddress } from "@/lib/vistorias/formatters";
 import { parseInspectionDate } from "@/lib/vistorias/dates";
 import { enqueueMediaVideos } from "@/lib/videoProcessor";
+import { requireUserContext } from "@/lib/auth";
+import { mergeTenantOptions } from "@/lib/vistorias/tenant-options";
 
 // Auxiliar para gerar código sequencial de vistoria (ex: VIS-2026-001)
 async function generateVistoriaCode(): Promise<string> {
@@ -92,6 +94,10 @@ export async function getVistorias() {
                 imovel: true,
                 vistoriador: true,
                 operador: true,
+                locatario: { select: { nome: true } },
+                locatariosAutorizados: {
+                    select: { locatario: { select: { nome: true } } },
+                },
             },
             orderBy: {
                 data: "desc",
@@ -504,16 +510,57 @@ export async function generateTokenAcesso(vistoriaId: string) {
 
 export async function getLocatarios() {
     try {
-        const list = await prisma.locatario.findMany({
-            orderBy: {
-                nome: "asc",
-            },
-        });
+        const { tenantId } = await requireUserContext();
+        const [legacy, persons] = await Promise.all([
+            prisma.locatario.findMany({ orderBy: { nome: "asc" } }),
+            prisma.person.findMany({
+                where: {
+                    imobId: tenantId,
+                    OR: [{ type: "LOCATARIO" }, { leaseParties: { some: { role: { in: ["TENANT", "CO_TENANT"] } } } }],
+                },
+                select: { id: true, name: true, cpfCnpj: true, email: true, phones: { select: { phone: true } } },
+                orderBy: { name: "asc" },
+            }),
+        ]);
+        const list = mergeTenantOptions(legacy, persons);
         return { success: true, data: list };
     } catch (error: any) {
         console.error("Erro ao buscar inquilinos:", error);
         return { success: false, error: error.message || "Erro ao buscar inquilinos." };
     }
+}
+
+// Vistorias ainda referenciam Locatario. Cria a representação legada apenas ao usar a pessoa.
+async function resolveVistoriaTenantId(id: string) {
+    const { tenantId } = await requireUserContext();
+    const existing = await prisma.locatario.findUnique({ where: { id }, select: { id: true } });
+    if (existing) return existing.id;
+    const person = await prisma.person.findFirst({
+        where: { id, imobId: tenantId, OR: [{ type: "LOCATARIO" }, { leaseParties: { some: { role: { in: ["TENANT", "CO_TENANT"] } } } }] },
+        include: { phones: true, addresses: { take: 1 } },
+    });
+    if (!person) throw new Error("Inquilino não encontrado.");
+    const document = person.cpfCnpj.replace(/\D/g, "");
+    if (document) {
+        const legacy = await prisma.locatario.findMany({ select: { id: true, cpfCnpj: true } });
+        const match = legacy.find((tenant) => tenant.cpfCnpj.replace(/\D/g, "") === document);
+        if (match) return match.id;
+    }
+    const address = person.addresses[0];
+    const tenant = await prisma.locatario.upsert({
+        where: { id: person.id },
+        update: {},
+        create: {
+            id: person.id, nome: person.name, cpfCnpj: person.cpfCnpj, email: person.email ?? "",
+            telefone: person.phones.map((phone) => ({ tipo: phone.type, numero: phone.phone })),
+            ...(address ? { endereco: { cep: address.cep, logradouro: address.logradouro, numero: address.numero,
+                complemento: address.complemento ?? "", bairro: address.bairro, municipio: address.municipio, estado: address.estado } } : {}),
+            dataNasc: person.birthDate?.toISOString().slice(0, 10) ?? "",
+            rg: person.rg ?? "", orgaoEmissor: person.issuingAgency ?? "", estadoCivil: person.maritalStatus ?? "",
+            profissao: person.profession ?? "", nacionalidade: person.nationality ?? "", genero: person.gender ?? "",
+        },
+    });
+    return tenant.id;
 }
 
 export async function associateTenantToVistoria(vistoriaId: string, locatarioId: string) {
@@ -522,6 +569,7 @@ export async function associateTenantToVistoria(vistoriaId: string, locatarioId:
         if (!userId) {
             return { success: false, error: "Não autorizado." };
         }
+        locatarioId = await resolveVistoriaTenantId(locatarioId);
         await prisma.$transaction(async (tx) => {
             const vistoria = await tx.vistoria.findUnique({
                 where: { id: vistoriaId },
@@ -1000,6 +1048,7 @@ export async function updateVistoriaImovelDetails(
 
 export async function updateVistoriaInquilino(vistoriaId: string, locatarioId: string) {
     try {
+        locatarioId = await resolveVistoriaTenantId(locatarioId);
         await prisma.$transaction(async (tx) => {
             await tx.vistoriaLocatario.upsert({
                 where: { vistoriaId_locatarioId: { vistoriaId, locatarioId } },
@@ -1043,6 +1092,7 @@ export async function updateInquilinoDetails(
 ) {
     try {
         const dataToUpdate: any = {};
+        locatarioId = await resolveVistoriaTenantId(locatarioId);
         if (input.nome) dataToUpdate.nome = input.nome;
         if (input.cpfCnpj) dataToUpdate.cpfCnpj = input.cpfCnpj;
         if (input.email) dataToUpdate.email = input.email;
