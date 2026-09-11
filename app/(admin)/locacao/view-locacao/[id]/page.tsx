@@ -25,6 +25,7 @@ import {
 import { TelefoneContato, EnderecoDetalhado, DocumentoUpload } from "@/lib/interfaces"
 import { CobrancasAcordosHistory } from "@/components/locacao/CobrancasAcordosHistory"
 import { LegacyContractActions } from "../../components/LegacyContractActions"
+import RescisaoContrato from "../../components/RescisaoContrato"
 import {
     getLegacyContractDeletionInfo,
     hasLegacyDocument,
@@ -147,6 +148,8 @@ function LeaseContractView({ contrato }: { contrato: LeaseViewData }) {
                         Editar contrato
                     </Link>
                 </div>
+
+                <RescisaoContrato id={contrato.id} status={contrato.status} noticeValue={contrato.exitNotice} startDate={contrato.dataInicio} periods={contrato.termsPeriods} />
 
                 <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                     <h2 className="border-b border-gray-100 pb-3 text-sm font-bold text-gray-900">

@@ -94,6 +94,7 @@ export async function getContratoForEdit(
     version: lease.version,
     codigo: lease.code,
     status: lease.status,
+    exitNotice: lease.exitNotice,
     tipoLocacao: lease.rentalType === 'RESIDENTIAL'
       ? 'RESIDENCIAL'
       : lease.rentalType === 'COMMERCIAL' ? 'COMERCIAL' : '',

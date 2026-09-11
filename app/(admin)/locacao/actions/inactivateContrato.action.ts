@@ -15,10 +15,13 @@ export async function inactivateContrato(contratoId: string) {
     if (!lease) {
         return { success: false, message: 'Contrato não encontrado.' }
     }
+    if (lease.status === 'TERMINATED' || lease.status === 'CANCELLED') {
+        return { success: false, message: 'Contrato encerrado já está fora das novas cobranças.' }
+    }
     const cleanup = await prisma.$transaction(async tx => {
         if (lease.status !== 'SUSPENDED') {
-            await tx.lease.update({
-                where: { id: lease.id },
+            await tx.lease.updateMany({
+                where: { id: lease.id, tenantId: context.tenantId, status: { notIn: ['TERMINATED', 'CANCELLED'] } },
                 data: {
                     status: 'SUSPENDED',
                     version: { increment: 1 },

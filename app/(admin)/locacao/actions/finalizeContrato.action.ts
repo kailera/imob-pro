@@ -18,6 +18,9 @@ export async function finalizeContrato(contratoId: string) {
     if (scopedLease.status === 'SUSPENDED') {
         return { success: false, message: 'Contrato inativo não pode ser concluído ou reativado por esta ação.' }
     }
+    if (scopedLease.status === 'TERMINATED' || scopedLease.status === 'CANCELLED') {
+        return { success: false, message: 'Contrato encerrado não pode ser reativado por esta ação.' }
+    }
     await sincronizarPeriodoInicialLease(scopedLease.id)
 
     const lease = await prisma.lease.findFirst({
@@ -73,14 +76,15 @@ export async function finalizeContrato(contratoId: string) {
         }
     }
 
-    await prisma.lease.update({
-        where: { id: lease.id },
+    const updated = await prisma.lease.updateMany({
+        where: { id: lease.id, tenantId: context.tenantId, version: lease.version, status: { notIn: ['SUSPENDED', 'TERMINATED', 'CANCELLED'] } },
         data: {
             status: 'ACTIVE',
             reviewedAt: new Date(),
             version: { increment: 1 },
         },
     })
+    if (updated.count !== 1) return { success: false, message: 'O contrato foi alterado. Atualize a página antes de ativar.' }
 
     revalidatePath(`/locacao/contratos/${contratoId}/editar`)
     revalidatePath('/locacao')

@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/shared/DataTable';
 import { adicionarDiasUTC } from '@/lib/locacao/periodos';
 import { LegacyContractActions } from './LegacyContractActions';
 import type { LegacyContractDeletionInfo } from '@/lib/locacao/legacy-contract-deletion';
+import { parseExitNotice } from '@/lib/locacao/rescisao';
 
 export interface Contrato {
     id?: string;
@@ -23,6 +24,7 @@ export interface Contrato {
     proximoReajuste?: string | Date | null;
     historicoPeriodosStatus?: string | null;
     status?: string;
+    exitNotice?: unknown;
     valorOriginal?: number;
     parcelasAtrasadas?: number;
     deletionInfo?: LegacyContractDeletionInfo;
@@ -100,9 +102,9 @@ export default function ContratosTabContent({
     const getSearchText = (item: Contrato) => {
         const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
         const status = item.recordType === 'LEASE'
-            ? item.status === 'ACTIVE' ? 'Ativo'
+            ? item.status === 'ACTIVE' ? parseExitNotice(item.exitNotice) ? 'Em desocupação' : 'Ativo'
                 : item.status === 'SUSPENDED' ? 'Inativo'
-                    : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                    : item.status === 'TERMINATED' ? 'Rescindido' : item.status === 'CANCELLED' ? 'Encerrado'
                         : 'Pendente'
             : locacao?.dataFim && new Date(locacao.dataFim) < new Date() ? 'Encerrado' : 'Ativo';
         const property = item.imovel || {};
@@ -244,15 +246,16 @@ export default function ContratosTabContent({
                 // Determina um status com base no vencimento se não houver campo específico
                 const locacao = item.imovelLocacao || item.imovel?.imovelLocacaos?.[0];
                 let statusVal = item.recordType === 'LEASE'
-                    ? item.status === 'ACTIVE' ? 'Ativo'
+                    ? item.status === 'ACTIVE' ? parseExitNotice(item.exitNotice) ? 'Em desocupação' : 'Ativo'
                         : item.status === 'SUSPENDED' ? 'Inativo'
-                            : item.status === 'TERMINATED' || item.status === 'CANCELLED' ? 'Encerrado'
+                            : item.status === 'TERMINATED' ? 'Rescindido' : item.status === 'CANCELLED' ? 'Encerrado'
                                 : 'Pendente'
                     : 'Ativo';
                 if (item.recordType !== 'LEASE' && locacao?.dataFim && new Date(locacao.dataFim) < new Date()) statusVal = 'Encerrado';
 
                 let bgClass = 'bg-gray-100 text-gray-700';
                 if (statusVal === 'Ativo') bgClass = 'bg-[#708D81]/10 text-[#708D81]';
+                else if (statusVal === 'Em desocupação') bgClass = 'bg-amber-50 text-amber-800';
                 else if (statusVal === 'Inativo') bgClass = 'bg-gray-200 text-gray-600';
                 else if (statusVal === 'Pendente') bgClass = 'bg-[#F0D18A]/35 text-[#8B7535]';
                 else if (statusVal === 'Encerrado') bgClass = 'bg-gray-200 text-gray-500';
