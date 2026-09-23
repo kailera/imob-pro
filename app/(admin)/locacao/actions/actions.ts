@@ -19,6 +19,7 @@ import {
 import { calcularMesesContrato, converterMesesParaPercentual, formatarDataLocalISO } from "@/lib/locacao/financeiro";
 import { sincronizarCobrancasPendentesDoPeriodo } from "@/lib/locacao/sincronizarCobrancas";
 import { requireUserContext } from "@/lib/auth";
+import { eventosLeaseNoMes } from "@/lib/locacao/agenda-lease";
 import {
     findCompleteLeaseForLegacyContract,
 } from "@/lib/locacao/contract-deduplication";
@@ -215,14 +216,15 @@ export interface AgendaLocacaoEvento {
     tipo: "REAJUSTE_PERIODO" | "VENCIMENTO_CONTRATO";
     dataEvento: string;
     contratoId: string;
-    imovelLocacaoId: string;
+    imovelLocacaoId: string | null;
     periodoId?: string;
     inquilino: string;
     imovel: string;
     valorAluguel: number | null;
     indiceReajuste: string | null;
     situacao: "A_VENCER" | "ATRASADO" | "TRATADO" | "REVISAR_HISTORICO";
-    fonte: "PERIODO_CONFIRMADO" | "SICADI" | "CONTRATO";
+    fonte: "PERIODO_CONFIRMADO" | "SICADI" | "CONTRATO" | "CADASTRO_ATUAL";
+    contratoHref?: string;
     historicoStatus: string;
     locador: string;
     valorReajustado: number | null;
@@ -323,7 +325,7 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
 
     try {
         const { tenantId } = await requireUserContext();
-        const [locacoes, inactiveLeases] = await Promise.all([
+        const [locacoes, inactiveLeases, leasesAtivos, contratosLegados] = await Promise.all([
           prisma.imovelLocacao.findMany({
             where: {
                 contratoImovelLocacaos: { some: { imobId: tenantId } },
@@ -357,6 +359,23 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
                 select: { role: true, person: { select: { cpfCnpj: true } } },
               },
             },
+          }),
+          prisma.lease.findMany({
+            where: { tenantId, status: "ACTIVE" },
+            include: {
+              terms: true,
+              termsPeriods: { orderBy: { effectiveFrom: "asc" } },
+              property: { select: { descricao: true, codigo: true } },
+              parties: {
+                where: { role: { in: ["TENANT", "LANDLORD"] } },
+                orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+                select: { role: true, person: { select: { name: true } } },
+              },
+            },
+          }),
+          prisma.contratoImovelLocacao.findMany({
+            where: { imobId: tenantId },
+            select: { id: true },
           }),
         ]);
 
@@ -546,6 +565,42 @@ export const getAgendaVencimentosLocacao = async (ano: number, mes: number) => {
             }
         }
 
+        // Mantém o fluxo existente para legados; contratos migrados cujo legado
+        // foi removido e contratos novos precisam entrar pela fonte atual.
+        const idsLegados = new Set(contratosLegados.map(contrato => contrato.id));
+        for (const lease of leasesAtivos) {
+            if (lease.legacyCode && idsLegados.has(lease.legacyCode)) continue;
+            for (const evento of eventosLeaseNoMes(lease, ano, mes)) {
+                const periodo = lease.termsPeriods.find(item => item.id === evento.periodoId);
+                const sucessor = lease.termsPeriods.find(item => item.id === evento.sucessorId);
+                eventos.push({
+                    id: `lease:${lease.id}:${evento.tipo}:${evento.data.toISOString()}`,
+                    tipo: evento.tipo,
+                    dataEvento: evento.data.toISOString(),
+                    contratoId: lease.id,
+                    contratoHref: `/locacao/contratos/${lease.id}/editar`,
+                    imovelLocacaoId: null,
+                    inquilino: lease.parties.find(p => p.role === "TENANT")?.person.name || "Não informado",
+                    locador: lease.parties.find(p => p.role === "LANDLORD")?.person.name || "Não informado",
+                    imovel: lease.property?.descricao || lease.property?.codigo || "Não informado",
+                    valorAluguel: periodo ? Number(periodo.rentAmount) : lease.terms ? Number(lease.terms.rentValue) : null,
+                    indiceReajuste: periodo?.adjustmentIndex || lease.terms?.readjustmentIndex || null,
+                    situacao: sucessor ? "TRATADO" : evento.revisar ? "REVISAR_HISTORICO" : evento.data < agora ? "ATRASADO" : "A_VENCER",
+                    fonte: evento.tipo === "VENCIMENTO_CONTRATO" ? "CONTRATO" : "CADASTRO_ATUAL",
+                    historicoStatus: evento.revisar ? "PARCIAL" : "COMPLETO",
+                    valorReajustado: sucessor ? Number(sucessor.rentAmount) : null,
+                    percentualReajuste: sucessor?.adjustmentPercentage != null ? Number(sucessor.adjustmentPercentage) : null,
+                    reajusteExecutadoEm: null,
+                    reajusteExecutadoPor: null,
+                    podeReajustar: false,
+                    motivoBloqueio: evento.tipo === "REAJUSTE_PERIODO" && !sucessor
+                        ? "Abra o contrato para conferir e cadastrar o próximo período locatício."
+                        : null,
+                    manterValorDeflacao: true,
+                    sugestaoPeriodo: null,
+                });
+            }
+        }
         eventos.sort((a, b) => a.dataEvento.localeCompare(b.dataEvento) || a.tipo.localeCompare(b.tipo));
         return { success: true as const, data: eventos };
     } catch (error: unknown) {

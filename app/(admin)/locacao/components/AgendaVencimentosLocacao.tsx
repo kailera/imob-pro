@@ -343,7 +343,7 @@ export default function AgendaVencimentosLocacao({
                     <situacao.Icone className="h-3 w-3" /> {situacao.label}
                   </span>
                   <p className="mt-1 text-[9px] text-gray-400">
-                    {evento.fonte === "SICADI" ? "Data informada pelo Sicadi" : evento.fonte === "CONTRATO" ? "Vigência total" : "Período confirmado"}
+                    {evento.fonte === "SICADI" ? "Data informada pelo Sicadi" : evento.fonte === "CONTRATO" ? "Vigência total" : evento.fonte === "CADASTRO_ATUAL" ? "Cadastro atual do contrato" : "Período confirmado"}
                   </p>
                   {evento.reajusteExecutadoPor && (
                     <p className="mt-1 text-[9px] text-gray-500">
@@ -393,7 +393,7 @@ export default function AgendaVencimentosLocacao({
                       {executandoId === evento.id ? "Reajustando..." : "Reajustar automático"}
                     </button>
                   )}
-                  <Link href={`/locacao/view-locacao/${evento.contratoId}`} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#004777] px-3 py-2 text-[10px] font-black text-white hover:bg-[#003355]">
+                  <Link href={evento.contratoHref || `/locacao/view-locacao/${evento.contratoId}`} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#004777] px-3 py-2 text-[10px] font-black text-white hover:bg-[#003355]">
                     <FileClock className="h-3.5 w-3.5" /> Abrir contrato
                   </Link>
                   {!evento.podeReajustar && evento.motivoBloqueio && evento.tipo === "REAJUSTE_PERIODO" && (
@@ -402,7 +402,7 @@ export default function AgendaVencimentosLocacao({
                 </div>
               </article>
 
-              {criandoPeriodo && evento.sugestaoPeriodo && (
+              {criandoPeriodo && evento.sugestaoPeriodo && evento.imovelLocacaoId && (
                 <CriarPeriodoAgendaForm
                   eventoId={evento.id}
                   imovelLocacaoId={evento.imovelLocacaoId}
