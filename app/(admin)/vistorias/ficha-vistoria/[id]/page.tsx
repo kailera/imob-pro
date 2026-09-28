@@ -497,13 +497,22 @@ export default function FichaVistoriaPage() {
     let phoneNum = "";
     if (tenant && tenant.telefone) {
       try {
-        const phones = typeof tenant.telefone === "string" ? JSON.parse(tenant.telefone) : tenant.telefone;
-        if (Array.isArray(phones) && phones.length > 0) {
-          const rawNum = phones[0]?.numero || "";
-          phoneNum = rawNum.replace(/\D/g, "");
-          if (phoneNum.length === 11 || phoneNum.length === 10) {
-            phoneNum = "55" + phoneNum;
+        const rawTel = tenant.telefone;
+        let phones: any = rawTel;
+        if (typeof rawTel === "string") {
+          const trimmed = rawTel.trim();
+          if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            phones = JSON.parse(trimmed);
+          } else {
+            phoneNum = trimmed.replace(/\D/g, "");
           }
+        }
+        if (Array.isArray(phones) && phones.length > 0) {
+          const rawNum = typeof phones[0] === "object" && phones[0] !== null ? phones[0]?.numero || "" : String(phones[0]);
+          phoneNum = rawNum.replace(/\D/g, "");
+        }
+        if (phoneNum && (phoneNum.length === 11 || phoneNum.length === 10)) {
+          phoneNum = "55" + phoneNum;
         }
       } catch (e) {
         console.error(e);

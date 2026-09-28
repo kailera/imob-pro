@@ -179,6 +179,8 @@ export default function CobrancasPage() {
 
       const res = await fetch(`/api/financeiro/transacoes?${params.toString()}`);
       if (!res.ok) throw new Error();
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) throw new Error('Formato inválido');
       const responseData = await res.json() as {
         data?: ApiTransaction[];
         total?: number;
@@ -217,11 +219,21 @@ export default function CobrancasPage() {
           let sacadoTelefone = "";
           if (locatarioObj?.telefone) {
             try {
-              const telList = typeof locatarioObj.telefone === 'string' 
-                ? JSON.parse(locatarioObj.telefone) 
-                : locatarioObj.telefone;
-              if (Array.isArray(telList) && telList.length > 0) {
-                sacadoTelefone = telList[0]?.numero || "";
+              const rawTel = locatarioObj.telefone;
+              if (typeof rawTel === 'string') {
+                const trimmed = rawTel.trim();
+                if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                  const telList = JSON.parse(trimmed);
+                  if (Array.isArray(telList) && telList.length > 0) {
+                    sacadoTelefone = telList[0]?.numero || "";
+                  }
+                } else {
+                  sacadoTelefone = trimmed;
+                }
+              } else if (Array.isArray(rawTel) && rawTel.length > 0) {
+                sacadoTelefone = typeof rawTel[0] === 'object' && rawTel[0] !== null
+                  ? (rawTel[0] as { numero?: string }).numero || ""
+                  : String(rawTel[0]);
               }
             } catch (e) {
               console.error(e);

@@ -50,13 +50,20 @@ export function InterBatchTaskProvider({ children }: { children: ReactNode }) {
         cache: "no-store",
         signal: controller.signal,
       });
-      const payload = await response.json() as {
+      if (!response.ok) {
+        return;
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        return;
+      }
+      const payload = await response.json().catch(() => null) as {
         success?: boolean;
         data?: InterBatchTaskDto[];
         error?: string;
-      };
-      if (!response.ok || !payload.success || !payload.data) {
-        throw new Error(payload.error || "Não foi possível consultar as tarefas.");
+      } | null;
+      if (!payload?.success || !Array.isArray(payload.data)) {
+        return;
       }
 
       if (initializedRef.current) {
@@ -78,9 +85,7 @@ export function InterBatchTaskProvider({ children }: { children: ReactNode }) {
       setError(null);
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-      setError(requestError instanceof Error
-        ? requestError.message
-        : "Não foi possível consultar as tarefas.");
+      console.warn("[InterBatchTaskProvider] Falha ao consultar tarefas:", requestError);
     } finally {
       if (requestControllerRef.current === controller) requestControllerRef.current = null;
     }
@@ -115,23 +120,26 @@ export function InterBatchTaskProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation }),
       });
-      const payload = await response.json() as {
+      const contentType = response.headers.get("content-type") || "";
+      let payload: {
         success?: boolean;
         data?: InterBatchTaskDto;
         error?: string;
-      };
-      if (payload.data) {
+      } | null = null;
+      if (contentType.includes("application/json")) {
+        payload = await response.json().catch(() => null);
+      }
+      if (payload?.data) {
         knownStatusesRef.current.set(payload.data.id, payload.data.status);
         setTasks(current => mergeTask(current, payload.data!));
       }
-      if (!response.ok || !payload.success || !payload.data) {
-        throw new Error(payload.error || "Não foi possível iniciar a tarefa.");
+      if (!response.ok || !payload?.success || !payload?.data) {
+        throw new Error(payload?.error || "Não foi possível iniciar a tarefa do Banco Inter.");
       }
       return true;
     } catch (requestError) {
-      setError(requestError instanceof Error
-        ? requestError.message
-        : "Não foi possível iniciar a tarefa.");
+      const msg = requestError instanceof Error ? requestError.message : "Não foi possível iniciar a tarefa.";
+      setError(msg.includes("JSON") ? "Não foi possível comunicar com o serviço do Banco Inter." : msg);
       return false;
     } finally {
       setStartingOperation(null);
