@@ -329,8 +329,8 @@ async function main() {
         desconto: {
           possui: bonus.valor > 0,
           valor: bonus.valor,
-          tipo: bonus.tipo,
-          diasAntesDoVencimento: bonus.diasAntesDoVencimento,
+          tipo: bonus.tipo ?? "PERCENT",
+          diasAntesDoVencimento: bonus.diasAntesDoVencimento ?? 0,
           dataLimiteCalculada: dataLimiteDescontoStr,
           valorDescontoEfetivo,
           valorComDesconto,
@@ -363,8 +363,8 @@ async function main() {
       const simVencimentoDate = `2026-10-${dueDayStr}`;
 
       const rentValue = Number(periodoAtivo?.valorAluguel ?? locacao?.valorAluguel ?? 0);
-      const iptuValue = Number(periodoAtivo?.valorIPTU ?? locacao?.valorIPTU ?? 0);
-      const condoValue = Number(periodoAtivo?.valorCondominio ?? locacao?.valorCondominio ?? 0);
+      const iptuValue = Number(periodoAtivo?.valorIPTU ?? (locacao as any)?.valorIPTU ?? 0);
+      const condoValue = Number(periodoAtivo?.valorCondominio ?? (locacao as any)?.valorCondominio ?? 0);
       const totalNominal = rentValue + iptuValue + condoValue;
 
       const descValor = Number(periodoAtivo?.descontoPontualidade ?? locacao?.descontoPontualidade ?? 0);
