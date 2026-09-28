@@ -1,0 +1,3947 @@
+[
+  {
+    "leaseId": "cms0vid4f007uk8h8n59pj2m0",
+    "code": "LOC-0001",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000111",
+    "imovelEndereco": "Rua Brilhante, 203 - Zona Sul",
+    "pagadorNome": "Loren´┐¢o Oliveira Telles  Franco",
+    "pagadorCpfCnpj": "29791284814",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 3100,
+    "valorTotalNominal": 3100,
+    "descontoPontualidade": {
+      "valor": 6.45,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,45% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 3.100,00; TOTAL RS 3.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 3.100,00; TOTAL RS 3.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 3100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid5e007xk8h8fsvh6lzq",
+    "code": "LOC-0002",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00055",
+    "imovelEndereco": "Avenida Brasil Norte, 680 - Zona Norte",
+    "pagadorNome": "Robert William do Nascimento",
+    "pagadorCpfCnpj": "45382341842",
+    "pagadorCep": "15385000",
+    "diaVencimento": 18,
+    "valorAluguel": 969,
+    "valorTotalNominal": 969,
+    "descontoPontualidade": {
+      "valor": 15.48,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 8,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 15,48% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 18/10/2026",
+      "COMPOSICAO: ALUG RS 969,00; TOTAL RS 969,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 18/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 969,00; TOTAL RS 969,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 969
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid5y0080k8h8v73u8wxj",
+    "code": "LOC-0003",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00068",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Renata Delgado Teixeira",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vid6g0083k8h8oa6qdpqv",
+    "code": "LOC-0004",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00059",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Nathila Aquino Messias",
+    "pagadorCpfCnpj": "04133835123",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vid6v0086k8h8zl1ozrpa",
+    "code": "LOC-0005",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00101",
+    "imovelEndereco": "Rua Campos Novos, 86 - Portal do Sol",
+    "pagadorNome": "Uelton Guimar´┐¢es de Castro",
+    "pagadorCpfCnpj": "34869691884",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 3000,
+    "valorTotalNominal": 3000,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 3.000,00; TOTAL RS 3.000,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 3.000,00; TOTAL RS 3.000,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 3000
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid7a0089k8h8rjcfc168",
+    "code": "LOC-0006",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00086",
+    "imovelEndereco": "Rua Tomás Antônio Gonzaga, 112 - Jardim Ilha do Sol",
+    "pagadorNome": "Greicy Kele de Oliveira Lopes",
+    "pagadorCpfCnpj": "35232240803",
+    "pagadorCep": "15385000",
+    "diaVencimento": 13,
+    "valorAluguel": 450,
+    "valorTotalNominal": 450,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 13/10/2026",
+      "COMPOSICAO: ALUG RS 450,00; TOTAL RS 450,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 13/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 450,00; TOTAL RS 450,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 450
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid7q008ck8h83y5tqx90",
+    "code": "LOC-0007",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00078",
+    "imovelEndereco": "Rua Cabreúva, 220 - Jardim Morada do Sol",
+    "pagadorNome": "GUILHERME LIMA DOS SANTOS",
+    "pagadorCpfCnpj": "08508949642",
+    "pagadorCep": "15385000",
+    "diaVencimento": 27,
+    "valorAluguel": 1000,
+    "valorTotalNominal": 1000,
+    "descontoPontualidade": {
+      "valor": 5,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 17,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 5,00% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 27/10/2026",
+      "COMPOSICAO: ALUG RS 1.000,00; TOTAL RS 1.000,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 27/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.000,00; TOTAL RS 1.000,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1000
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid84008fk8h8lt7prmdj",
+    "code": "LOC-0008",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000112",
+    "imovelEndereco": "Rua Canoinhas, 54 - Santa Catarina",
+    "pagadorNome": "Kr´┐¢son Curtis Eliassim Tereza",
+    "pagadorCpfCnpj": "03724083114",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 3200,
+    "valorTotalNominal": 3200,
+    "descontoPontualidade": {
+      "valor": 6.25,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,25% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 3.200,00; TOTAL RS 3.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 3.200,00; TOTAL RS 3.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 3200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid8i008ik8h89o1qajph",
+    "code": "LOC-0009",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00057",
+    "imovelEndereco": "Passeio Sorocaba, 401 - Zona Sul",
+    "pagadorNome": "Lindalva dos Santos Paulino",
+    "pagadorCpfCnpj": "16548686802",
+    "pagadorCep": "15385000",
+    "diaVencimento": 23,
+    "valorAluguel": 1632,
+    "valorTotalNominal": 1632,
+    "descontoPontualidade": {
+      "valor": 6.13,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 8,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,13% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 23/10/2026",
+      "COMPOSICAO: ALUG RS 1.632,00; TOTAL RS 1.632,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 23/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.632,00; TOTAL RS 1.632,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1632
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid8w008lk8h8mepw82t8",
+    "code": "LOC-0010",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00060",
+    "imovelEndereco": "Rua Marechal Deodoro, 1707 - Vila Matilde",
+    "pagadorNome": "GABRIELA CANDIDA DOS REIS MARTES",
+    "pagadorCpfCnpj": "46779011800",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 825.28,
+    "valorTotalNominal": 825.28,
+    "descontoPontualidade": {
+      "valor": 12.12,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 12,12% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 825,28; TOTAL RS 825,28"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 825,28; TOTAL RS 825,28"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 825.28
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vid9b008ok8h8y7kcif6h",
+    "code": "LOC-0011",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00049",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Elso Pereira",
+    "pagadorCpfCnpj": "07853746806",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vid9q008rk8h881rdpl4t",
+    "code": "LOC-0012",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00056",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "ILHA SERVICE MANUTEN.ELETROMECANICA",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vida4008uk8h84hounzyz",
+    "code": "LOC-0013",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00070",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Natalia Lima Sant'Anna",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vidaj008xk8h8g24v8cim",
+    "code": "LOC-0014",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00077",
+    "imovelEndereco": "Rua Gilberto Freire, 86 - Residencial Nova Ilha",
+    "pagadorNome": "Kaio Cesar Aureliano Pateis",
+    "pagadorCpfCnpj": "43011410810",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 900,
+    "valorTotalNominal": 900,
+    "descontoPontualidade": {
+      "valor": 5.56,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 5,56% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 900,00; TOTAL RS 900,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 900,00; TOTAL RS 900,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 900
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidax0090k8h8kdxilw2k",
+    "code": "LOC-0015",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00052",
+    "imovelEndereco": "Rua José de Alencar, 284 - Residencial Nova Ilha",
+    "pagadorNome": "Diego Alves Xavier",
+    "pagadorCpfCnpj": "35121551894",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 908.28,
+    "valorTotalNominal": 908.28,
+    "descontoPontualidade": {
+      "valor": 11.01,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 11,01% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 908,28; TOTAL RS 908,28"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 908,28; TOTAL RS 908,28"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 908.28
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidbc0093k8h8ncq7dwoi",
+    "code": "LOC-0016",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00053",
+    "imovelEndereco": "Rua Manuel Bandeira, 79 - Residencial Nova Ilha",
+    "pagadorNome": "Jos´┐¢ Henrique Oliveira de Munoz",
+    "pagadorCpfCnpj": "25914909880",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1399.95,
+    "valorTotalNominal": 1399.95,
+    "descontoPontualidade": {
+      "valor": 14.29,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 14,29% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.399,95; TOTAL RS 1.399,95"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.399,95; TOTAL RS 1.399,95"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1399.95
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidbq0096k8h8jzir6u46",
+    "code": "LOC-0017",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00054",
+    "imovelEndereco": "Rua Rachel de Queiroz, 775 - Jardim Ilha do Sol",
+    "pagadorNome": "Gisele Moraes Portela Lima",
+    "pagadorCpfCnpj": "37806454837",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2804,
+    "valorTotalNominal": 2804,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.804,00; TOTAL RS 2.804,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.804,00; TOTAL RS 2.804,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2804
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidc30099k8h8eh0ky8b9",
+    "code": "LOC-0018",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00065",
+    "imovelEndereco": "Passeio Nazaré, 108 - Zona Norte",
+    "pagadorNome": "David Souza Andrade",
+    "pagadorCpfCnpj": "47403396847",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1050,
+    "valorTotalNominal": 1050,
+    "descontoPontualidade": {
+      "valor": 9.52,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,52% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.050,00; TOTAL RS 1.050,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.050,00; TOTAL RS 1.050,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1050
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidch009ck8h8gyvafnlg",
+    "code": "LOC-0019",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00064",
+    "imovelEndereco": "Rua Rachel de Queiroz, 785 - Jardim Ilha do Sol",
+    "pagadorNome": "MARCOS AURELIO SILVA DE OLIVEIRA",
+    "pagadorCpfCnpj": "33848774895",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidcw009fk8h8uxilljhh",
+    "code": "LOC-0020",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00006",
+    "imovelEndereco": "Rua Jataí, 135 - Jardim das Paineiras",
+    "pagadorNome": "Acleonio de Souza Neto",
+    "pagadorCpfCnpj": "35206394831",
+    "pagadorCep": "15385000",
+    "diaVencimento": 30,
+    "valorAluguel": 1079.61,
+    "valorTotalNominal": 1079.61,
+    "descontoPontualidade": {
+      "valor": 9.26,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 2,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,26% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 2,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 30/10/2026",
+      "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 30/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1079.61
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidda009ik8h8vs8ivdva",
+    "code": "LOC-0021",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00063",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Luis Fernando Chaves Duarte",
+    "pagadorCpfCnpj": "10122497945",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1233.24,
+    "valorTotalNominal": 1233.24,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.233,24; TOTAL RS 1.233,24"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.233,24; TOTAL RS 1.233,24"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1233.24
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0viddp009lk8h8fxlfs86k",
+    "code": "LOC-0022",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00071",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Vania Pereira Caetano",
+    "pagadorCpfCnpj": "31078020850",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vide4009ok8h8y8uxpuy3",
+    "code": "LOC-0023",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00088",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Marisa Barbosa Martelo",
+    "pagadorCpfCnpj": "47912797866",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 19/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0videj009rk8h8lktpfqpx",
+    "code": "LOC-0024",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00090",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Leonardo Marques Moreira Garcez",
+    "pagadorCpfCnpj": "57890907885",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 09/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0videv009uk8h8lynjpngv",
+    "code": "LOC-0025",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00091",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Ana Julia  de Oliveira Yamania",
+    "pagadorCpfCnpj": "55292057800",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidfa009xk8h8ihqgbfx4",
+    "code": "LOC-0026",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00094",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Miguel Alves Silva",
+    "pagadorCpfCnpj": "49571103870",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 10,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidfo00a0k8h8s1izbg94",
+    "code": "LOC-0027",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00095",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Miguel Alves Silva",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vidg400a3k8h8ubl8agt5",
+    "code": "LOC-0028",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00098",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Jo´┐¢o Cesar Kensei Bissoqui Sadano",
+    "pagadorCpfCnpj": "10000192929",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 14/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidgj00a6k8h8f12u6xqz",
+    "code": "LOC-0029",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000102",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Anna Beatriz Fernandes Amaral",
+    "pagadorCpfCnpj": "70685342107",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidgx00a9k8h8w1p7h4hp",
+    "code": "LOC-0030",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000103",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Maria Fernanda de Oliveira",
+    "pagadorCpfCnpj": "44992897851",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidhe00ack8h8c0x49kg1",
+    "code": "LOC-0031",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000104",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Marilia Gon´┐¢alves Careli",
+    "pagadorCpfCnpj": "32947153820",
+    "pagadorCep": "15385000",
+    "diaVencimento": 16,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 6,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 16/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 16/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidhs00afk8h8n6m74m6h",
+    "code": "LOC-0032",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000108",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Leticia An´┐¢sia S. Rodrigues",
+    "pagadorCpfCnpj": "39049568840",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidi700aik8h8wh20kqiz",
+    "code": "LOC-0033",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000117",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Pedro Henrique Gandolfo Russomano",
+    "pagadorCpfCnpj": "42981161822",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidix00aok8h8b81ysfgt",
+    "code": "LOC-0035",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000132",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Clevelton Gobi Ferreira",
+    "pagadorCpfCnpj": "45600096860",
+    "pagadorCep": "15385000",
+    "diaVencimento": 19,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 9,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 19/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 19/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidjc00ark8h81psikabq",
+    "code": "LOC-0036",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00010",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Jussara Souza Salles",
+    "pagadorCpfCnpj": "06013841136",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1203.96,
+    "valorTotalNominal": 1203.96,
+    "descontoPontualidade": {
+      "valor": 8.31,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,31% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.203,96; TOTAL RS 1.203,96"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.203,96; TOTAL RS 1.203,96"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1203.96
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidjr00auk8h8o7nthqp5",
+    "code": "LOC-0037",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00008",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Bruno Ant´┐¢nio Spolon de Melo",
+    "pagadorCpfCnpj": "44956865856",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1059.66,
+    "valorTotalNominal": 1059.66,
+    "descontoPontualidade": {
+      "valor": 9.44,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,44% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1059.66
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidk500axk8h8chgfqbyc",
+    "code": "LOC-0038",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00031",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Laura Ferreira de Souza Dantas",
+    "pagadorCpfCnpj": "38533158874",
+    "pagadorCep": "15385000",
+    "diaVencimento": 29,
+    "valorAluguel": 1079.61,
+    "valorTotalNominal": 1079.61,
+    "descontoPontualidade": {
+      "valor": 9.26,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 14,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,26% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 29/10/2026",
+      "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 29/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1079.61
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidki00b0k8h8dnf2uucp",
+    "code": "LOC-0039",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00014",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Aline Bento Rodrigues",
+    "pagadorCpfCnpj": "47498549808",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 1059.66,
+    "valorTotalNominal": 1059.66,
+    "descontoPontualidade": {
+      "valor": 9.44,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 10,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,44% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1059.66
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidkw00b3k8h8j3snvblt",
+    "code": "LOC-0040",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00025",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Henrique Teruki Fujii",
+    "pagadorCpfCnpj": "45877348884",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 888.17,
+    "valorTotalNominal": 888.17,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 888,17; TOTAL RS 888,17"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 888,17; TOTAL RS 888,17"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 888.17
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidla00b6k8h8tb66qnkr",
+    "code": "LOC-0041",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00035",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Arthur Dias Delbone",
+    "pagadorCpfCnpj": "52851556819",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1057.35,
+    "valorTotalNominal": 1057.35,
+    "descontoPontualidade": {
+      "valor": 9.46,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,46% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.057,35; TOTAL RS 1.057,35"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.057,35; TOTAL RS 1.057,35"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1057.35
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidlo00b9k8h8eux6mpi9",
+    "code": "LOC-0042",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00026",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Jo´┐¢o Pedro Vendrame Spagnuolo",
+    "pagadorCpfCnpj": "45877772856",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1094.73,
+    "valorTotalNominal": 1094.73,
+    "descontoPontualidade": {
+      "valor": 9.13,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,13% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.094,73; TOTAL RS 1.094,73"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.094,73; TOTAL RS 1.094,73"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1094.73
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidm600bck8h8z2lz190x",
+    "code": "LOC-0043",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00003",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Nilson Branco Teixeira",
+    "pagadorCpfCnpj": "15186756890",
+    "pagadorCep": "15385000",
+    "diaVencimento": 27,
+    "valorAluguel": 978.12,
+    "valorTotalNominal": 978.12,
+    "descontoPontualidade": {
+      "valor": 5.11,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 12,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 2,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 5,11% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 2,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 27/10/2026",
+      "COMPOSICAO: ALUG RS 978,12; TOTAL RS 978,12"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 27/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 978,12; TOTAL RS 978,12"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 978.12
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidmm00bfk8h8u82ypvt2",
+    "code": "LOC-0044",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00016",
+    "imovelEndereco": "Rua Jataí, 125 - Jardim das Paineiras",
+    "pagadorNome": "Taynara Roque Santos",
+    "pagadorCpfCnpj": "47704637827",
+    "pagadorCep": "15385000",
+    "diaVencimento": 29,
+    "valorAluguel": 1079.61,
+    "valorTotalNominal": 1079.61,
+    "descontoPontualidade": {
+      "valor": 9.26,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 14,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,26% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 29/10/2026",
+      "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 29/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.079,61; TOTAL RS 1.079,61"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1079.61
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidn100bik8h8p95teqqw",
+    "code": "LOC-0045",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00076",
+    "imovelEndereco": "Alameda Minas Gerais, 64 - Zona Sul",
+    "pagadorNome": "FLAVIA LEATI PELAES DE ALMEIDA",
+    "pagadorCpfCnpj": "11739333870",
+    "pagadorCep": "15385000",
+    "diaVencimento": 23,
+    "valorAluguel": 2700,
+    "valorTotalNominal": 2700,
+    "descontoPontualidade": {
+      "valor": 7.41,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 13,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,41% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 23/10/2026",
+      "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 23/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2700
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidnh00blk8h8rjcayqmj",
+    "code": "LOC-0046",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000120",
+    "imovelEndereco": "Avenida Brasil Norte, 680 - Zona Norte",
+    "pagadorNome": "Hermison Ricardo Bioni",
+    "pagadorCpfCnpj": "15439497897",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidny00bok8h8gapprcko",
+    "code": "LOC-0047",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000101",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "GONCALVES & DARME DROGARIA LTDA",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vidoe00brk8h8n5q81ngi",
+    "code": "LOC-0048",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000105",
+    "imovelEndereco": "Rua 7 de Setembro, 553 - Jardim Aeroporto",
+    "pagadorNome": "Caroline de Oliveira Ramos",
+    "pagadorCpfCnpj": "40104106808",
+    "pagadorCep": "15385000",
+    "diaVencimento": 17,
+    "valorAluguel": 850,
+    "valorTotalNominal": 850,
+    "descontoPontualidade": {
+      "valor": 5.88,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 7,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 5,88% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 17/10/2026",
+      "COMPOSICAO: ALUG RS 850,00; TOTAL RS 850,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 17/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 850,00; TOTAL RS 850,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 850
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidox00buk8h8dq7zjzsi",
+    "code": "LOC-0049",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00081",
+    "imovelEndereco": "Rua L, 81 - Jardim Novo Horizonte",
+    "pagadorNome": "Cleide Dolres Carvalho",
+    "pagadorCpfCnpj": "12308565870",
+    "pagadorCep": "15385000",
+    "diaVencimento": 14,
+    "valorAluguel": 1500,
+    "valorTotalNominal": 1500,
+    "descontoPontualidade": {
+      "valor": 13.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 4,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 13,33% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 14/10/2026",
+      "COMPOSICAO: ALUG RS 1.500,00; TOTAL RS 1.500,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 14/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.500,00; TOTAL RS 1.500,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1500
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidph00bxk8h8n5ukfy9w",
+    "code": "LOC-0050",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00082",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "CLEIDE DOLRES CARVALHO",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vidpx00c0k8h80b7ab7k7",
+    "code": "LOC-0051",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00073",
+    "imovelEndereco": "Passeio Fortaleza, 406 - Zona Norte",
+    "pagadorNome": "Rodrigo de Oliveira de Carvalho",
+    "pagadorCpfCnpj": "22481134800",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1100,
+    "valorTotalNominal": 1100,
+    "descontoPontualidade": {
+      "valor": 9.09,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,09% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.100,00; TOTAL RS 1.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidqd00c3k8h8pe6w3fxb",
+    "code": "LOC-0052",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00074",
+    "imovelEndereco": "Passeio Prado, 103 - Zona Norte",
+    "pagadorNome": "MARIA CAROLINA CARAVANTE MARIANO",
+    "pagadorCpfCnpj": "43496252839",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 2700,
+    "valorTotalNominal": 2700,
+    "descontoPontualidade": {
+      "valor": 7.41,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,41% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2700
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidqs00c6k8h8jozll4rm",
+    "code": "LOC-0053",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00015",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Vin´┐¢cius Regiolli Pereira",
+    "pagadorCpfCnpj": "51281336807",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 16.67,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 10,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 16,67% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidr700c9k8h85v9n1pa8",
+    "code": "LOC-0054",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00013",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Fabiana Aucco Egidio",
+    "pagadorCpfCnpj": "44384987838",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1400,
+    "valorTotalNominal": 1400,
+    "descontoPontualidade": {
+      "valor": 14.29,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 10,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 14,29% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1400
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidrn00cck8h8h5qrtiim",
+    "code": "LOC-0055",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000122",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Zona Sul",
+    "pagadorNome": "Renan S. Geronel",
+    "pagadorCpfCnpj": "36512129806",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 1300,
+    "valorTotalNominal": 1300,
+    "descontoPontualidade": {
+      "valor": 7.69,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,69% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 1.300,00; TOTAL RS 1.300,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.300,00; TOTAL RS 1.300,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1300
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vids100cfk8h8wb2uu6w5",
+    "code": "LOC-0056",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00036",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "LUIS FELIPE MARCON BRUNHARA",
+    "pagadorCpfCnpj": "31400668808",
+    "pagadorCep": "15385000",
+    "diaVencimento": 19,
+    "valorAluguel": 1304.29,
+    "valorTotalNominal": 1304.29,
+    "descontoPontualidade": {
+      "valor": 7.67,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 9,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,67% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 19/10/2026",
+      "COMPOSICAO: ALUG RS 1.304,29; TOTAL RS 1.304,29"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 19/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.304,29; TOTAL RS 1.304,29"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1304.29
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidsh00cik8h8ikoamp2h",
+    "code": "LOC-0057",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000113",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Levi Batista Pitanga Junior",
+    "pagadorCpfCnpj": "79046401553",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2500,
+    "valorTotalNominal": 2500,
+    "descontoPontualidade": {
+      "valor": 8,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,00% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.500,00; TOTAL RS 2.500,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.500,00; TOTAL RS 2.500,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2500
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidsw00clk8h85zlttx2w",
+    "code": "LOC-0058",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00041",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "ARTHUR DENTELLO ARA´┐¢JO",
+    "pagadorCpfCnpj": "51079231862",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1208.4,
+    "valorTotalNominal": 1208.4,
+    "descontoPontualidade": {
+      "valor": 8.28,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,28% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.208,40; TOTAL RS 1.208,40"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.208,40; TOTAL RS 1.208,40"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1208.4
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidta00cok8h8mho0b2g2",
+    "code": "LOC-0059",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00040",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Marina Morelli Trombeta",
+    "pagadorCpfCnpj": "48302083844",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 2300,
+    "valorTotalNominal": 2300,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "COMPOSICAO: ALUG RS 2.300,00; TOTAL RS 2.300,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.300,00; TOTAL RS 2.300,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2300
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidto00crk8h8884s9lpu",
+    "code": "LOC-0060",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00066",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Bruno Pacheco Albrecht",
+    "pagadorCpfCnpj": "09290159162",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 1400,
+    "valorTotalNominal": 1400,
+    "descontoPontualidade": {
+      "valor": 7.14,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,14% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1400
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidu200cuk8h8ayok6x2r",
+    "code": "LOC-0061",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00043",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Ana Clara Moreira Helena",
+    "pagadorCpfCnpj": "48827524843",
+    "pagadorCep": "15385000",
+    "diaVencimento": 27,
+    "valorAluguel": 1404.62,
+    "valorTotalNominal": 1404.62,
+    "descontoPontualidade": {
+      "valor": 7.12,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 17,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,12% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 27/10/2026",
+      "COMPOSICAO: ALUG RS 1.404,62; TOTAL RS 1.404,62"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 27/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.404,62; TOTAL RS 1.404,62"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1404.62
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0viduh00cxk8h892f6f6t7",
+    "code": "LOC-0062",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00067",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Vitor Maranha Grassi",
+    "pagadorCpfCnpj": "39633412897",
+    "pagadorCep": "15385000",
+    "diaVencimento": 27,
+    "valorAluguel": 2500,
+    "valorTotalNominal": 2500,
+    "descontoPontualidade": {
+      "valor": 10.8,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 10,80% ate dia 12/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 27/10/2026",
+      "COMPOSICAO: ALUG RS 2.500,00; TOTAL RS 2.500,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 27/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.500,00; TOTAL RS 2.500,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2500
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0viduv00d0k8h80bs2ja2b",
+    "code": "LOC-0063",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000134",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Zona Sul",
+    "pagadorNome": "Tomas Gustavo Pedro",
+    "pagadorCpfCnpj": "33287480839",
+    "pagadorCep": "15385000",
+    "diaVencimento": 19,
+    "valorAluguel": 2600,
+    "valorTotalNominal": 2600,
+    "descontoPontualidade": {
+      "valor": 7.69,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 9,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,69% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 19/10/2026",
+      "COMPOSICAO: ALUG RS 2.600,00; TOTAL RS 2.600,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 19/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.600,00; TOTAL RS 2.600,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2600
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidvc00d3k8h83f1zv58a",
+    "code": "LOC-0064",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00019",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Guilherme Augusto Zan Seridonio",
+    "pagadorCpfCnpj": "39584037862",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1208.4,
+    "valorTotalNominal": 1208.4,
+    "descontoPontualidade": {
+      "valor": 8.28,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,28% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.208,40; TOTAL RS 1.208,40"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.208,40; TOTAL RS 1.208,40"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1208.4
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidvq00d6k8h8417jp3dm",
+    "code": "LOC-0065",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00051",
+    "imovelEndereco": "Avenida Atlântica, 1690 - Centro",
+    "pagadorNome": "Nathalia Oliveira de Souza",
+    "pagadorCpfCnpj": "44706708800",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2549,
+    "valorTotalNominal": 2549,
+    "descontoPontualidade": {
+      "valor": 7.85,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,85% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.549,00; TOTAL RS 2.549,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.549,00; TOTAL RS 2.549,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2549
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidw500d9k8h89nz8fuq8",
+    "code": "LOC-0066",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00079",
+    "imovelEndereco": "Passeio Caracol, 217 - Zona Norte",
+    "pagadorNome": "Edson Antonio da Silva",
+    "pagadorCpfCnpj": "11741239826",
+    "pagadorCep": "15385000",
+    "diaVencimento": 21,
+    "valorAluguel": 950,
+    "valorTotalNominal": 950,
+    "descontoPontualidade": {
+      "valor": 5.26,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 11,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 5,26% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 21/10/2026",
+      "COMPOSICAO: ALUG RS 950,00; TOTAL RS 950,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 21/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 950,00; TOTAL RS 950,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 950
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidwj00dck8h8bdqvdq29",
+    "code": "LOC-0067",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000107",
+    "imovelEndereco": "Rua 23, 187 - Jardim Aeroporto",
+    "pagadorNome": "Rogerio Pereira Lacerda",
+    "pagadorCpfCnpj": "28851062803",
+    "pagadorCep": "15385000",
+    "diaVencimento": 23,
+    "valorAluguel": 2100,
+    "valorTotalNominal": 2100,
+    "descontoPontualidade": {
+      "valor": 4.76,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 13,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 4,76% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 23/10/2026",
+      "COMPOSICAO: ALUG RS 2.100,00; TOTAL RS 2.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 23/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.100,00; TOTAL RS 2.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidwx00dfk8h826ysp9qi",
+    "code": "LOC-0068",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000115",
+    "imovelEndereco": "Rua Rio São Francisco, 312 - Zona Norte",
+    "pagadorNome": "Jesus Aparecido Alves da Silva",
+    "pagadorCpfCnpj": "84026839168",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidxb00dik8h82zx7jwtc",
+    "code": "LOC-0069",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000114",
+    "imovelEndereco": "Avenida Brasil Norte, 680 - Zona Norte",
+    "pagadorNome": "SILVANA SOUSA DA SILVA",
+    "pagadorCpfCnpj": "97510416191",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2100,
+    "valorTotalNominal": 2100,
+    "descontoPontualidade": {
+      "valor": 11.9,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 11,90% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.100,00; TOTAL RS 2.100,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.100,00; TOTAL RS 2.100,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2100
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidyk00drk8h8z8n7bext",
+    "code": "LOC-0072",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000130",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "PAOLA FERREIRA DE BA.OS TRANSPORTES",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vidyz00duk8h8id10jzbs",
+    "code": "LOC-0073",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00100",
+    "imovelEndereco": "Avenida Brasil Sul, 543 - Zona Sul",
+    "pagadorNome": "Angela Rosa Mathias de Faria Lacerda",
+    "pagadorCpfCnpj": "47167211915",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 16.67,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 16,67% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidze00dxk8h8k2ax5czf",
+    "code": "LOC-0074",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00099",
+    "imovelEndereco": "Rua Mário Quintana, 34 - Residencial Ilha Bela",
+    "pagadorNome": "Caroline Bueno Ramires",
+    "pagadorCpfCnpj": "32477728806",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 4000,
+    "valorTotalNominal": 4000,
+    "descontoPontualidade": {
+      "valor": 12.5,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 12,50% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 4.000,00; TOTAL RS 4.000,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 4.000,00; TOTAL RS 4.000,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 4000
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vidzt00e0k8h87zmhdt08",
+    "code": "LOC-0075",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000118",
+    "imovelEndereco": "Rua Cecília Meireles, 270 - Residencial Nova Ilha",
+    "pagadorNome": "Divan Souza de Oliveira",
+    "pagadorCpfCnpj": "33912691894",
+    "pagadorCep": "15385000",
+    "diaVencimento": 19,
+    "valorAluguel": 1600,
+    "valorTotalNominal": 1600,
+    "descontoPontualidade": {
+      "valor": 6.25,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 9,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,25% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 19/10/2026",
+      "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 19/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1600
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie0800e3k8h8zfx6gsvo",
+    "code": "LOC-0076",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000121",
+    "imovelEndereco": "Rua Cecília Meireles, 276 - Residencial Nova Ilha",
+    "pagadorNome": "Fabricia Carla Viviani",
+    "pagadorCpfCnpj": "31316200809",
+    "pagadorCep": "15385000",
+    "diaVencimento": 26,
+    "valorAluguel": 1600,
+    "valorTotalNominal": 1600,
+    "descontoPontualidade": {
+      "valor": 6.25,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 16,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,25% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 26/10/2026",
+      "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 26/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1600
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie0q00e6k8h8dmuxquci",
+    "code": "LOC-0077",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000129",
+    "imovelEndereco": "Rua 21 de Abril, 740 - Residencial Nova Ilha",
+    "pagadorNome": "Rodrigo de Sa Cestari",
+    "pagadorCpfCnpj": "36011417876",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1600,
+    "valorTotalNominal": 1600,
+    "descontoPontualidade": {
+      "valor": 6.25,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,25% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.600,00; TOTAL RS 1.600,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1600
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie1600e9k8h8fi9c5o13",
+    "code": "LOC-0078",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000127",
+    "imovelEndereco": "Rua Cecília Meireles, 258 - Residencial Nova Ilha",
+    "pagadorNome": "Murilo de Souza Penteado",
+    "pagadorCpfCnpj": "43559031842",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 1400,
+    "valorTotalNominal": 1400,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 0,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1400
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie1m00eck8h805zbxjwa",
+    "code": "LOC-0079",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00062",
+    "imovelEndereco": "Rua Rachel de Queiroz, 318 - Jardim Ilha do Sol",
+    "pagadorNome": "Edilaine Borges Prado",
+    "pagadorCpfCnpj": "24905485819",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2700,
+    "valorTotalNominal": 2700,
+    "descontoPontualidade": {
+      "valor": 7.41,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,41% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.700,00; TOTAL RS 2.700,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2700
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie2000efk8h8suuwpt2z",
+    "code": "LOC-0080",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00136",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "Elza de Souza Genova",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vie2e00eik8h8kbmv7j4x",
+    "code": "LOC-0081",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000131",
+    "imovelEndereco": "Passeio Santos, 524 - Zona Sul",
+    "pagadorNome": "Jo´┐¢o Pedro Brito Vitorino da Cruz",
+    "pagadorCpfCnpj": "50457332816",
+    "pagadorCep": "15385000",
+    "diaVencimento": 17,
+    "valorAluguel": 1550,
+    "valorTotalNominal": 1550,
+    "descontoPontualidade": {
+      "valor": 6.45,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 7,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,45% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 17/10/2026",
+      "COMPOSICAO: ALUG RS 1.550,00; TOTAL RS 1.550,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 17/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.550,00; TOTAL RS 1.550,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1550
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie2s00elk8h8ojuf7h9i",
+    "code": "LOC-0082",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000119",
+    "imovelEndereco": "Passeio Caruaru, 223 - Zona Norte",
+    "pagadorNome": "Jessica Aparecida dos Santos",
+    "pagadorCpfCnpj": "38128587897",
+    "pagadorCep": "15385000",
+    "diaVencimento": 29,
+    "valorAluguel": 1460,
+    "valorTotalNominal": 1460,
+    "descontoPontualidade": {
+      "valor": 6.85,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 19,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 6,85% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 29/10/2026",
+      "COMPOSICAO: ALUG RS 1.460,00; TOTAL RS 1.460,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 29/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.460,00; TOTAL RS 1.460,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1460
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie3700eok8h8llyiw0gh",
+    "code": "LOC-0083",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000110",
+    "imovelEndereco": "Passeio Santos, 516 - Zona Sul",
+    "pagadorNome": "Fernando Alves de Rezende",
+    "pagadorCpfCnpj": "11995361801",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1400,
+    "valorTotalNominal": 1400,
+    "descontoPontualidade": {
+      "valor": 14.29,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 14,29% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.400,00; TOTAL RS 1.400,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1400
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie3n00erk8h85he5qv4i",
+    "code": "LOC-0084",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-000116",
+    "imovelEndereco": "Passeio Canindé, 203 - Zona Norte",
+    "pagadorNome": "Natalia Priscila Nobrega",
+    "pagadorCpfCnpj": "36507126870",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie4200euk8h8c1vi58jj",
+    "code": "LOC-0085",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00037",
+    "imovelEndereco": "Rua Olavo Bilac, 592 - Residencial Nova Ilha",
+    "pagadorNome": "Danilo Carvalho de Souza",
+    "pagadorCpfCnpj": "40955779839",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 2718.9,
+    "valorTotalNominal": 2718.9,
+    "descontoPontualidade": {
+      "valor": 7.36,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 7,36% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 2.718,90; TOTAL RS 2.718,90"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 2.718,90; TOTAL RS 2.718,90"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 2718.9
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie4f00exk8h8z4981wkh",
+    "code": "LOC-0086",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00093",
+    "imovelEndereco": "Rua Lajes, 57 - Santa Catarina",
+    "pagadorNome": "Marcelo Carvalho Minhoto T. Filho",
+    "pagadorCpfCnpj": "31590760832",
+    "pagadorCep": "15385000",
+    "diaVencimento": 11,
+    "valorAluguel": 3200,
+    "valorTotalNominal": 3200,
+    "descontoPontualidade": {
+      "valor": 9.38,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,38% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 11/10/2026",
+      "COMPOSICAO: ALUG RS 3.200,00; TOTAL RS 3.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 11/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 3.200,00; TOTAL RS 3.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 3200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie4s00f0k8h856nlgu4e",
+    "code": "LOC-0087",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00085",
+    "imovelEndereco": "null, 0 - Importado via CSV",
+    "pagadorNome": "SILVESTRE RIGHI ATIV.PERSONALIZADAS LTDA",
+    "pagadorCpfCnpj": "00000000000",
+    "pagadorCep": "15385000",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "CPF/CNPJ inválido ou ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0vie5700f3k8h8nzb0265i",
+    "code": "LOC-0088",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00011",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "CLARA FERREIRA GARCIA",
+    "pagadorCpfCnpj": "07316945117",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 1050,
+    "valorTotalNominal": 1050,
+    "descontoPontualidade": {
+      "valor": 9.52,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,52% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 1.050,00; TOTAL RS 1.050,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.050,00; TOTAL RS 1.050,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1050
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie5o00f6k8h818j43623",
+    "code": "LOC-0089",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00033",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Pietra Wendeborn Zinezi dos Reis",
+    "pagadorCpfCnpj": "37269519897",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1059.92,
+    "valorTotalNominal": 1059.92,
+    "descontoPontualidade": {
+      "valor": 9.43,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 20,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,43% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 20,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.059,92; TOTAL RS 1.059,92"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.059,92; TOTAL RS 1.059,92"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1059.92
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie6400f9k8h8r4imkni6",
+    "code": "LOC-0090",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00017",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Samantha Batista Zacarias",
+    "pagadorCpfCnpj": "33969343852",
+    "pagadorCep": "15385000",
+    "diaVencimento": 25,
+    "valorAluguel": 1053.46,
+    "valorTotalNominal": 1053.46,
+    "descontoPontualidade": {
+      "valor": 9.49,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 15,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,49% ate dia 10/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 25/10/2026",
+      "COMPOSICAO: ALUG RS 1.053,46; TOTAL RS 1.053,46"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 25/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.053,46; TOTAL RS 1.053,46"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1053.46
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie6l00fck8h85437k4m9",
+    "code": "LOC-0091",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00058",
+    "imovelEndereco": "Rua Caruaru, 139 - Zona Norte",
+    "pagadorNome": "Lucas Villas Boas de Pauda",
+    "pagadorCpfCnpj": "43876078822",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1059.66,
+    "valorTotalNominal": 1059.66,
+    "descontoPontualidade": {
+      "valor": 9.44,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,44% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.059,66; TOTAL RS 1.059,66"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1059.66
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie7200ffk8h86zee5qnk",
+    "code": "LOC-0092",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00061",
+    "imovelEndereco": "Rua Nazaré, 170 - Zona Norte",
+    "pagadorNome": "Alessandra Boaventura Castanheira",
+    "pagadorCpfCnpj": "16548856813",
+    "pagadorCep": "15385000",
+    "diaVencimento": 20,
+    "valorAluguel": 1083.18,
+    "valorTotalNominal": 1083.18,
+    "descontoPontualidade": {
+      "valor": 9.23,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 5,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 9,23% ate dia 15/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 20/10/2026",
+      "COMPOSICAO: ALUG RS 1.083,18; TOTAL RS 1.083,18"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 20/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.083,18; TOTAL RS 1.083,18"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1083.18
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie7i00fik8h8d3ibrxk3",
+    "code": "LOC-0093",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00087",
+    "imovelEndereco": "Passeio Cabo, 222 - Zona Norte",
+    "pagadorNome": "Kaue Gon´┐¢alves F. da Silva",
+    "pagadorCpfCnpj": "59462595801",
+    "pagadorCep": "15385000",
+    "diaVencimento": 21,
+    "valorAluguel": 1200,
+    "valorTotalNominal": 1200,
+    "descontoPontualidade": {
+      "valor": 8.33,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 10,
+      "interCodigo": "PERCENTUALDATAINFORMADA"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Pagamento com desconto de 8,33% ate dia 11/10/2026.",
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 21/10/2026",
+      "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 21/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 1.200,00; TOTAL RS 1.200,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 1200
+      }
+    ],
+    "reviewStatus": "REVIEWED",
+    "readinessIssues": []
+  },
+  {
+    "leaseId": "cms0vie7z00flk8h8du1qfxlp",
+    "code": "LOC-0094",
+    "status": "ACTIVE",
+    "imovelCodigo": "IMB-CSV-00083",
+    "imovelEndereco": "Rua Manuel Bandeira, 257 - Residencial Nova Ilha",
+    "pagadorNome": "Adressa Daiany do Carmo Lima",
+    "pagadorCpfCnpj": "44347745818",
+    "pagadorCep": "15385000",
+    "diaVencimento": 15,
+    "valorAluguel": 3000,
+    "valorTotalNominal": 3000,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": "PERCENT",
+      "diasAntesDoVencimento": 1,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 15/10/2026",
+      "COMPOSICAO: ALUG RS 3.000,00; TOTAL RS 3.000,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 15/10/2026",
+      "linha2": "COMPOSICAO: ALUG RS 3.000,00; TOTAL RS 3.000,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 3000
+      }
+    ],
+    "reviewStatus": "PENDING",
+    "readinessIssues": [
+      "Período não conferido (reviewStatus != REVIEWED)"
+    ]
+  },
+  {
+    "leaseId": "cms0wh9670000s8h84rrtvw5t",
+    "code": "LOC-0095",
+    "status": "DRAFT",
+    "imovelCodigo": "S/ código",
+    "imovelEndereco": "Sem endereço",
+    "pagadorNome": "AUSENTE",
+    "pagadorCpfCnpj": "AUSENTE",
+    "pagadorCep": "AUSENTE",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "Nome do pagador ausente",
+      "CPF/CNPJ inválido ou ausente",
+      "CEP do pagador ausente",
+      "Endereço do pagador ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  },
+  {
+    "leaseId": "cms0yhz7r0000ach8pstg5ik4",
+    "code": "LOC-0096",
+    "status": "DRAFT",
+    "imovelCodigo": "S/ código",
+    "imovelEndereco": "Sem endereço",
+    "pagadorNome": "AUSENTE",
+    "pagadorCpfCnpj": "AUSENTE",
+    "pagadorCep": "AUSENTE",
+    "diaVencimento": 10,
+    "valorAluguel": 0,
+    "valorTotalNominal": 0,
+    "descontoPontualidade": {
+      "valor": 0,
+      "tipo": null,
+      "diasAntesDoVencimento": null,
+      "interCodigo": "SEM_DESCONTO"
+    },
+    "multaPercentual": 10,
+    "jurosMensalPercentual": 1,
+    "instrucoesBoleto": [
+      "Apos o vencimento: multa de 10,00%. Juros 1,00% ao mes, pro rata dia."
+    ],
+    "linhasDescricaoComposicao": [
+      "REF: ALUGUEL - VENC 10/10/2026",
+      "TOTAL NOMINAL: RS 0,00"
+    ],
+    "mensagemInter": {
+      "linha1": "REF: ALUGUEL - VENC 10/10/2026",
+      "linha2": "TOTAL NOMINAL: RS 0,00"
+    },
+    "itemsComposicao": [
+      {
+        "type": "RENT",
+        "description": "Aluguel",
+        "amount": 0
+      }
+    ],
+    "reviewStatus": "SEM_PERIODO",
+    "readinessIssues": [
+      "Nome do pagador ausente",
+      "CPF/CNPJ inválido ou ausente",
+      "CEP do pagador ausente",
+      "Endereço do pagador ausente",
+      "Valor do aluguel zerado",
+      "Sem período locatício e sem termos de aluguel"
+    ]
+  }
+]
