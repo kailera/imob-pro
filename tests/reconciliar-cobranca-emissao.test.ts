@@ -2,6 +2,48 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
 import { reconciliarCobrancaCanonicaAntesDaEmissao } from "../lib/locacao/reconciliarCobrancaAntesEmissao";
+import { asMetadataRecord, atualizarMetadataComposicao } from "../lib/financeiro/boleto-composicao";
+import { periodoCobradoDentroDaVigencia } from "../lib/locacao/periodo-cobrado";
+
+test("última cobrança com período confirmado preserva valor, desconto e competência sem alterar contrato", async t => {
+  const metadata = atualizarMetadataComposicao({ competence: "2026-10", termsPeriodId: "period" }, {
+    rentValue: 2700, iptuValue: 0, condominiumValue: 0, waterValue: 0,
+    electricityValue: 0, gasValue: 0, discountValue: 200, discountType: "FIXED",
+    discountDaysBefore: 13, lateFeePercentage: 10, lateInterestMonthly: 1,
+    dueDate: "2026-10-23", applyToContract: false,
+    rentalPeriod: { startDate: "2026-09-23", endDate: "2026-10-22" },
+  });
+  const transaction = {
+    id: "transaction", leaseId: "lease", categoria: "ALUGUEL", tipo: "RECEITA",
+    status: "PENDENTE", valor: 2700, dataVencimento: new Date("2026-10-23T00:00:00Z"),
+    metadata,
+    lease: {
+      status: "ACTIVE", startDate: new Date("2025-10-23T00:00:00Z"),
+      endDate: new Date("2026-10-22T00:00:00Z"),
+      terms: { firstPeriodEndDay: "Último dia do mês" },
+    },
+  };
+  const originalFindUnique = prisma.transacaoFinanceira.findUnique;
+  const originalTransaction = prisma.$transaction;
+  prisma.transacaoFinanceira.findUnique = (async () => transaction) as unknown as typeof originalFindUnique;
+  prisma.$transaction = (async () => { throw new Error("Não deve recalcular uma composição confirmada."); }) as typeof originalTransaction;
+  t.after(() => {
+    prisma.transacaoFinanceira.findUnique = originalFindUnique;
+    prisma.$transaction = originalTransaction;
+  });
+  const snapshot = structuredClone(transaction);
+  assert.deepEqual(await reconciliarCobrancaCanonicaAntesDaEmissao(transaction.id), { handled: true, updated: false });
+  assert.deepEqual(transaction, snapshot);
+  assert.equal(metadata.rentValue, 2700);
+  assert.equal(metadata.billingConditions.discountValue, 200);
+  assert.equal(asMetadataRecord(metadata).competence, "2026-10");
+  assert.equal(periodoCobradoDentroDaVigencia({
+    periodo: metadata.rentalPeriod,
+    inicioContrato: transaction.lease.startDate,
+    fimContrato: transaction.lease.endDate,
+    vencimento: transaction.dataVencimento,
+  }), true);
+});
 
 for (const competence of ["2026-10", "2026-09", null]) {
   test(`reconcilia outubro sem mover lançamentos entre competências (${competence})`, async t => {

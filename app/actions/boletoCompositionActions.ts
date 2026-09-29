@@ -24,6 +24,7 @@ import {
   resolverBonificacaoLease,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
+import { lerPeriodoCobrado, periodoCobradoDentroDaVigencia } from "@/lib/locacao/periodo-cobrado";
 
 const transactionInclude = {
   lease: {
@@ -293,6 +294,7 @@ export async function getBoletoCompositionAction(transactionId: string) {
         transactionId: transaction.id,
         description: transaction.descricao,
         dueDate: transaction.dataVencimento.toISOString(),
+        rentalPeriod: lerPeriodoCobrado(metadata.rentalPeriod),
         status: transaction.status,
         contractCode: transaction.lease?.code ?? null,
         competence: typeof metadata.competence === "string" ? metadata.competence : null,
@@ -386,6 +388,20 @@ export async function updateBoletoCompositionAction(
       throw new Error(
         "Somente cobranças pendentes ou canceladas no Inter podem ser editadas.",
       );
+    }
+    if (input.rentalPeriod != null) {
+      if (!lerPeriodoCobrado(input.rentalPeriod)) {
+        throw new Error("Informe o início e o fim válidos do período deste aluguel, em ordem cronológica.");
+      }
+      const locacao = transaction.contrato?.imovelLocacao;
+      if (!periodoCobradoDentroDaVigencia({
+        periodo: input.rentalPeriod,
+        inicioContrato: transaction.lease?.startDate ?? locacao?.dataInicio,
+        fimContrato: transaction.lease?.endDate ?? locacao?.dataFim,
+        vencimento: new Date(`${input.dueDate}T00:00:00.000Z`),
+      })) {
+        throw new Error("O período deste aluguel deve estar dentro da vigência do contrato e terminar até o vencimento.");
+      }
     }
     const registeredAtInter = Boolean(
       transaction.interNossoNumero || transaction.interCodigoSolicitacao,

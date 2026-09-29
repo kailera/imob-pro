@@ -36,6 +36,8 @@ function numberString(value: number | null | undefined) {
 function compositionToForm(value: Composition) {
   return {
     dueDate: value.dueDate.slice(0, 10),
+    rentalPeriodStart: value.rentalPeriod?.startDate ?? "",
+    rentalPeriodEnd: value.rentalPeriod?.endDate ?? "",
     rentValue: numberString(value.rentValue),
     iptuValue: numberString(value.iptuValue),
     condominiumValue: numberString(value.condominiumValue),
@@ -193,6 +195,10 @@ export default function BoletoCompositionModal({
     setSuccess(null);
     const result = await updateBoletoCompositionAction(transactionId, {
       dueDate: form.dueDate,
+      rentalPeriod: form.rentalPeriodStart || form.rentalPeriodEnd ? {
+        startDate: form.rentalPeriodStart || "",
+        endDate: form.rentalPeriodEnd || "",
+      } : null,
       rentValue: parsed("rentValue"),
       iptuValue: parsed("iptuValue"),
       condominiumValue: parsed("condominiumValue"),
@@ -334,6 +340,27 @@ export default function BoletoCompositionModal({
                   )}
                 </div>
               </div>
+
+              {editing ? (
+                <fieldset className="rounded-xl border border-gray-200 p-3">
+                  <legend className="px-1 text-sm font-bold text-[#280003]">Período deste aluguel (opcional)</legend>
+                  <p className="mb-3 text-xs text-gray-600">Informe os dias que esta cobrança remunera. O período vale somente para este boleto; confira o valor do aluguel, que permanece como informado.</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-xs font-bold text-gray-600">
+                      Início do período
+                      <input type="date" value={form.rentalPeriodStart ?? ""} onChange={event => setField("rentalPeriodStart", event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]" />
+                    </label>
+                    <label className="text-xs font-bold text-gray-600">
+                      Fim do período (inclusive)
+                      <input type="date" value={form.rentalPeriodEnd ?? ""} onChange={event => setField("rentalPeriodEnd", event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]" />
+                    </label>
+                  </div>
+                </fieldset>
+              ) : composition.rentalPeriod && (
+                <p className="text-xs text-gray-600">
+                  Período deste aluguel: {new Date(`${composition.rentalPeriod.startDate}T00:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" })} a {new Date(`${composition.rentalPeriod.endDate}T00:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                </p>
+              )}
 
               {!composition.canEdit && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

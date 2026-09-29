@@ -240,11 +240,11 @@ export default function FinancialTable({
       if (res.success) {
         if (onRefresh) onRefresh();
       } else {
-        setInfoMessage("Boleto pendente. A emissão poderá ser tentada novamente.");
+        setErrorMessage(res.error || "Não foi possível emitir o boleto.");
         if (onRefresh) await onRefresh();
       }
-    } catch {
-      setInfoMessage("Boleto pendente. A emissão poderá ser tentada novamente.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível emitir o boleto.");
       if (onRefresh) await onRefresh();
     } finally {
       setActionLoading(null);

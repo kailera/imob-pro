@@ -27,10 +27,12 @@ import {
   sanitizarTextoPagadorInter,
 } from "@/lib/inter-cobranca";
 import { resolverPeriodoDaCobranca } from "@/lib/locacao/resolverPeriodoCobranca";
+import { periodoCobradoDentroDaVigencia } from "@/lib/locacao/periodo-cobrado";
 import { resolveInterTransactionTenantId } from "@/lib/inter-tenant";
 import { reconciliarCobrancaAntesDaEmissao } from "@/lib/locacao/reconciliarCobrancaAntesEmissao";
 import {
   criarItensCobrancaDeMetadata,
+  asMetadataRecord,
   lerCondicoesBoletoMetadata,
   type BoletoChargeItemType,
 } from "@/lib/financeiro/boleto-composicao";
@@ -287,12 +289,18 @@ export async function gerarBolePixAction(
       transacao.lease
       && (
         (transacao.lease.startDate && transacao.dataVencimento < transacao.lease.startDate)
-        || (transacao.lease.endDate && transacao.dataVencimento > transacao.lease.endDate)
+        || (transacao.lease.endDate && transacao.dataVencimento > transacao.lease.endDate
+          && !periodoCobradoDentroDaVigencia({
+            vencimento: transacao.dataVencimento,
+            inicioContrato: transacao.lease.startDate,
+            fimContrato: transacao.lease.endDate,
+            periodo: asMetadataRecord(transacao.metadata).rentalPeriod,
+          }))
       )
     ) {
       return {
         success: false,
-        error: "A cobrança está fora da vigência do contrato. Nenhum boleto foi emitido.",
+        error: "O vencimento está fora da vigência do contrato. Em Editar composição, informe o período deste aluguel dentro da vigência para emitir a cobrança final.",
       };
     }
     if (!transacao.lease && transacao.contratoId && transacao.contrato) {
@@ -315,7 +323,13 @@ export async function gerarBolePixAction(
         vigenciaLegada
         && (
           transacao.dataVencimento < vigenciaLegada.dataInicio
-          || transacao.dataVencimento > vigenciaLegada.dataFim
+          || (transacao.dataVencimento > vigenciaLegada.dataFim
+            && !periodoCobradoDentroDaVigencia({
+              vencimento: transacao.dataVencimento,
+              inicioContrato: vigenciaLegada.dataInicio,
+              fimContrato: vigenciaLegada.dataFim,
+              periodo: asMetadataRecord(transacao.metadata).rentalPeriod,
+            }))
         )
       ) {
         return {

@@ -1,3 +1,5 @@
+import type { PeriodoCobrado } from "../locacao/periodo-cobrado";
+
 export type BoletoBillingConditions = {
   discountValue: number;
   discountType: string;
@@ -31,6 +33,7 @@ export type OverdueReissueInput = {
 
 export type BoletoCompositionInput = BoletoCompositionValues & BoletoBillingConditions & {
   dueDate: string;
+  rentalPeriod?: PeriodoCobrado | null;
   applyToContract: boolean;
   iptuPaymentStartDate?: string | null;
   iptuInstallments?: string | null;
@@ -159,6 +162,7 @@ export function atualizarMetadataComposicao(
 ) {
   return {
     ...asMetadataRecord(metadata),
+    ...(input.rentalPeriod !== undefined ? { rentalPeriod: input.rentalPeriod } : {}),
     rentValue: input.rentValue,
     iptuValue: input.iptuValue,
     condominiumValue: input.condominiumValue,
