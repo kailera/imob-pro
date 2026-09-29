@@ -339,6 +339,9 @@ export function resolverVigenciaCobrancaMensal<T extends {
   periodos: T[];
   ano: number;
   mes: number;
+  // Na reconciliação, preserva a competência já atribuída ao lançamento,
+  // mesmo quando ela difere do mês de vencimento.
+  competencia?: string;
   diaVencimentoPadrao: number;
   primeiroVencimento?: string | Date | null;
   fimPeriodo?: string | null;
@@ -355,7 +358,8 @@ export function resolverVigenciaCobrancaMensal<T extends {
     );
     if (!dataVencimento) return null;
 
-    const competencia = calcularCompetenciaPorVencimento(dataVencimento, input.fimPeriodo);
+    const competencia = input.competencia
+      ?? calcularCompetenciaPorVencimento(dataVencimento, input.fimPeriodo);
     const periodo = resolverPeriodoEfetivoDaCobranca(
       input.periodos,
       competencia,

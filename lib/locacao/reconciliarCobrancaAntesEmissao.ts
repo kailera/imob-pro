@@ -251,10 +251,16 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
   }
 
   const dueDateAtual = normalizarDataUTC(transaction.dataVencimento);
+  const metadataAtual = asMetadataRecord(transaction.metadata);
+  const competenciaRegistrada = typeof metadataAtual.competence === "string"
+    && /^\d{4}-(0[1-9]|1[0-2])$/.test(metadataAtual.competence)
+    ? metadataAtual.competence
+    : undefined;
   const vigencia = resolverVigenciaCobrancaMensal({
     periodos: lease.termsPeriods,
     ano: dueDateAtual.getUTCFullYear(),
     mes: dueDateAtual.getUTCMonth() + 1,
+    competencia: competenciaRegistrada,
     diaVencimentoPadrao: lease.terms?.paymentDueDay ?? dueDateAtual.getUTCDate(),
     primeiroVencimento: lease.terms?.firstPeriodDueDate,
     fimPeriodo: lease.terms?.firstPeriodEndDay,
@@ -279,7 +285,6 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     vigencia.dataVencimento,
     leaseGasValue,
   );
-  const metadataAtual = asMetadataRecord(transaction.metadata);
   const rateioAluguel = calcularAluguelProporcionalCompetencia(
     lease.termsPeriods.map(item => ({
       id: item.id,
@@ -368,13 +373,12 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     await tx.leaseCharge.updateMany({
       where: {
         leaseId: lease.id,
-        competence: competenciaDaCobranca(transaction.metadata, transaction.dataVencimento),
+        competence: vigencia.competencia,
         chargeType: "RENT",
         status: "PENDING",
       },
       data: {
         termsPeriodId: period.id,
-        competence: vigencia.competencia,
         amount: total,
         dueDate: vigencia.dataVencimento,
         calculationData: metadata as Prisma.InputJsonValue,

@@ -1,0 +1,71 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { prisma } from "../lib/prisma";
+import { reconciliarCobrancaCanonicaAntesDaEmissao } from "../lib/locacao/reconciliarCobrancaAntesEmissao";
+
+for (const competence of ["2026-10", "2026-09", null]) {
+  test(`reconcilia outubro sem mover lançamentos entre competências (${competence})`, async t => {
+    const expectedCompetence = competence ?? "2026-09";
+    const period = {
+      id: "period", effectiveFrom: new Date("2026-01-01T00:00:00Z"), effectiveTo: new Date("2026-10-21T00:00:00Z"),
+      paymentDueDay: 26, rentAmount: 1000, reviewStatus: "REVIEWED",
+    };
+    const adjustedPeriod = {
+      ...period, id: "adjusted", effectiveFrom: period.effectiveTo,
+      effectiveTo: null, rentAmount: 1200,
+    };
+    const transaction = {
+      id: "transaction", leaseId: "lease", categoria: "ALUGUEL", tipo: "RECEITA",
+      status: "PENDENTE", dataVencimento: new Date("2026-10-26T00:00:00Z"),
+      metadata: competence ? { competence } : {},
+      lease: {
+        id: "lease", status: "ACTIVE", termsPeriods: [period, adjustedPeriod],
+        terms: { paymentDueDay: 26, firstPeriodEndDay: "Dia 20" },
+        utilities: [], iptu: null, condominium: null, property: null,
+      },
+    };
+    const charges = ["2026-09", "2026-10"].map(value => ({
+      leaseId: "lease", competence: value, chargeType: "RENT", status: "PENDING",
+      amount: 900,
+    }));
+    const before = structuredClone(charges);
+    type TransactionData = { metadata: { competence: string; termsPeriodId: string }; dataVencimento: Date };
+    type Charge = typeof charges[number];
+    let saved: TransactionData | undefined;
+    // Prisma delegates are proxies, so node:test cannot replace their methods
+    // through property descriptors. Restore the delegate explicitly instead.
+    const originalFindUnique = prisma.transacaoFinanceira.findUnique;
+    prisma.transacaoFinanceira.findUnique = (async () => transaction) as unknown as typeof originalFindUnique;
+    t.after(() => { prisma.transacaoFinanceira.findUnique = originalFindUnique; });
+    const originalTransaction = prisma.$transaction;
+    t.after(() => { prisma.$transaction = originalTransaction; });
+    prisma.$transaction = (async (callback: (tx: unknown) => Promise<void>) => {
+      await callback({
+        transacaoFinanceira: { update: async ({ data }: { data: TransactionData }) => { saved = data; } },
+        boletoChargeItem: { deleteMany: async () => ({}), createMany: async () => ({}) },
+        leaseCharge: {
+          updateMany: async ({ where, data }: { where: Partial<Charge>; data: Partial<Charge> }) => {
+            const charge = charges.find(item => Object.entries(where).every(([key, value]) => item[key as keyof typeof item] === value));
+            if (!charge) return { count: 0 };
+            if (data.competence && charges.some(item => item !== charge && item.competence === data.competence)) {
+              throw new Error("Unique constraint failed: leaseId, competence, chargeType");
+            }
+            Object.assign(charge, data);
+            return { count: 1 };
+          },
+        },
+      });
+    }) as typeof originalTransaction;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await reconciliarCobrancaCanonicaAntesDaEmissao("transaction");
+      assert.equal(result.updated, true);
+    }
+    assert.equal(saved?.metadata.competence, expectedCompetence);
+    assert.equal(saved?.metadata.termsPeriodId, expectedCompetence === "2026-10" ? "adjusted" : "period");
+    assert.equal(saved?.dataVencimento.toISOString(), "2026-10-26T00:00:00.000Z");
+    assert.equal(charges.find(item => item.competence === expectedCompetence)?.amount, expectedCompetence === "2026-10" ? 1200 : 1000);
+    const other = before.find(item => item.competence !== expectedCompetence)!;
+    assert.deepEqual(charges.find(item => item.competence === other.competence), other);
+  });
+}
