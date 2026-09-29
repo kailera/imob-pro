@@ -57,6 +57,8 @@ export function ContractChargesModal({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [competence, setCompetence] = useState(currentCompetence);
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<Awaited<ReturnType<typeof criarCobrancaContratoAction>> | null>(null);
   const charges = useMemo(() => transactions
@@ -90,6 +92,7 @@ export function ContractChargesModal({
       const response = await criarCobrancaContratoAction(
         { kind: reference.kind, id: reference.id },
         competence,
+        periodStart || periodEnd ? { startDate: periodStart, endDate: periodEnd } : null,
       );
       setResult(response);
       if (response.success) router.refresh();
@@ -169,7 +172,7 @@ export function ContractChargesModal({
               <div className="p-5">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">Nova cobrança</h3>
                 <label className="mt-4 block">
-                  <span className="mb-1.5 block text-xs font-bold text-gray-700">Competência</span>
+                  <span className="mb-1.5 block text-xs font-bold text-gray-700">Competência / mês do vencimento</span>
                   <input
                     type="month"
                     value={competence}
@@ -184,6 +187,21 @@ export function ContractChargesModal({
                 <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                   O vencimento e os valores serão calculados pela vigência contratual correspondente. Nenhuma outra competência será alterada.
                 </p>
+
+                <fieldset className="mt-4 rounded-xl border border-gray-200 p-3" disabled={isPending}>
+                  <legend className="px-1 text-xs font-bold text-gray-700">Período deste aluguel (opcional)</legend>
+                  <p className="mb-3 text-[11px] text-gray-500">Para cobrar um ciclo diferente do cadastro, informe um mês completo, como 23/09 a 22/10. O contrato permanece com as condições cadastradas.</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-xs font-bold text-gray-700">
+                      Início do período
+                      <input type="date" value={periodStart} onChange={event => { setPeriodStart(event.target.value); setResult(null); }} className="mt-1 min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]" />
+                    </label>
+                    <label className="text-xs font-bold text-gray-700">
+                      Fim do período (inclusive)
+                      <input type="date" value={periodEnd} onChange={event => { setPeriodEnd(event.target.value); setResult(null); }} className="mt-1 min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004777]" />
+                    </label>
+                  </div>
+                </fieldset>
 
                 {result && !result.success && (
                   <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3" aria-live="polite">

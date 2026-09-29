@@ -45,8 +45,13 @@ test("última cobrança com período confirmado preserva valor, desconto e compe
   }), true);
 });
 
-for (const competence of ["2026-10", "2026-09", null]) {
-  test(`reconcilia outubro sem mover lançamentos entre competências (${competence})`, async t => {
+for (const { competence, final } of [
+  { competence: "2026-10", final: false },
+  { competence: "2026-09", final: false },
+  { competence: null, final: false },
+  { competence: "2026-10", final: true },
+]) {
+  test(`reconcilia outubro sem mover lançamentos entre competências (${competence}, ciclo final: ${final})`, async t => {
     const expectedCompetence = competence ?? "2026-09";
     const period = {
       id: "period", effectiveFrom: new Date("2026-01-01T00:00:00Z"), effectiveTo: new Date("2026-10-21T00:00:00Z"),
@@ -58,11 +63,17 @@ for (const competence of ["2026-10", "2026-09", null]) {
     };
     const transaction = {
       id: "transaction", leaseId: "lease", categoria: "ALUGUEL", tipo: "RECEITA",
-      status: "PENDENTE", dataVencimento: new Date("2026-10-26T00:00:00Z"),
-      metadata: competence ? { competence } : {},
+      status: "PENDENTE", dataVencimento: new Date(final ? "2026-10-23T00:00:00Z" : "2026-10-26T00:00:00Z"),
+      metadata: { ...(competence ? { competence } : {}), ...(final ? { rentalPeriod: { startDate: "2026-09-23", endDate: "2026-10-22" } } : {}) },
       lease: {
-        id: "lease", status: "ACTIVE", termsPeriods: [period, adjustedPeriod],
-        terms: { paymentDueDay: 26, firstPeriodEndDay: "Dia 20" },
+        id: "lease", status: "ACTIVE",
+        startDate: final ? new Date("2025-10-23T00:00:00Z") : null,
+        endDate: final ? new Date("2026-10-22T00:00:00Z") : null,
+        termsPeriods: final ? [{ ...period, rentAmount: 2700, paymentDueDay: 23,
+          effectiveFrom: new Date("2025-10-23T12:00:00Z"), effectiveTo: new Date("2026-10-23T12:00:00Z"),
+          earlyPaymentDiscount: 200, discountType: "FIXED", discountDaysBefore: 13,
+        }] : [period, adjustedPeriod],
+        terms: { paymentDueDay: final ? 23 : 26, firstPeriodEndDay: final ? "Último dia do mês" : "Dia 20" },
         utilities: [], iptu: null, condominium: null, property: null,
       },
     };
@@ -71,7 +82,7 @@ for (const competence of ["2026-10", "2026-09", null]) {
       amount: 900,
     }));
     const before = structuredClone(charges);
-    type TransactionData = { metadata: { competence: string; termsPeriodId: string }; dataVencimento: Date };
+    type TransactionData = { valor: number; metadata: { competence: string; termsPeriodId: string; rentalPeriod?: unknown; billingConditions: { discountValue: number; discountDaysBefore: number } }; dataVencimento: Date };
     type Charge = typeof charges[number];
     let saved: TransactionData | undefined;
     // Prisma delegates are proxies, so node:test cannot replace their methods
@@ -104,9 +115,15 @@ for (const competence of ["2026-10", "2026-09", null]) {
       assert.equal(result.updated, true);
     }
     assert.equal(saved?.metadata.competence, expectedCompetence);
-    assert.equal(saved?.metadata.termsPeriodId, expectedCompetence === "2026-10" ? "adjusted" : "period");
-    assert.equal(saved?.dataVencimento.toISOString(), "2026-10-26T00:00:00.000Z");
-    assert.equal(charges.find(item => item.competence === expectedCompetence)?.amount, expectedCompetence === "2026-10" ? 1200 : 1000);
+    assert.equal(saved?.metadata.termsPeriodId, !final && expectedCompetence === "2026-10" ? "adjusted" : "period");
+    assert.equal(saved?.dataVencimento.toISOString(), transaction.dataVencimento.toISOString());
+    assert.equal(charges.find(item => item.competence === expectedCompetence)?.amount, final ? 2700 : expectedCompetence === "2026-10" ? 1200 : 1000);
+    if (final) {
+      assert.equal(saved?.valor, 2700);
+      assert.equal(saved?.metadata.billingConditions.discountValue, 200);
+      assert.equal(saved?.metadata.billingConditions.discountDaysBefore, 13);
+      assert.deepEqual(saved?.metadata.rentalPeriod, transaction.metadata.rentalPeriod);
+    }
     const other = before.find(item => item.competence !== expectedCompetence)!;
     assert.deepEqual(charges.find(item => item.competence === other.competence), other);
   });

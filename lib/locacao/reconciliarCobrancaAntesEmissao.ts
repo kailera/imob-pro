@@ -17,6 +17,7 @@ import {
 } from "./financeiro";
 import { adicionarDiasUTC, normalizarDataUTC } from "./periodos";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
+import { resolverCicloInformado, periodoCobradoDentroDaVigencia } from "./periodo-cobrado";
 
 type LegacyPeriodForEmission = {
   id: string;
@@ -256,19 +257,29 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     && /^\d{4}-(0[1-9]|1[0-2])$/.test(metadataAtual.competence)
     ? metadataAtual.competence
     : undefined;
+  const cicloInformado = metadataAtual.rentalPeriod != null
+    ? resolverCicloInformado(metadataAtual.rentalPeriod) : null;
   const vigencia = resolverVigenciaCobrancaMensal({
     periodos: lease.termsPeriods,
     ano: dueDateAtual.getUTCFullYear(),
     mes: dueDateAtual.getUTCMonth() + 1,
-    competencia: competenciaRegistrada,
+    competencia: cicloInformado?.competencia ?? competenciaRegistrada,
     diaVencimentoPadrao: lease.terms?.paymentDueDay ?? dueDateAtual.getUTCDate(),
     primeiroVencimento: lease.terms?.firstPeriodDueDate,
-    fimPeriodo: lease.terms?.firstPeriodEndDay,
+    fimPeriodo: cicloInformado?.fimPeriodo ?? lease.terms?.firstPeriodEndDay,
   });
   if (!vigencia?.periodo) {
     return { handled: true as const, updated: false as const, error: "A cobrança não está coberta por uma vigência financeira do contrato." };
   }
   const period = vigencia.periodo;
+  if (cicloInformado && !periodoCobradoDentroDaVigencia({
+    periodo: cicloInformado.periodo,
+    inicioContrato: lease.startDate,
+    fimContrato: lease.endDate,
+    vencimento: vigencia.dataVencimento,
+  })) {
+    return { handled: true as const, updated: false as const, error: "O período deste aluguel deve estar dentro da vigência do contrato e terminar até o vencimento." };
+  }
   if (period.reviewStatus !== "REVIEWED") {
     return { handled: true as const, updated: false as const, error: `A vigência da competência ${vigencia.competencia} ainda não foi conferida.` };
   }
@@ -293,7 +304,7 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
       rentAmount: Number(item.rentAmount),
     })),
     vigencia.competencia,
-    lease.terms?.firstPeriodEndDay,
+    cicloInformado?.fimPeriodo ?? lease.terms?.firstPeriodEndDay,
   );
   if (!rateioAluguel) {
     return {
@@ -323,7 +334,7 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
   const total = calcularTotalNominal(values);
   const metadata = {
     ...metadataAtual,
-    competence: vigencia.competencia,
+    competence: competenciaRegistrada ?? vigencia.competencia,
     leaseId: lease.id,
     termsPeriodId: period.id,
     rentValue: values.rentValue,
@@ -373,7 +384,7 @@ export async function reconciliarCobrancaCanonicaAntesDaEmissao(transacaoId: str
     await tx.leaseCharge.updateMany({
       where: {
         leaseId: lease.id,
-        competence: vigencia.competencia,
+        competence: metadata.competence,
         chargeType: "RENT",
         status: "PENDING",
       },

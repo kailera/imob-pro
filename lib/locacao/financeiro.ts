@@ -383,6 +383,7 @@ export function resolverVigenciaCobrancaPorCompetencia<T extends {
 }>(input: {
   periodos: T[];
   competencia: string;
+  competenciaCalculo?: string;
   diaVencimentoPadrao: number;
   primeiroVencimento?: string | Date | null;
   fimPeriodo?: string | null;
@@ -405,7 +406,7 @@ export function resolverVigenciaCobrancaPorCompetencia<T extends {
 
     const periodo = resolverPeriodoEfetivoDaCobranca(
       input.periodos,
-      input.competencia,
+      input.competenciaCalculo ?? input.competencia,
       dataVencimento,
       input.fimPeriodo,
     );

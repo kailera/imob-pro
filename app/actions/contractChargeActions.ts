@@ -21,6 +21,7 @@ import { adicionarDiasUTC } from "@/lib/locacao/periodos";
 import { listarPendenciasInter, type InterReadinessIssue } from "@/lib/locacao/inter-readiness";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
+import { resolverCicloInformado, periodoCobradoDentroDaVigencia, type PeriodoCobrado } from "@/lib/locacao/periodo-cobrado";
 
 type ContractChargeReference = {
   kind: "LEASE" | "LEGACY";
@@ -95,6 +96,7 @@ async function gerarCobrancaCanonica(
   leaseId: string,
   tenantId: string,
   competence: string,
+  rentalPeriod?: PeriodoCobrado | null,
 ): Promise<ContractChargeResult> {
   const lease = await prisma.lease.findFirst({
     where: { id: leaseId, tenantId },
@@ -137,6 +139,7 @@ async function gerarCobrancaCanonica(
   }
 
   const terms = lease.terms!;
+  const cicloInformado = rentalPeriod ? resolverCicloInformado(rentalPeriod) : null;
   const competenceStart = calcularInicioCompetencia(competence);
   const competenceEnd = new Date(Date.UTC(
     competenceStart.getUTCFullYear(),
@@ -148,8 +151,8 @@ async function gerarCobrancaCanonica(
     999,
   ));
   if (
-    (lease.startDate && competenceEnd < lease.startDate)
-    || (lease.endDate && competenceStart > lease.endDate)
+    !cicloInformado && ((lease.startDate && competenceEnd < lease.startDate)
+    || (lease.endDate && competenceStart > lease.endDate))
   ) {
     return {
       success: false,
@@ -160,9 +163,10 @@ async function gerarCobrancaCanonica(
   const vigencia = resolverVigenciaCobrancaPorCompetencia({
     periodos: lease.termsPeriods,
     competencia: competence,
+    competenciaCalculo: cicloInformado?.competencia,
     diaVencimentoPadrao: terms.paymentDueDay,
     primeiroVencimento: terms.firstPeriodDueDate,
-    fimPeriodo: terms.firstPeriodEndDay,
+    fimPeriodo: cicloInformado?.fimPeriodo ?? terms.firstPeriodEndDay,
   });
   if (!vigencia) {
     return {
@@ -179,6 +183,14 @@ async function gerarCobrancaCanonica(
     };
   }
   const period = vigencia.periodo;
+  if (cicloInformado && !periodoCobradoDentroDaVigencia({
+    periodo: cicloInformado.periodo,
+    inicioContrato: lease.startDate,
+    fimContrato: lease.endDate,
+    vencimento: vigencia.dataVencimento,
+  })) {
+    return { success: false, error: "O período deste aluguel deve estar dentro da vigência do contrato e terminar até o vencimento." };
+  }
   if (period.reviewStatus !== "REVIEWED") {
     return {
       success: false,
@@ -254,8 +266,8 @@ async function gerarCobrancaCanonica(
       effectiveTo: item.effectiveTo,
       rentAmount: Number(item.rentAmount),
     })),
-    competence,
-    terms.firstPeriodEndDay,
+    cicloInformado?.competencia ?? competence,
+    cicloInformado?.fimPeriodo ?? terms.firstPeriodEndDay,
   );
   if (!rateioAluguel) {
     return {
@@ -294,6 +306,7 @@ async function gerarCobrancaCanonica(
   }
   const metadata = {
     competence,
+    ...(cicloInformado ? { rentalPeriod: cicloInformado.periodo } : {}),
     leaseId: lease.id,
     termsPeriodId: period.id,
     rentValue,
@@ -435,12 +448,14 @@ async function gerarCobrancaLegada(
   contractId: string,
   tenantId: string,
   competence: string,
+  rentalPeriod?: PeriodoCobrado | null,
 ): Promise<ContractChargeResult> {
   const canonical = await prisma.lease.findFirst({
     where: { tenantId, legacyCode: contractId },
     select: { id: true },
   });
-  if (canonical) return gerarCobrancaCanonica(canonical.id, tenantId, competence);
+  if (canonical) return gerarCobrancaCanonica(canonical.id, tenantId, competence, rentalPeriod);
+  if (rentalPeriod) return { success: false, error: "Para informar um ciclo na criação, utilize o contrato do novo fluxo de locação." };
 
   const contract = await prisma.contratoImovelLocacao.findFirst({
     where: { id: contractId, imobId: tenantId },
@@ -658,14 +673,15 @@ async function gerarCobrancaLegada(
 export async function criarCobrancaContratoAction(
   reference: ContractChargeReference,
   competence: string,
+  rentalPeriod?: PeriodoCobrado | null,
 ): Promise<ContractChargeResult> {
   try {
     const inputError = validarEntrada(reference, competence);
     if (inputError) return { success: false, error: inputError };
     const { tenantId } = await requireUserContext();
     const result = reference.kind === "LEASE"
-      ? await gerarCobrancaCanonica(reference.id, tenantId, competence)
-      : await gerarCobrancaLegada(reference.id, tenantId, competence);
+      ? await gerarCobrancaCanonica(reference.id, tenantId, competence, rentalPeriod)
+      : await gerarCobrancaLegada(reference.id, tenantId, competence, rentalPeriod);
 
     if (result.success) {
       revalidatePath(`/locacao/view-locacao/${reference.id}`);
