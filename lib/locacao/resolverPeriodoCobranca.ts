@@ -1,5 +1,5 @@
 import { normalizarDataUTC } from "./periodos";
-import { calcularInicioCompetencia } from "./financeiro";
+import { calcularInicioCompetencia, resolverUltimasCondicoesFinanceiras } from "./financeiro";
 
 export interface PeriodoCobranca {
   id: string;
@@ -26,9 +26,7 @@ export function resolverPeriodoDaCobranca<T extends PeriodoCobranca>(
     dataReferencia = calcularInicioCompetencia(meta.competence);
   }
 
-  return periodos.find((periodo) => {
-    const inicio = normalizarDataUTC(periodo.dataInicio);
-    const fim = normalizarDataUTC(periodo.dataFim);
-    return dataReferencia >= inicio && dataReferencia <= fim;
-  }) ?? null;
+  return resolverUltimasCondicoesFinanceiras(
+    periodos.map(periodo => ({ ...periodo, effectiveFrom: periodo.dataInicio })), dataReferencia,
+  );
 }

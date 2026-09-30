@@ -14,6 +14,7 @@ import {
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaMensal,
+  resolverUltimasCondicoesFinanceiras,
 } from "./financeiro";
 import { adicionarDiasUTC, normalizarDataUTC } from "./periodos";
 import { resolverDespesasResidencial } from "@/lib/residenciais/cobranca";
@@ -48,10 +49,9 @@ export function resolverPeriodoLegadoAntesDaEmissao<T extends {
 }>(periodos: T[], metadata: unknown, dataVencimento: Date) {
   const competencia = competenciaDaCobranca(metadata, dataVencimento);
   const referencia = calcularInicioCompetencia(competencia);
-  return periodos.find(periodo => (
-    referencia >= normalizarDataUTC(periodo.dataInicio)
-    && referencia <= normalizarDataUTC(periodo.dataFim)
-  )) ?? null;
+  return resolverUltimasCondicoesFinanceiras(
+    periodos.map(periodo => ({ ...periodo, effectiveFrom: periodo.dataInicio })), referencia,
+  );
 }
 
 export function composicaoFoiEditadaManualmente(metadata: unknown) {

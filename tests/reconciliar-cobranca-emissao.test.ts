@@ -5,6 +5,45 @@ import { reconciliarCobrancaCanonicaAntesDaEmissao } from "../lib/locacao/reconc
 import { asMetadataRecord, atualizarMetadataComposicao } from "../lib/financeiro/boleto-composicao";
 import { periodoCobradoDentroDaVigencia } from "../lib/locacao/periodo-cobrado";
 
+test("rascunho usa condições vencidas e recebe novo reajuste antes da emissão", async t => {
+  const periods = [{
+    id: "anterior", effectiveFrom: new Date("2025-01-01T00:00:00Z"),
+    effectiveTo: new Date("2026-09-01T00:00:00Z"), rentAmount: 2700,
+    paymentDueDay: 23, earlyPaymentDiscount: 200, reviewStatus: "REVIEWED",
+  }];
+  const transaction = {
+    id: "transaction", leaseId: "lease", categoria: "ALUGUEL", tipo: "RECEITA", status: "PENDENTE",
+    dataVencimento: new Date("2026-10-23T00:00:00Z"), metadata: { competence: "2026-10" },
+    interCodigoSolicitacao: null as string | null,
+    lease: {
+      id: "lease", status: "ACTIVE", startDate: new Date("2025-01-01T00:00:00Z"), endDate: new Date("2027-12-31T00:00:00Z"),
+      termsPeriods: periods, terms: { paymentDueDay: 23, firstPeriodEndDay: "Último dia do mês" },
+      utilities: [], iptu: null, condominium: null, property: null,
+    },
+  };
+  const originalFind = prisma.transacaoFinanceira.findUnique;
+  const originalTransaction = prisma.$transaction;
+  t.after(() => { prisma.transacaoFinanceira.findUnique = originalFind; prisma.$transaction = originalTransaction; });
+  prisma.transacaoFinanceira.findUnique = (async () => transaction) as unknown as typeof originalFind;
+  const totals: number[] = [];
+  const discounts: number[] = [];
+  prisma.$transaction = (async (callback: (tx: unknown) => Promise<void>) => callback({
+    transacaoFinanceira: { update: async ({ data }: { data: { valor: number; metadata: { billingConditions: { discountValue: number } } } }) => {
+      totals.push(data.valor); discounts.push(data.metadata.billingConditions.discountValue);
+    } },
+    boletoChargeItem: { deleteMany: async () => ({}), createMany: async () => ({}) },
+    leaseCharge: { updateMany: async () => ({ count: 1 }) },
+  })) as typeof originalTransaction;
+  assert.equal((await reconciliarCobrancaCanonicaAntesDaEmissao(transaction.id)).updated, true);
+  periods.push({ ...periods[0], id: "novo", effectiveFrom: new Date("2026-10-01T00:00:00Z"), effectiveTo: new Date("2027-10-01T00:00:00Z"), rentAmount: 3000, earlyPaymentDiscount: 250 });
+  assert.equal((await reconciliarCobrancaCanonicaAntesDaEmissao(transaction.id)).updated, true);
+  assert.deepEqual(totals, [2700, 3000]);
+  assert.deepEqual(discounts, [200, 250]);
+  transaction.interCodigoSolicitacao = "ja-emitido";
+  assert.equal((await reconciliarCobrancaCanonicaAntesDaEmissao(transaction.id)).updated, false);
+  assert.equal(totals.length, 2);
+});
+
 test("última cobrança com período confirmado preserva valor, desconto e competência sem alterar contrato", async t => {
   const metadata = atualizarMetadataComposicao({ competence: "2026-10", termsPeriodId: "period" }, {
     rentValue: 2700, iptuValue: 0, condominiumValue: 0, waterValue: 0,

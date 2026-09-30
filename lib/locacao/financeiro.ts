@@ -207,6 +207,25 @@ export interface ParcelaAluguelProporcional {
   subtotal: number;
 }
 
+/** As condições continuam sendo usadas após o fim previsto para reajuste,
+ * até o início de um novo período cadastrado. Nunca antecipa condições futuras.
+ * Em inícios iguais, preserva a prioridade da ordenação fornecida pelo chamador. */
+export function resolverUltimasCondicoesFinanceiras<T extends { effectiveFrom: string | Date }>(
+  periodos: T[], referencia: string | Date,
+): T | null {
+  const dia = normalizarDataUTC(referencia).getTime();
+  let escolhido: T | null = null;
+  let inicioEscolhido = -Infinity;
+  for (const periodo of periodos) {
+    const inicio = normalizarDataUTC(periodo.effectiveFrom).getTime();
+    if (inicio <= dia && inicio > inicioEscolhido) {
+      escolhido = periodo;
+      inicioEscolhido = inicio;
+    }
+  }
+  return escolhido;
+}
+
 /**
  * Rateia o aluguel quando uma mesma competência atravessa duas vigências.
  *
@@ -242,10 +261,7 @@ export function calcularAluguelProporcionalCompetencia(
 
   for (let dia = 0; dia < diasTotais; dia += 1) {
     const referencia = adicionarDiasUTC(inicio, dia);
-    const periodo = normalizados.find((item) => (
-      referencia >= item.effectiveFrom
-      && (!item.effectiveTo || referencia < item.effectiveTo)
-    ));
+    const periodo = resolverUltimasCondicoesFinanceiras(normalizados, referencia);
     if (!periodo || !Number.isFinite(periodo.rentAmount) || periodo.rentAmount <= 0) {
       return null;
     }
@@ -309,10 +325,7 @@ export function resolverPeriodoEfetivoDaCobranca<T extends {
   fimPeriodo?: string | null,
 ) {
   const referenciaCompetencia = calcularInicioCompetencia(competencia, fimPeriodo);
-  const periodoDaCompetencia = periodos.find(periodo =>
-    referenciaCompetencia >= periodo.effectiveFrom
-    && (!periodo.effectiveTo || referenciaCompetencia < periodo.effectiveTo),
-  );
+  const periodoDaCompetencia = resolverUltimasCondicoesFinanceiras(periodos, referenciaCompetencia);
 
   if (periodoDaCompetencia) return periodoDaCompetencia;
 
@@ -320,10 +333,7 @@ export function resolverPeriodoEfetivoDaCobranca<T extends {
   // anterior ao início do contrato. Nesse caso, o período vigente no vencimento
   // é a referência contratual disponível.
   const vencimento = normalizarDataUTC(dataVencimento);
-  return periodos.find(periodo =>
-    vencimento >= periodo.effectiveFrom
-    && (!periodo.effectiveTo || vencimento < periodo.effectiveTo),
-  ) ?? null;
+  return resolverUltimasCondicoesFinanceiras(periodos, vencimento);
 }
 
 /**

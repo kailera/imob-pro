@@ -19,6 +19,40 @@ import {
   substituirCompetenciaNaDescricao,
 } from "../lib/locacao/financeiro";
 import { resolverPeriodoDaCobranca } from "../lib/locacao/resolverPeriodoCobranca";
+
+test("continua cobrando as condições anteriores após o prazo de reajuste", () => {
+  const anterior = {
+    id: "anterior", effectiveFrom: new Date("2025-09-01T12:00:00Z"),
+    effectiveTo: new Date("2026-09-01T12:00:00Z"), rentAmount: 2700, paymentDueDay: 23,
+    earlyPaymentDiscount: 200,
+  };
+  const futuro = { ...anterior, id: "futuro", effectiveFrom: new Date("2026-11-01T00:00:00Z"), effectiveTo: null, rentAmount: 3000 };
+  const periods = [futuro, anterior];
+  const vigente = resolverVigenciaCobrancaMensal({ periodos: periods, ano: 2026, mes: 10, diaVencimentoPadrao: 10 });
+  assert.equal(vigente?.periodo?.id, "anterior");
+  assert.equal(vigente?.periodo?.earlyPaymentDiscount, 200);
+  assert.equal(vigente?.dataVencimento.toISOString().slice(0, 10), "2026-10-23");
+  assert.equal(calcularAluguelProporcionalCompetencia(periods, "2026-10")?.valor, 2700);
+  assert.equal(calcularAluguelProporcionalCompetencia(periods, "2026-11")?.valor, 3000);
+  assert.equal(calcularAluguelProporcionalCompetencia(periods, "2025-08"), null);
+});
+
+test("novo reajuste substitui condições anteriores somente a partir do início cadastrado", () => {
+  const anterior = { id: "anterior", effectiveFrom: "2025-01-01", effectiveTo: null, rentAmount: 2700 };
+  const novo = { id: "novo", effectiveFrom: "2026-10-16", effectiveTo: null, rentAmount: 3000 };
+  for (const periodos of [[anterior, novo], [novo, anterior]]) {
+    const result = calcularAluguelProporcionalCompetencia(periodos, "2026-10");
+    assert.equal(result?.valor, 2854.84);
+    assert.deepEqual(result?.parcelas.map(item => [item.periodoId, item.dias]), [["anterior", 15], ["novo", 16]]);
+    assert.equal(calcularAluguelProporcionalCompetencia(periodos, "2026-11")?.valor, 3000);
+  }
+});
+
+test("fluxo legado mantém as últimas condições quando não existe reajuste", () => {
+  const periodos = [{ id: "anterior", dataInicio: new Date("2025-01-01"), dataFim: new Date("2026-08-31") }];
+  assert.equal(resolverPeriodoDaCobranca(periodos, { competence: "2026-10" }, "2026-10-23")?.id, "anterior");
+  assert.equal(resolverPeriodoLegadoAntesDaEmissao(periodos, { competence: "2026-10" }, new Date("2026-10-23"))?.id, "anterior");
+});
 import {
   calcularComposicaoPeriodo,
   cobrancaPodeSerSincronizada,

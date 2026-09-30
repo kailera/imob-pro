@@ -8,7 +8,7 @@ test("criação de outubro usa o ciclo confirmado mesmo com cadastro por mês ci
     id: "period", effectiveFrom: new Date("2025-10-23T12:00:00Z"),
     effectiveTo: new Date("2026-10-23T12:00:00Z"), rentAmount: 2700, paymentDueDay: 23,
   }];
-  assert.equal(calcularAluguelProporcionalCompetencia(periodos, "2026-10", "Último dia do mês"), null);
+  assert.equal(calcularAluguelProporcionalCompetencia(periodos, "2026-10", "Último dia do mês")?.valor, 2700);
   const ciclo = resolverCicloInformado({ startDate: "2026-09-23", endDate: "2026-10-22" });
   const vigencia = resolverVigenciaCobrancaPorCompetencia({
     periodos, competencia: "2026-10", competenciaCalculo: ciclo.competencia,

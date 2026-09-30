@@ -10,6 +10,7 @@ import {
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaMensal,
+  resolverUltimasCondicoesFinanceiras,
 } from "@/lib/locacao/financeiro";
 import { adicionarDiasUTC } from "@/lib/locacao/periodos";
 import { calcularIptuDaCobranca } from "@/lib/locacao/iptu";
@@ -132,11 +133,9 @@ export async function gerarCobrançasMensaisAction(mes: number, ano: number) {
         
         // Encontrar período vigente se houver sub-períodos cadastrados
         const targetDate = calcularInicioCompetencia(competence);
-        const periodoAtivo = locacao.periodos.find((p) => {
-          const start = new Date(p.dataInicio);
-          const end = new Date(p.dataFim);
-          return targetDate >= start && targetDate <= end;
-        });
+        const periodoAtivo = resolverUltimasCondicoesFinanceiras(
+          locacao.periodos.map(periodo => ({ ...periodo, effectiveFrom: periodo.dataInicio })), targetDate,
+        );
 
         const rateioAluguel = locacao.periodos.length > 0
           ? calcularAluguelProporcionalCompetencia(

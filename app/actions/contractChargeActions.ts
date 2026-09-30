@@ -16,6 +16,7 @@ import {
   calcularInicioCompetencia,
   criarDataVencimento,
   resolverVigenciaCobrancaPorCompetencia,
+  resolverUltimasCondicoesFinanceiras,
 } from "@/lib/locacao/financeiro";
 import { adicionarDiasUTC } from "@/lib/locacao/periodos";
 import { listarPendenciasInter, type InterReadinessIssue } from "@/lib/locacao/inter-readiness";
@@ -506,9 +507,9 @@ async function gerarCobrancaLegada(
       issues: [issue("COMPETENCE_OUTSIDE_LEASE", "Escolha uma competência dentro da vigência contratual.")],
     };
   }
-  const period = rental!.periodos.find(item => (
-    reference >= item.dataInicio && reference <= item.dataFim
-  ));
+  const period = resolverUltimasCondicoesFinanceiras(
+    rental!.periodos.map(item => ({ ...item, effectiveFrom: item.dataInicio })), reference,
+  );
   const dueDay = period?.diaVencimento ?? rental!.diaVencimento;
   if (!dueDay) {
     return {
